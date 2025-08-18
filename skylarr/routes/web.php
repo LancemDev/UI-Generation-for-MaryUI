@@ -1,7 +1,18 @@
 <?php
 
+use App\Livewire\Welcome;
+use App\Livewire\Home;
+use App\Livewire\Homepage;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+
+
+
+// Route::view('/', 'welcome')->name('welcome');
+Route::get('/', Homepage::class)->name('welcome');
+Route::view('/login', 'auth.login')->name('login');
+Route::view('/register', 'auth.register')->name('register');
+
+
+Route::get('/home', Home::class)->name('home');
