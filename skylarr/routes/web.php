@@ -3,8 +3,10 @@
 use App\Livewire\Welcome;
 use App\Livewire\Home;
 use App\Livewire\Homepage;
+use App\Livewire\Dashboard;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+
 
 
 
@@ -16,3 +18,4 @@ Route::view('/register', 'auth.register')->name('register');
 
 
 Route::get('/home', Home::class)->name('home');
+Route::get('/dashboard', Dashboard::class)->name('dashboard');
