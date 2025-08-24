@@ -10,10 +10,11 @@
                 <x-header title="Login to SKYLARR" />
                 <x-form wire:submit="loginUser">
                     <x-input wire:model="email" label="Continue with email" inline icon="o-envelope" />
+                    <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
                 </x-form>
 
                 <x-slot:actions>
-                    <x-button type="submit" label="Login" class="btn-success" />
+                    <x-button type="submit" label="Login" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
                 </x-slot:actions>
             </x-modal>
 
@@ -23,11 +24,10 @@
                     <x-input wire:model="name" label="Name" inline icon="o-user" />
                     <x-input wire:model="email" label="Email" inline icon="o-envelope" />
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
+                    <x-slot:actions>
+                        <x-button type="submit" label="Register" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
+                    </x-slot:actions>
                 </x-form>
-
-                <x-slot:actions>
-                    <x-button type="submit" label="Register" class="btn-success" />
-                </x-slot:actions>
             </x-modal>
 
             <x-modal wire:model="waitListModal" class="backdrop-blur" >
@@ -37,7 +37,7 @@
                 </x-form>
 
                 <x-slot:actions>
-                    <x-button type="submit" label="Join Waitlist" class="btn-success" />
+                    <x-button type="submit" label="Join Waitlist" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
                 </x-slot:actions>
             </x-modal>
 
@@ -75,11 +75,11 @@
                         </p>
                         
                         <div class="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
-                            <button wire:click="openWaitListModal" style="background-color: rgb(236, 82, 40);" class="glass-effect px-8 py-4 rounded-xl border-red-50 font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105 pulse-glow" responsive spinner="openLoginModal">
-                                Join The waitlist
+                            <button wire:click="openLoginModal" style="background-color: rgb(236, 82, 40);" class="glass-effect px-8 py-4 rounded-xl border-red-50 font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105 pulse-glow" responsive spinner="openLoginModal">
+                                Login
                             </button>
-                            <button style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all">
-                                Watch Demo
+                            <button wire:click="openRegisterModal" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all">
+                                Register
                             </button>
                         </div>
                     </div>
