@@ -14,7 +14,7 @@
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
 
                     <x-slot:actions>
-                        <x-button type="submit" label="Login" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
+                        <x-button type="submit" label="Login" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" spinner="loginUser" />
                     </x-slot:actions>
                 </x-form>
             </x-modal>
@@ -27,7 +27,7 @@
                     <x-input wire:model="email" label="Email" inline icon="o-envelope" />
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
                     <x-slot:actions>
-                        <x-button type="submit" label="Register" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
+                        <x-button type="submit" label="Register" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" spinner="register" />
                     </x-slot:actions>
                 </x-form>
             </x-modal>
@@ -80,7 +80,7 @@
                             <button wire:click="openLoginModal" style="background-color: rgb(236, 82, 40);" class="glass-effect px-8 py-4 rounded-xl border-red-50 font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105 pulse-glow" responsive spinner="openLoginModal">
                                 Login
                             </button>
-                            <button wire:click="openRegisterModal" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all">
+                            <button wire:click="openRegisterModal" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all transform hover:scale-105 pulse-glow" responsive spinner="openRegisterModal">
                                 Register
                             </button>
                         </div>

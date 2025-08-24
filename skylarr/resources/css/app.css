@@ -40,3 +40,9 @@
 .mary-table-pagination button {
     @apply cursor-pointer
 }
+
+:root {
+  --color-primary: #3f7d58;
+  --color-secondary: #ef9651;
+  --color-accent: #ec5228;
+}
