@@ -6,18 +6,20 @@
             style="background-color: rgb(239, 150, 81);"
             >
 
+            <!-- Login Modal -->
             <x-modal wire:model="loginModal" class="backdrop-blur" style="color: rgb(236, 82, 40)">
                 <x-header title="Login to SKYLARR" />
                 <x-form wire:submit="loginUser">
                     <x-input wire:model="email" label="Continue with email" inline icon="o-envelope" />
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
-                </x-form>
 
-                <x-slot:actions>
-                    <x-button type="submit" label="Login" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
-                </x-slot:actions>
+                    <x-slot:actions>
+                        <x-button type="submit" label="Login" class="rounded-md bg-slate-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" />
+                    </x-slot:actions>
+                </x-form>
             </x-modal>
 
+            <!-- Register -->
             <x-modal wire:model="registerModal" style="color: rgb(236, 82, 40)" class="backdrop-blur">
                 <x-header title="Create a new account" />
                 <x-form wire:submit="register">
