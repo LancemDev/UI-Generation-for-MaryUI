@@ -7,6 +7,7 @@ use App\Livewire\Dashboard;
 use App\Livewire\PasswordReset;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Password;
 
 
 
@@ -21,3 +22,4 @@ Route::view('/register', 'auth.register')->name('register');
 Route::get('/home', Home::class)->name('home');
 Route::get('/dashboard', Dashboard::class)->name('dashboard');
 Route::get('/forgot-password', PasswordReset::class)->name('password.request');
+
