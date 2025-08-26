@@ -1,4 +1,4 @@
-a<?php
+<?php
 
 use App\Livewire\Welcome;
 use App\Livewire\Home;

@@ -16,6 +16,7 @@ class PasswordResetForm extends Component
     public $email = '';
     public $password = '';
     public $password_confirmation = '';
+    public bool $PasswordResetFormModal = true;
 
     public function resetPassword()
     {
@@ -49,10 +50,18 @@ class PasswordResetForm extends Component
                 title: 'Success',
                 timeout: 5000,
                 description: __($status),
-                redirectTo: route('login')
+                redirectTo: route('welcome')
             );
         } else {
             $this->error("Error", __($status));
+        }
+    }
+
+    public function mount($token = null, $email = null)
+    {
+        $this->token = $token;
+        if ($email) {
+            $this->email = $email;
         }
     }
     public function render()

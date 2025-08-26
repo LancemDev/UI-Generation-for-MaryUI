@@ -12,7 +12,7 @@ class PasswordReset extends Component
     public $email = '';
     public $passwordRequestResetModal = true;
 
-    public function submit()
+    public function sendPasswordResetLink()
     {
         $this->validate([
             'email' => 'required|email',
@@ -25,7 +25,7 @@ class PasswordReset extends Component
         if ($status == Password::RESET_LINK_SENT) {
             $this->success("Success", __($status));
             $this->passwordRequestResetModal = false;
-            return redirect()->route('login');
+            return redirect()->route('welcome');
         } else {
             $this->error("Error", __($status));
         }

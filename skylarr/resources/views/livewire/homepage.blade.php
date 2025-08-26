@@ -1,4 +1,6 @@
-<div>
+<div
+    
+>
     <x-main full-width>
         <x-slot:content>
         <div 
@@ -12,7 +14,7 @@
                 <x-form wire:submit="loginUser">
                     <x-input wire:model="email" label="Continue with email" inline icon="o-envelope" />
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
-
+                    <a href="{{ route('password.request') }}" class="flex items-right text-sm text-gray-400 hover:text-indigo-500">Forgot password?</a>
                     <x-slot:actions>
                         <x-button type="submit" label="Login" class="rounded-md bg-green-800 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-green-700 focus:shadow-none active:bg-green-700 hover:bg-green-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2" spinner="loginUser" />
                     </x-slot:actions>
