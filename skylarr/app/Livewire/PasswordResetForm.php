@@ -50,7 +50,7 @@ class PasswordResetForm extends Component
                 title: 'Success',
                 timeout: 5000,
                 description: __($status),
-                redirectTo: route('login')
+                redirectTo: route('welcome')
             );
         } else {
             $this->error("Error", __($status));
