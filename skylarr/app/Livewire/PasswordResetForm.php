@@ -16,6 +16,7 @@ class PasswordResetForm extends Component
     public $email = '';
     public $password = '';
     public $password_confirmation = '';
+    public bool $PasswordResetFormModal = true;
 
     public function resetPassword()
     {
@@ -53,6 +54,14 @@ class PasswordResetForm extends Component
             );
         } else {
             $this->error("Error", __($status));
+        }
+    }
+
+    public function mount($token = null, $email = null)
+    {
+        $this->token = $token;
+        if ($email) {
+            $this->email = $email;
         }
     }
     public function render()
