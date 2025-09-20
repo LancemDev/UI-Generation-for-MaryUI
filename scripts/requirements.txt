@@ -4,3 +4,4 @@ uvicorn[standard]
 numpy
 networkx
 torch
+pickle5
