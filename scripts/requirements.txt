@@ -1,3 +1,7 @@
 openai
-fastapi
+fastapi[standard]
 uvicorn[standard]
+numpy
+networkx
+torch
+pickle5
