@@ -1,11 +1,12 @@
 import pickle
 import os
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key='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')
 import dotenv
 dotenv.load_dotenv()  # Load environment variables from .env file
 
 # Set OpenAI API key (replace with your actual key)
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Directory where pkl file is stored locally
 save_dir = 'data/maryui_gnn_data' 
@@ -55,16 +56,16 @@ Output only the code snippet.
 
 # Call OpenAI API
 try:
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",  # Lightweight model for low cost and speed
+    response = client.chat.completions.create(
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a helpful assistant for generating MaryUI code."},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=150,  # Low token limit for efficiency
-        temperature=0.3  # Low temperature for consistent code
+        max_tokens=150,
+        temperature=0.3
     )
-    generated_code = response['choices'][0]['message']['content'].strip()
+    generated_code = response.choices[0].message.content.strip()
 except Exception as e:
     print(f"OpenAI API error: {e}")
     exit(1)
