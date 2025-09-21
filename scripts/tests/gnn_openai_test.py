@@ -8,8 +8,6 @@ import dotenv
 dotenv.load_dotenv()  # Load environment variables from .env file
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Set OpenAI API key (replace with your actual key)
-
 # Directory where pkl file is stored locally
 save_dir = 'data/maryui_gnn_data' 
 
