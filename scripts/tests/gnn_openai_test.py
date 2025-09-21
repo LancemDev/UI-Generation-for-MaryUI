@@ -1,10 +1,12 @@
 import pickle
 import os
 from openai import OpenAI
+import dotenv
 
-client = OpenAI(api_key='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')
+client = OpenAI(api_key='YOUR_OPENAI_API_KEY')
 import dotenv
 dotenv.load_dotenv()  # Load environment variables from .env file
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Set OpenAI API key (replace with your actual key)
 
@@ -41,7 +43,7 @@ def get_graph_summary(G):
 graph_summary = get_graph_summary(G)
 
 # User query for code generation
-user_query = "Generate a MaryUI form with an input and a button."
+user_query = "Generate a MaryUI form with an input, a checkbox and a button all inside a modal."
 
 # Build prompt for OpenAI
 prompt = f"""
