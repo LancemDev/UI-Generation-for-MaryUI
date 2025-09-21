@@ -50,7 +50,7 @@ Based on the following component relationships from the MaryUI documentation:
 {graph_summary}
 Generate valid MaryUI Blade code for the query: {user_query}
 Ensure nestings follow the relationships (e.g., only use parent-child pairs listed).
-Use <x-mary-component> syntax as per MaryUI docs[](https://mary-ui.com/docs).
+Do not add a maryui prefix to component names but maintain the <x-component> structure
 Output only the code snippet.
 """
 
