@@ -22,7 +22,7 @@ Route::view('/register', 'auth.register')->name('register');
 
 
 Route::get('/home', Home::class)->name('home');
-Route::get('/dashboard', Dashboard::class)->name('dashboard');
+// Route::get('/dashboard', Dashboard::class)->name('dashboard');
 Route::get('/forgot-password', PasswordReset::class)->name('password.request');
 Route::get('/reset-password/{token}', PasswordResetForm::class)->name('password.reset');
-Route::get('/code-generator', CodeGenerator::class)->name('code-generator');
+Route::get('/dashboard', CodeGenerator::class)->name('dashboard');
