@@ -1,11 +1,18 @@
 import os
 from typing import Optional
-import dotenv
+from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
 
 from openai import OpenAI
 
 
 _client: Optional[OpenAI] = None
+
+# Load environment variables from either CWD or the scripts folder explicitly
+_loaded = load_dotenv(find_dotenv(usecwd=True))
+if not _loaded:
+    # Try scripts/.env relative to this file (scripts/services/openai_service.py -> scripts/.env)
+    load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 
 
 def _get_client() -> OpenAI:
@@ -59,3 +66,30 @@ def generate_code(
     content = completion.choices[0].message.content if completion.choices else ""
     return content.strip()
 
+
+def stream_chat(
+    messages: list[dict],
+    model: Optional[str] = None,
+    temperature: float = 0.2,
+    max_tokens: int = 1024,
+):
+    """Yield chat chunks using OpenAI streaming."""
+    selected_model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    client = _get_client()
+
+    stream = client.chat.completions.create(
+        model=selected_model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True,
+        messages=messages,
+    )
+
+    for event in stream:
+        try:
+            delta = event.choices[0].delta.content
+            if delta:
+                yield delta
+        except Exception:
+            # Some events may not have content (e.g., role updates)
+            continue
