@@ -1,126 +1,205 @@
 import networkx as nx
-import torch
-import torch.nn.functional as F
-from torch import nn
+try:
+    import torch
+    import torch.nn.functional as F
+    from torch import nn
+    TORCH_AVAILABLE = True
+except Exception:  # torch is optional
+    torch = None  # type: ignore
+    F = None      # type: ignore
+    nn = None     # type: ignore
+    TORCH_AVAILABLE = False
 import numpy as np
 import pickle
 import os
-from google.colab import drive  # For Colab Google Drive integration
+from pathlib import Path
 
-# Step 0: Mount Google Drive (Colab-specific, optional)
-drive.mount('/content/drive')  # Mounts Google Drive at /content/drive/MyDrive
-save_dir = '/content/drive/MyDrive/maryui_gnn_data'  # Directory to save .pkl files
-os.makedirs(save_dir, exist_ok=True)  # Create directory if it doesn't exist
 
-# Step 1: Define file paths for pickle files
-graph_file = os.path.join(save_dir, 'maryui_graph.pkl')
-features_file = os.path.join(save_dir, 'node_features.pkl')
-adj_file = os.path.join(save_dir, 'adj_matrix.pkl')
-components_file = os.path.join(save_dir, 'components.pkl')
+class GNNService:
+    """Service to load MaryUI component graph and provide GNN-enhanced context for prompts."""
 
-# Step 2: Check if pickle files exist; load if available
-def load_data():
-    if all(os.path.exists(f) for f in [graph_file, features_file, adj_file, components_file]):
-        print("Loading data from pickle files...")
-        with open(graph_file, 'rb') as f:
-            G = pickle.load(f)
-        with open(features_file, 'rb') as f:
-            X = pickle.load(f)
-        with open(adj_file, 'rb') as f:
-            adj = pickle.load(f)
-        with open(components_file, 'rb') as f:
-            components = pickle.load(f)
-        return G, X, adj, components
-    return None, None, None, None
+    def __init__(self):
+        self.G = None
+        self.components = None
+        self.model = None
+        self.X = None
+        self.adj = None
+        self._load_or_create_data()
 
-# Step 3: Create or load data
-G, X, adj, components = load_data()
-if G is None:  # If pickle files don't exist, create the data
-    print("Creating new graph and data...")
-    # List components from MaryUI docs
-    components = [
-        # Form Components
-        'form', 'input', 'label', 'select', 'checkbox', 'toggle', 'group', 'radio', 
-        'textarea', 'colorpicker', 'choices', 'datetime', 'file', 'imagelibrary', 
-        'range', 'tags',
-        # List data
-        'list-item', 'table',
-        # Menus
-        'menu', 'dropdown',
-        # Dialogs
-        'drawer', 'modal', 'toast',
-        # UI
-        'alert', 'avatar', 'breadcrumbs', 'button', 'badges', 'card', 'carousel', 
-        'collapse', 'header', 'icon', 'kbd', 'pin', 'popover', 'progress', 'rating', 
-        'spotlight', 'statistic', 'steps', 'swap', 'timeline', 'tabs', 'theme-toggle',
-        # Slots
-        'slot:actions', 'slot:figure', 'slot:menu',
-        # Added from edges
-        'link'
-    ]
+    def _get_data_dir(self):
+        """Get the data directory path relative to this file."""
+        return Path(__file__).resolve().parents[1] / 'data' / 'maryui_gnn_data'
 
-    # Create directed graph
-    G = nx.DiGraph()
-    G.add_nodes_from(components)
+    def _load_or_create_data(self):
+        """Load existing pickle files or create new graph data."""
+        data_dir = self._get_data_dir()
+        data_dir.mkdir(parents=True, exist_ok=True)
 
-    # Inferred edges (from doc examples)
-    edges = [
-        # Form contains form elements
-        ('form', 'input'), ('form', 'label'), ('form', 'checkbox'), ('form', 'toggle'), 
-        ('form', 'group'), ('form', 'radio'), ('form', 'textarea'), ('form', 'colorpicker'), 
-        ('form', 'choices'), ('form', 'datetime'), ('form', 'file'), ('form', 'imagelibrary'), 
-        ('form', 'range'), ('form', 'tags'),
-        # Wrapping
-        ('modal', 'form'), ('form', 'slot:actions'), ('slot:actions', 'button'), 
-        ('drawer', 'form'), ('drawer', 'menu'),
-        # Menus and navigation
-        ('menu', 'link'), ('dropdown', 'menu'), ('tabs', 'card'), ('collapse', 'header'),
-    ]
-    G.add_edges_from(edges)
+        graph_file = data_dir / 'maryui_graph.pkl'
+        features_file = data_dir / 'node_features.pkl'
+        adj_file = data_dir / 'adj_matrix.pkl'
+        components_file = data_dir / 'components.pkl'
 
-    # Verify node consistency
-    num_nodes = len(components)
-    if len(G.nodes) != num_nodes:
-        missing = set(G.nodes) - set(components)
-        extra = set(components) - set(G.nodes)
-        raise ValueError(f"Node mismatch! Graph has {len(G.nodes)} nodes, expected {num_nodes}. "
-                         f"Missing from components: {missing}, Extra in components: {extra}")
+        # Try to load existing data
+        if all(f.exists() for f in [graph_file, features_file, adj_file, components_file]):
+            print("Loading existing GNN data...")
+            with open(graph_file, 'rb') as f:
+                self.G = pickle.load(f)
+            with open(features_file, 'rb') as f:
+                self.X = pickle.load(f)
+            with open(adj_file, 'rb') as f:
+                self.adj = pickle.load(f)
+            with open(components_file, 'rb') as f:
+                self.components = pickle.load(f)
+        else:
+            print("Creating new GNN data...")
+            self._create_graph_data()
+            self._save_data(graph_file, features_file, adj_file, components_file)
 
-    # Prepare data for GNN
-    feature_dim = 16  # Arbitrary; could be doc-derived
-    X = torch.rand(num_nodes, feature_dim)  # Random features
-    adj = nx.adjacency_matrix(G).todense()
-    adj = torch.tensor(adj, dtype=torch.float) + torch.eye(num_nodes)
+        # Initialize GNN model if torch is available
+        if TORCH_AVAILABLE and self.X is not None:
+            feature_dim = self.X.shape[1]
+            self.model = GCNLayer(feature_dim, 8)
+        else:
+            self.model = None
 
-    # Save to pickle files
-    print("Saving data to pickle files...")
-    with open(graph_file, 'wb') as f:
-        pickle.dump(G, f)
-    with open(features_file, 'wb') as f:
-        pickle.dump(X, f)
-    with open(adj_file, 'wb') as f:
-        pickle.dump(adj, f)
-    with open(components_file, 'wb') as f:
-        pickle.dump(components, f)
+    def _create_graph_data(self):
+        """Create the MaryUI component graph and features."""
+        # List components from MaryUI docs
+        self.components = [
+            # Form Components
+            'form', 'input', 'label', 'select', 'checkbox', 'toggle', 'group', 'radio', 
+            'textarea', 'colorpicker', 'choices', 'datetime', 'file', 'imagelibrary', 
+            'range', 'tags',
+            # List data
+            'list-item', 'table',
+            # Menus
+            'menu', 'dropdown',
+            # Dialogs
+            'drawer', 'modal', 'toast',
+            # UI
+            'alert', 'avatar', 'breadcrumbs', 'button', 'badges', 'card', 'carousel', 
+            'collapse', 'header', 'icon', 'kbd', 'pin', 'popover', 'progress', 'rating', 
+            'spotlight', 'statistic', 'steps', 'swap', 'timeline', 'tabs', 'theme-toggle',
+            # Slots
+            'slot:actions', 'slot:figure', 'slot:menu',
+            # Added from edges
+            'link'
+        ]
 
-# Step 4: Define simple GCN layer
-class GCNLayer(nn.Module):
-    def __init__(self, in_features, out_features):
-        super().__init__()
-        self.linear = nn.Linear(in_features, out_features)
+        # Create directed graph
+        self.G = nx.DiGraph()
+        self.G.add_nodes_from(self.components)
 
-    def forward(self, X, adj):
-        out = torch.matmul(adj, X)
-        out = self.linear(out)
-        return F.relu(out)
+        # Inferred edges (from doc examples)
+        edges = [
+            # Form contains form elements
+            ('form', 'input'), ('form', 'label'), ('form', 'checkbox'), ('form', 'toggle'), 
+            ('form', 'group'), ('form', 'radio'), ('form', 'textarea'), ('form', 'colorpicker'), 
+            ('form', 'choices'), ('form', 'datetime'), ('form', 'file'), ('form', 'imagelibrary'), 
+            ('form', 'range'), ('form', 'tags'),
+            # Wrapping
+            ('modal', 'form'), ('form', 'slot:actions'), ('slot:actions', 'button'), 
+            ('drawer', 'form'), ('drawer', 'menu'),
+            # Menus and navigation
+            ('menu', 'link'), ('dropdown', 'menu'), ('tabs', 'card'), ('collapse', 'header'),
+        ]
+        self.G.add_edges_from(edges)
 
-# Step 5: Simulate GNN
-model = GCNLayer(feature_dim, 8)  # Output dim 8 for reduced embeddings
-output = model(X, adj)
+        # Prepare data for GNN
+        feature_dim = 16  # Arbitrary; could be doc-derived
+        num_nodes = len(self.components)
+        if TORCH_AVAILABLE:
+            self.X = torch.rand(num_nodes, feature_dim)  # Random features
+            adj_matrix = nx.adjacency_matrix(self.G).todense()
+            self.adj = torch.tensor(adj_matrix, dtype=torch.float) + torch.eye(num_nodes)
+        else:
+            # Minimal placeholders when torch is not installed
+            self.X = None
+            self.adj = None
 
-# Results
-print("Graph Summary:")
-print(f"- Nodes (components): {len(components)}")
-print(f"- Edges (relationships): {len(G.edges)}")
-print("\nSample GNN Output (updated node embeddings):")
-print(output[:5])  # First 5 nodes' embeddings (random each run)
+    def _save_data(self, graph_file, features_file, adj_file, components_file):
+        """Save graph data to pickle files."""
+        with open(graph_file, 'wb') as f:
+            pickle.dump(self.G, f)
+        # Only persist features/adjacency if available
+        with open(features_file, 'wb') as f:
+            pickle.dump(self.X, f)
+        with open(adj_file, 'wb') as f:
+            pickle.dump(self.adj, f)
+        with open(components_file, 'wb') as f:
+            pickle.dump(self.components, f)
+
+    def get_graph_summary(self):
+        """Generate a summary of component relationships for prompts."""
+        if not self.G:
+            return "No graph data available."
+
+        summary = "MaryUI Component Relationships:\n"
+        for parent in self.G.nodes:
+            children = list(self.G.successors(parent))
+            if children:
+                summary += f"{parent} can contain: {', '.join(children)}\n"
+        
+        if not any(self.G.successors(n) for n in self.G.nodes):
+            summary += "No relationships defined in the graph.\n"
+        
+        return summary
+
+    def get_enhanced_context(self, user_message: str):
+        """Generate GNN-enhanced context for a user message."""
+        graph_summary = self.get_graph_summary()
+        
+        # Simple keyword matching to find relevant components
+        relevant_components = []
+        user_lower = user_message.lower()
+        
+        for component in self.components:
+            if component.lower() in user_lower:
+                relevant_components.append(component)
+                # Add related components
+                for successor in self.G.successors(component):
+                    if successor not in relevant_components:
+                        relevant_components.append(successor)
+                for predecessor in self.G.predecessors(component):
+                    if predecessor not in relevant_components:
+                        relevant_components.append(predecessor)
+
+        context = f"""
+MaryUI Component Context:
+{graph_summary}
+
+Relevant components for your request: {', '.join(relevant_components) if relevant_components else 'None detected'}
+
+Guidelines:
+- Use <x-component> syntax (no maryui prefix)
+- Follow parent-child relationships from the graph
+- Ensure proper nesting based on component relationships
+"""
+        return context
+
+
+if TORCH_AVAILABLE:
+    class GCNLayer(nn.Module):
+        """Simple Graph Convolutional Network layer."""
+        
+        def __init__(self, in_features, out_features):
+            super().__init__()
+            self.linear = nn.Linear(in_features, out_features)
+
+        def forward(self, X, adj):
+            out = torch.matmul(adj, X)
+            out = self.linear(out)
+            return F.relu(out)
+
+
+# Global instance
+_gnn_service = None
+
+
+def get_gnn_service():
+    """Get or create the global GNN service instance."""
+    global _gnn_service
+    if _gnn_service is None:
+        _gnn_service = GNNService()
+    return _gnn_service
