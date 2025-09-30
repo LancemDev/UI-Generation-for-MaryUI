@@ -3,5 +3,4 @@ fastapi[standard]
 uvicorn[standard]
 numpy
 networkx
-torch
-pickle5
+# Torch optional; GNN falls back if not installed

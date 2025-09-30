@@ -1,4 +1,4 @@
-<div>
+<div class="mt-10">
     <div class="flex flex-col h-full">
         <div id="chat-scroll" class="flex-1 overflow-y-auto space-y-4 pr-2">
             @foreach ($messages as $m)

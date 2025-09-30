@@ -13,7 +13,25 @@ try:
 except Exception:  # pragma: no cover
     from services.openai_service import generate_code, stream_chat  # type: ignore
 
-app = FastAPI()
+app = FastAPI(
+    title="Skylarr AI Backend",
+    description=(
+        "Skylarr: AI assistant to help build dynamic Livewire frontends with MaryUI. "
+        "Backed by a GNN-powered scene-graph context and OpenAI streaming."
+    ),
+    version="0.1.0",
+)
+
+
+@app.on_event("startup")
+async def preload_gnn():
+    # Preload GNN once on startup so we don't rebuild on first request
+    try:
+        from .services.gnn_service import get_gnn_service
+        get_gnn_service()
+    except Exception:
+        # Optional; continue even if preload fails
+        pass
 
 
 class GenerateRequest(BaseModel):
