@@ -20,8 +20,8 @@ use App\Http\Controllers\AuthSocialController as SocialController;
 
 // Route::view('/', 'welcome')->name('welcome');
 Route::get('/', Homepage::class)->name('welcome');
-Route::view('/login', 'auth.login')->name('login');
-Route::view('/register', 'auth.register')->name('register');
+Route::redirect('/login', '/')->name('login');
+Route::redirect('/register', '/')->name('register');
 
 
 Route::get('/home', Home::class)->name('home');
