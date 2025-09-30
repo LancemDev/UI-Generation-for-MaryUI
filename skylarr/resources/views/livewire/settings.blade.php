@@ -8,7 +8,7 @@
         <x-header title="Settings" subtitle="Manage your profile and preferences" />
     </div>
 
-    <x-tabs class="mt-4">
+    <x-tabs wire:model="settingsTab" class="mt-4">
         <x-tab name="profile" label="Profile" icon="o-user">
             <x-card title="Profile information" subtitle="Update your personal details">
                 <x-form wire:submit="saveProfile">
@@ -31,6 +31,53 @@
                         <x-button type="submit" label="Update password" class="bg-secondary text-white hover:bg-secondary/80" spinner="changePassword" />
                     </x-slot:actions>
                 </x-form>
+            </x-card>
+
+            <x-card title="Two-Factor Authentication" subtitle="Secure your account with an authenticator app" class="mt-4">
+                @if($twoFactorEnabled)
+                    <div class="space-y-3">
+                        <div class="text-sm">Two-factor is <span class="font-semibold">enabled</span>.</div>
+                        <x-button label="Disable two-factor" wire:click="disableTwoFactor" class="bg-red-600 text-white hover:bg-red-700" />
+                        <x-button label="Regenerate recovery codes" wire:click="regenerateRecoveryCodes" class="btn-ghost border-secondary text-secondary hover:bg-secondary/10" />
+
+                        @if(!empty($recoveryCodes))
+                            <div class="mt-3">
+                                <div class="text-sm font-medium mb-1">Recovery codes</div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    @foreach($recoveryCodes as $code)
+                                        <code class="px-2 py-1 rounded bg-white/70 border border-secondary/25 text-sm">{{ $code }}</code>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @else
+                    <div class="space-y-4">
+                        @if($twoFactorQrSvg === '')
+                            <x-button label="Enable two-factor" wire:click="enableTwoFactor" class="bg-secondary text-white hover:bg-secondary/80" />
+                        @else
+                            <div class="flex flex-col md:flex-row items-start gap-6">
+                                <div class="bg-white p-3 rounded border border-secondary/25" aria-label="QR code">
+                                    @if($twoFactorQrSvg !== '')
+                                        {!! $twoFactorQrSvg !!}
+                                    @endif
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-sm opacity-80 mb-2">Scan this QR with your authenticator app, or enter the key manually:</div>
+                                    <code class="px-2 py-1 rounded bg-white/70 border border-secondary/25 text-sm">{{ $twoFactorSecretPreview }}</code>
+                                    <div class="mt-3">
+                                        <x-form wire:submit="confirmTwoFactor">
+                                            <x-input wire:model="twoFactorCode" label="Enter 6-digit code" />
+                                            <x-slot:actions>
+                                                <x-button type="submit" label="Confirm" class="bg-secondary text-white hover:bg-secondary/80" spinner="confirmTwoFactor" />
+                                            </x-slot:actions>
+                                        </x-form>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </x-card>
         </x-tab>
 
