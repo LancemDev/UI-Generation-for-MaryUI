@@ -97,13 +97,25 @@
                         <div class="inline-flex items-center gap-2">
                             <span class="font-medium">Google</span>
                         </div>
-                        <x-button label="Connect" class="btn-ghost border-secondary text-secondary hover:bg-secondary/10" />
+                        @if(auth()->user()?->oauth_provider === 'google')
+                            <span class="text-sm text-white/90">Connected</span>
+                        @else
+                            <a href="{{ route('oauth.redirect', 'google') }}">
+                                <x-button label="Connect" class="btn-ghost border-secondary text-secondary hover:bg-secondary/10" />
+                            </a>
+                        @endif
                     </div>
                     <div class="flex items-center justify-between">
                         <div class="inline-flex items-center gap-2">
                             <span class="font-medium">GitHub</span>
                         </div>
-                        <x-button label="Connect" class="btn-ghost border-secondary text-secondary hover:bg-secondary/10" />
+                        @if(auth()->user()?->oauth_provider === 'github')
+                            <span class="text-sm text-white/90">Connected</span>
+                        @else
+                            <a href="{{ route('oauth.redirect', 'github') }}">
+                                <x-button label="Connect" class="btn-ghost border-secondary text-secondary hover:bg-secondary/10" />
+                            </a>
+                        @endif
                     </div>
                 </div>
             </x-card>

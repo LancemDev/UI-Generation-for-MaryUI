@@ -24,6 +24,9 @@ class User extends Authenticatable implements CanResetPassword
         'password',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        'oauth_provider',
+        'oauth_provider_id',
+        'oauth_avatar',
     ];
 
     /**
