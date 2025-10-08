@@ -14,6 +14,7 @@ class CodeGenerationEngine extends Component
     use Toast;
     
     public ?Project $currentProject = null;
+    public ?int $projectId = null;
     public string $previewUrl = '';
     public string $generatedCode = '';
     public string $componentName = '';
@@ -22,14 +23,34 @@ class CodeGenerationEngine extends Component
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
-        'generate-code' => 'handleGenerateCodeRequest'
+        'generate-code' => 'handleGenerateCodeRequest',
+        'projectChanged' => 'handleProjectChanged'
     ];
     
-    public function mount()
+    public function mount(?int $projectId = null)
     {
-        // Get or create a default project for the user
-        $this->currentProject = $this->getOrCreateDefaultProject();
+        $this->projectId = $projectId;
+        $this->loadProject();
         $this->initializePreview();
+    }
+    
+    public function handleProjectChanged($projectData)
+    {
+        $this->projectId = $projectData['id'];
+        $this->loadProject();
+        $this->initializePreview();
+    }
+    
+    private function loadProject()
+    {
+        if ($this->projectId) {
+            $this->currentProject = Project::where('user_id', Auth::id())
+                ->find($this->projectId);
+        }
+        
+        if (!$this->currentProject) {
+            $this->currentProject = $this->getOrCreateDefaultProject();
+        }
     }
     
     public function generateCode(string $prompt)

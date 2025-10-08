@@ -15,12 +15,14 @@ class ChatInterface extends Component
 
     public string $message = '';
     public ?int $threadId = null;
+    public ?int $projectId = null;
     public array $messages = [];
     public bool $isStreaming = false;
 
-    public function mount(?int $threadId = null): void
+    public function mount(?int $threadId = null, ?int $projectId = null): void
     {
         $this->threadId = $threadId;
+        $this->projectId = $projectId;
         $this->loadThread();
     }
 
@@ -30,25 +32,32 @@ class ChatInterface extends Component
         $thread = null;
 
         if ($this->threadId) {
-            // Load only if the thread belongs to the current user
+            // Load only if the thread belongs to the current user and project
             $thread = ChatThread::where('id', $this->threadId)
                 ->where('user_id', $userId)
+                ->when($this->projectId, function ($query) {
+                    return $query->where('project_id', $this->projectId);
+                })
                 ->with(['messages' => function ($q) { $q->orderBy('id'); }])
                 ->first();
         }
 
         if (!$thread) {
-            // Try latest thread for this user
+            // Try latest thread for this user and project
             $thread = ChatThread::where('user_id', $userId)
+                ->when($this->projectId, function ($query) {
+                    return $query->where('project_id', $this->projectId);
+                })
                 ->orderByDesc('id')
                 ->with(['messages' => function ($q) { $q->orderBy('id'); }])
                 ->first();
         }
 
         if (!$thread) {
-            // Create a fresh thread for this user
+            // Create a fresh thread for this user and project
             $thread = ChatThread::create([
                 'user_id' => $userId,
+                'project_id' => $this->projectId,
                 'title' => 'New chat',
             ]);
         }
