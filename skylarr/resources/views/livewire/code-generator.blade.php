@@ -8,7 +8,7 @@
         <x-card class="w-full max-w-2xl">
             <x-slot:title>
                 <div class="flex items-center gap-2">
-                    <x-icon name="folder" class="w-6 h-6 text-secondary" />
+                    <x-icon name="o-folder" class="w-6 h-6 text-secondary" />
                     <span>Select or Create Project</span>
                 </div>
             </x-slot:title>
@@ -45,7 +45,7 @@
                                             <button wire:click.stop="deleteProject({{ $project['id'] }})"
                                                     class="text-red-500 hover:text-red-700 p-1"
                                                     onclick="return confirm('Are you sure you want to delete this project?')">
-                                                <x-icon name="trash" class="w-4 h-4" />
+                                                <x-icon name="o-trash" class="w-4 h-4" />
                                             </button>
                                         </div>
                                     </div>
@@ -77,7 +77,7 @@
                             <x-button wire:click="createProject" 
                                      class="btn-primary"
                                      :disabled="empty($newProjectName) || $isCreatingProject">
-                                <x-icon name="plus" class="w-4 h-4 mr-2" />
+                                <x-icon name="o-plus" class="w-4 h-4 mr-2" />
                                 @if($isCreatingProject)
                                     Creating...
                                 @else
@@ -98,7 +98,7 @@
         <button wire:click="openProjectModal"
                 class="absolute top-3 right-3 z-20 inline-flex items-center gap-2 rounded-md border border-secondary text-secondary bg-white px-3 py-1.5 text-sm font-medium shadow-sm focus:outline-none hover:bg-secondary/10"
                 type="button">
-            <x-icon name="folder-open" class="h-4 w-4" />
+            <x-icon name="o-folder-open" class="h-4 w-4" />
             <span class="hidden sm:inline">
                 @if($selectedProject)
                     {{ $selectedProject->name }}
@@ -126,7 +126,7 @@
                 @else
                     <div class="flex items-center justify-center h-full text-white/60">
                         <div class="text-center">
-                            <x-icon name="folder-open" class="w-12 h-12 mx-auto mb-4" />
+                            <x-icon name="o-folder-open" class="w-12 h-12 mx-auto mb-4" />
                             <p>Select a project to start chatting</p>
                         </div>
                     </div>
@@ -142,7 +142,7 @@
                 @else
                     <div class="flex items-center justify-center h-full text-white/60">
                         <div class="text-center">
-                            <x-icon name="code-bracket" class="w-12 h-12 mx-auto mb-4" />
+                            <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4" />
                             <p>Select a project to start generating code</p>
                         </div>
                     </div>

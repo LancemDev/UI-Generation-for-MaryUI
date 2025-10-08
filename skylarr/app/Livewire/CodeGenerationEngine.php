@@ -63,6 +63,9 @@ class CodeGenerationEngine extends Component
         $this->isGenerating = true;
         $this->previewReady = false;
         
+        // Show the code cube loader
+        $this->dispatch('showCodeCubeLoader');
+        
         try {
             // Generate code using AI
             $aiGateway = app(AiGateway::class);
@@ -84,6 +87,8 @@ class CodeGenerationEngine extends Component
             $this->error('Error generating code: ' . $e->getMessage());
         } finally {
             $this->isGenerating = false;
+            // Hide the code cube loader
+            $this->dispatch('hideCodeCubeLoader');
         }
     }
     
