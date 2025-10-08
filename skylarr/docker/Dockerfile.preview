@@ -39,6 +39,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-pl
 # Restore original composer.json
 RUN mv composer.json.backup composer.json
 
+# Clear config cache to remove any dev service provider references
+RUN php artisan config:clear || true
+
 # Install dependencies and build assets with Bun
 RUN bun install && bun run build
 
@@ -48,7 +51,8 @@ RUN mkdir -p /var/www/html/app/Livewire/Generated \
     && mkdir -p /var/www/html/storage/framework/cache \
     && mkdir -p /var/www/html/storage/framework/sessions \
     && mkdir -p /var/www/html/storage/framework/views \
-    && mkdir -p /var/www/html/bootstrap/cache
+    && mkdir -p /var/www/html/bootstrap/cache \
+    && mkdir -p /var/log/supervisor
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
