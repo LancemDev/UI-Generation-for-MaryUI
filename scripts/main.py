@@ -46,18 +46,26 @@ async def read_root():
 	return {"message": "Hello, World!"}
 
 
-@app.post("/generate-code")
+@app.post("/generate/code")
 async def post_generate_code(body: GenerateRequest):
-	try:
-		code = generate_code(
-			prompt=body.prompt,
-			model=body.model,
-			temperature=body.temperature,
-			max_tokens=body.max_tokens,
-		)
-		return {"code": code}
-	except Exception as exc:
-		raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        code = generate_code(
+            prompt=body.prompt,
+            model=body.model,
+            temperature=body.temperature,
+            max_tokens=body.max_tokens,
+        )
+        return {
+            "success": True,
+            "code": code,
+            "component_name": "GeneratedComponent",
+            "message": "Code generated successfully"
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"Error generating code: {str(exc)}"
+        }
 
 
 class ChatRequest(BaseModel):
@@ -88,4 +96,7 @@ if __name__ == "__main__":
     import uvicorn, os
     # Enable auto-reload by using an import string. Works from repo root or scripts/ dir.
     module_path = "scripts.main:app" if os.path.basename(os.getcwd()) != "scripts" else "main:app"
-    uvicorn.run(module_path, host="127.0.0.1", port=8001, reload=True)
+    uvicorn.run(module_path, host="127.0.0.1", port=8002, reload=True)
+
+
+# python main.py

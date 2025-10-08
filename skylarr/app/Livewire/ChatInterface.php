@@ -123,6 +123,10 @@ class ChatInterface extends Component
                 'content' => $this->messages[$assistantIndex]['content'],
                 'status' => 'complete',
             ]);
+            
+            // Check if the response contains code generation request
+            $this->checkForCodeGeneration($this->messages[$assistantIndex]['content']);
+            
         } catch (\Throwable $e) {
             $this->messages[$assistantIndex]['status'] = 'error';
             $assistantMsg->update([
@@ -132,6 +136,40 @@ class ChatInterface extends Component
             $this->error('Streaming failed');
         } finally {
             $this->isStreaming = false;
+        }
+    }
+    
+    /**
+     * Check if the assistant response contains a code generation request
+     * and trigger code generation if needed.
+     */
+    private function checkForCodeGeneration(string $response): void
+    {
+        // Simple heuristic to detect code generation requests
+        $codeKeywords = [
+            'create a component',
+            'build a component',
+            'generate code',
+            'make a livewire',
+            'create livewire',
+            'build livewire',
+            'component for',
+            'livewire component'
+        ];
+        
+        $lowerResponse = strtolower($response);
+        
+        foreach ($codeKeywords as $keyword) {
+            if (str_contains($lowerResponse, $keyword)) {
+                // Extract the user's original request for code generation
+                $userMessage = end($this->messages);
+                if ($userMessage && $userMessage['role'] === 'user') {
+                    $this->dispatch('generate-code', [
+                        'prompt' => $userMessage['content']
+                    ]);
+                }
+                break;
+            }
         }
     }
 
