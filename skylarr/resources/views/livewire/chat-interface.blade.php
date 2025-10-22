@@ -1,18 +1,19 @@
-<div class="mt-10">
-    <div class="flex flex-col h-full">
-        <div id="chat-scroll" class="flex-1 overflow-y-auto space-y-4 pr-2">
-            @foreach ($messages as $m)
-                <div class="max-w-prose {{ $m['role']==='user' ? 'ml-auto' : '' }}">
-                    <div class="px-3 py-2 rounded-lg shadow-sm border {{ $m['role']==='user' ? 'bg-secondary text-white border-secondary' : 'bg-white text-gray-900 border-secondary/40' }}">
-                        <div class="text-xs mb-1 opacity-80">
+<div class="h-full flex flex-col">
+    {{-- Chat Messages Area --}}
+    <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4">
+        @foreach ($messages as $m)
+            <div class="flex {{ $m['role']==='user' ? 'justify-end' : 'justify-start' }}">
+                <div class="max-w-[80%] {{ $m['role']==='user' ? 'order-2' : 'order-1' }}">
+                    <div class="px-4 py-3 rounded-2xl shadow-sm {{ $m['role']==='user' ? 'bg-blue-500 text-white rounded-br-md' : 'bg-gray-100 text-gray-900 rounded-bl-md' }}">
+                        <div class="text-xs mb-2 opacity-70">
                             {{ ucfirst($m['role']) }}
                             <span class="mx-2">•</span>
                             <span class="inline-flex items-center gap-1">
                                 @if ($m['status']==='streaming')
-                                    <span class="size-2 rounded-full bg-secondary animate-pulse"></span>
+                                    <span class="size-2 rounded-full bg-blue-400 animate-pulse"></span>
                                     <span>streaming</span>
                                 @elseif ($m['status']==='complete')
-                                    <span class="size-2 rounded-full bg-primary"></span>
+                                    <span class="size-2 rounded-full bg-green-400"></span>
                                     <span>complete</span>
                                 @elseif ($m['status']==='error')
                                     <span class="size-2 rounded-full bg-red-500"></span>
@@ -23,22 +24,48 @@
                                 @endif
                             </span>
                         </div>
-                        <div class="whitespace-pre-wrap leading-relaxed">{!! nl2br(e($m['content'])) !!}</div>
+                        <div class="whitespace-pre-wrap leading-relaxed text-sm">{!! nl2br(e($m['content'])) !!}</div>
                     </div>
                 </div>
-            @endforeach
-        </div>
+            </div>
+        @endforeach
+        
+        @if(empty($messages))
+            <div class="flex items-center justify-center h-full text-gray-400">
+                <div class="text-center">
+                    <x-icon name="o-chat-bubble-left-right" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p class="text-sm">Start a conversation to generate code</p>
+                    <p class="text-xs mt-2 opacity-75">Ask me to create components, forms, or any UI elements</p>
+                </div>
+            </div>
+        @endif
+    </div>
 
-        <div class="mt-3">
-            <x-form wire:submit="sendMessage">
-                <x-textarea wire:model.defer="message" label="" placeholder="Type a message..." />
-                <x-slot:actions>
-                    <x-button type="submit" label="Send" spinner="sendMessage" icon="o-paper-airplane" class="bg-secondary text-white hover:bg-secondary/80" />
-                </x-slot:actions>
-            </x-form>
-        </div>
+    {{-- Message Input Area --}}
+    <div class="border-t border-gray-200 p-4 bg-white">
+        <x-form wire:submit="sendMessage">
+            <div class="flex gap-2">
+                <div class="flex-1">
+                    <x-textarea 
+                        wire:model.defer="message" 
+                        placeholder="Type your message here..." 
+                        rows="2"
+                        class="resize-none"
+                        :disabled="$isStreaming" />
+                </div>
+                <div class="flex items-end">
+                    <x-button 
+                        type="submit" 
+                        icon="o-paper-airplane" 
+                        class="btn-primary h-10 w-10 p-0"
+                        :disabled="$isStreaming || empty($message)"
+                        spinner="sendMessage" />
+                </div>
+            </div>
+        </x-form>
     </div>
 </div>
+
 <script>
     document.addEventListener('livewire:init', () => {
         const scrollEl = document.getElementById('chat-scroll');

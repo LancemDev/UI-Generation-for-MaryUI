@@ -15,13 +15,19 @@ class ChatInterface extends Component
 
     public string $message = '';
     public ?int $threadId = null;
+    public ?int $projectId = null;
     public array $messages = [];
     public bool $isStreaming = false;
 
-    public function mount(?int $threadId = null): void
+    public function mount(?int $threadId = null, ?int $projectId = null): void
     {
         $this->threadId = $threadId;
-        $this->loadThread();
+        $this->projectId = $projectId;
+        
+        // Only load thread if we have a valid projectId
+        if ($this->projectId) {
+            $this->loadThread();
+        }
     }
 
     protected function loadThread(): void
@@ -30,25 +36,32 @@ class ChatInterface extends Component
         $thread = null;
 
         if ($this->threadId) {
-            // Load only if the thread belongs to the current user
+            // Load only if the thread belongs to the current user and project
             $thread = ChatThread::where('id', $this->threadId)
                 ->where('user_id', $userId)
+                ->when($this->projectId, function ($query) {
+                    return $query->where('project_id', $this->projectId);
+                })
                 ->with(['messages' => function ($q) { $q->orderBy('id'); }])
                 ->first();
         }
 
         if (!$thread) {
-            // Try latest thread for this user
+            // Try latest thread for this user and project
             $thread = ChatThread::where('user_id', $userId)
+                ->when($this->projectId, function ($query) {
+                    return $query->where('project_id', $this->projectId);
+                })
                 ->orderByDesc('id')
                 ->with(['messages' => function ($q) { $q->orderBy('id'); }])
                 ->first();
         }
 
         if (!$thread) {
-            // Create a fresh thread for this user
+            // Create a fresh thread for this user and project
             $thread = ChatThread::create([
                 'user_id' => $userId,
+                'project_id' => $this->projectId,
                 'title' => 'New chat',
             ]);
         }
@@ -123,6 +136,10 @@ class ChatInterface extends Component
                 'content' => $this->messages[$assistantIndex]['content'],
                 'status' => 'complete',
             ]);
+            
+            // Check if the response contains code generation request
+            $this->checkForCodeGeneration($this->messages[$assistantIndex]['content']);
+            
         } catch (\Throwable $e) {
             $this->messages[$assistantIndex]['status'] = 'error';
             $assistantMsg->update([
@@ -132,6 +149,48 @@ class ChatInterface extends Component
             $this->error('Streaming failed');
         } finally {
             $this->isStreaming = false;
+        }
+    }
+    
+    /**
+     * Check if the assistant response contains a code generation request
+     * and trigger code generation if needed.
+     */
+    private function checkForCodeGeneration(string $response): void
+    {
+        // Simple heuristic to detect code generation requests
+        $codeKeywords = [
+            'create a component',
+            'build a component',
+            'generate code',
+            'make a livewire',
+            'create livewire',
+            'build livewire',
+            'component for',
+            'livewire component'
+        ];
+        
+        $lowerResponse = strtolower($response);
+        
+        foreach ($codeKeywords as $keyword) {
+            if (str_contains($lowerResponse, $keyword)) {
+                // Extract the user's original request for code generation
+                // Find the last user message (not the assistant's response)
+                $userMessage = null;
+                for ($i = count($this->messages) - 1; $i >= 0; $i--) {
+                    if ($this->messages[$i]['role'] === 'user') {
+                        $userMessage = $this->messages[$i];
+                        break;
+                    }
+                }
+                
+                if ($userMessage) {
+                    $this->dispatch('generate-code', [
+                        'prompt' => $userMessage['content']
+                    ]);
+                }
+                break;
+            }
         }
     }
 

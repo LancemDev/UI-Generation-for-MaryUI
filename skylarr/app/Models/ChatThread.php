@@ -13,6 +13,7 @@ class ChatThread extends Model
 
     protected $fillable = [
         'user_id',
+        'project_id',
         'title',
         'metadata',
     ];
@@ -24,6 +25,14 @@ class ChatThread extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the project that owns the chat thread.
+     */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function messages(): HasMany

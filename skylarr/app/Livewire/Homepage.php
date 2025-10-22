@@ -34,6 +34,11 @@ class Homepage extends Component
         $this->registerModal = false;
     }
 
+    public function openDashboard()
+    {
+        return redirect()->route('dashboard');
+    }
+
     public function openWaitListModal()
     {
         $this->waitListModal = true;

@@ -84,7 +84,6 @@ class Settings extends Component
         $this->twoFactorQrSvg = $writer->writeString($otpauth);
         $this->twoFactorQrDataUrl = 'data:image/svg+xml;base64,' . base64_encode($this->twoFactorQrSvg);
         $this->twoFactorSecretPreview = $secret;
-        $this->success("We're here");
     }
 
     public function confirmTwoFactor(): void
