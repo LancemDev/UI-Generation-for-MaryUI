@@ -1,6 +1,5 @@
 <div class="h-full flex flex-col">
     {{-- Code Cube Loader --}}
-    <livewire:code-cube-loader />
 
     {{-- Header with project info and controls --}}
     <div class="flex items-center justify-between p-4 border-b border-secondary/25 bg-white/5">
@@ -139,23 +138,3 @@
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('livewire:init', () => {
-    // Show code cube loader when generation starts
-    Livewire.on('showCodeCubeLoader', () => {
-        const loader = document.querySelector('[wire\\:id]');
-        if (loader) {
-            loader.style.display = 'block';
-        }
-    });
-
-    // Hide code cube loader when generation stops
-    Livewire.on('hideCodeCubeLoader', () => {
-        const loader = document.querySelector('[wire\\:id]');
-        if (loader) {
-            loader.style.display = 'none';
-        }
-    });
-});
-</script>

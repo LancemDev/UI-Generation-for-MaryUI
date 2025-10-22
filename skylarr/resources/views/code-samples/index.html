@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Portfolio</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <span>&lt;dev/&gt;</span>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#projects">Projects</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero">
+        <canvas id="particles"></canvas>
+        <div class="hero-content">
+            <h1 class="glitch" data-text="Hello World">Hello World</h1>
+            <p class="typing">I'm a <span id="role"></span></p>
+            <button class="cta">View My Work</button>
+        </div>
+    </section>
+
+    <section id="projects" class="projects">
+        <h2>Featured Projects</h2>
+        <div class="project-grid">
+            <div class="project-card">
+                <img src="project1.jpg" alt="Project">
+                <h3>E-commerce Platform</h3>
+                <p>Full-stack React application</p>
+            </div>
+        </div>
+    </section>
+
+    <script src="main.js"></script>
+</body>
+</html>

@@ -96,7 +96,7 @@ if __name__ == "__main__":
     import uvicorn, os
     # Enable auto-reload by using an import string. Works from repo root or scripts/ dir.
     module_path = "scripts.main:app" if os.path.basename(os.getcwd()) != "scripts" else "main:app"
-    uvicorn.run(module_path, host="127.0.0.1", port=8002, reload=True)
+    uvicorn.run(module_path, host="127.0.0.1", port=8001, reload=True)
 
 
 # python main.py

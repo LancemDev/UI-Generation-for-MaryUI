@@ -30,8 +30,12 @@ class CodeGenerationEngine extends Component
     public function mount(?int $projectId = null)
     {
         $this->projectId = $projectId;
-        $this->loadProject();
-        $this->initializePreview();
+        
+        // Only load project if we have a valid projectId
+        if ($this->projectId) {
+            $this->loadProject();
+            $this->initializePreview();
+        }
     }
     
     public function handleProjectChanged($projectData)

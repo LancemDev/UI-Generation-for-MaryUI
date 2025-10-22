@@ -23,7 +23,11 @@ class ChatInterface extends Component
     {
         $this->threadId = $threadId;
         $this->projectId = $projectId;
-        $this->loadThread();
+        
+        // Only load thread if we have a valid projectId
+        if ($this->projectId) {
+            $this->loadThread();
+        }
     }
 
     protected function loadThread(): void
@@ -171,8 +175,16 @@ class ChatInterface extends Component
         foreach ($codeKeywords as $keyword) {
             if (str_contains($lowerResponse, $keyword)) {
                 // Extract the user's original request for code generation
-                $userMessage = end($this->messages);
-                if ($userMessage && $userMessage['role'] === 'user') {
+                // Find the last user message (not the assistant's response)
+                $userMessage = null;
+                for ($i = count($this->messages) - 1; $i >= 0; $i--) {
+                    if ($this->messages[$i]['role'] === 'user') {
+                        $userMessage = $this->messages[$i];
+                        break;
+                    }
+                }
+                
+                if ($userMessage) {
                     $this->dispatch('generate-code', [
                         'prompt' => $userMessage['content']
                     ]);

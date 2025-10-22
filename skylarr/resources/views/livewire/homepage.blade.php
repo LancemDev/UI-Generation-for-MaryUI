@@ -131,12 +131,18 @@
                         </p>
                         
                         <div class="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
-                            <button wire:click="openLoginModal" style="background-color: rgb(236, 82, 40);" class="glass-effect px-8 py-4 rounded-xl border-red-50 font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105 pulse-glow" responsive spinner="openLoginModal">
-                                Login
-                            </button>
-                            <button wire:click="openRegisterModal" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all transform hover:scale-105 pulse-glow" responsive spinner="openRegisterModal">
-                                Register
-                            </button>
+                            @auth
+                                <button wire:click="openDashboard" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all transform hover:scale-105 pulse-glow" responsive spinner="openRegisterModal">
+                                    Dashboard
+                                </button>
+                            @else
+                                <button wire:click="openLoginModal" style="background-color: rgb(236, 82, 40);" class="glass-effect px-8 py-4 rounded-xl border-red-50 font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105 pulse-glow" responsive spinner="openLoginModal">
+                                    Login
+                                </button>
+                                <button wire:click="openRegisterModal" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all transform hover:scale-105 pulse-glow" responsive spinner="openRegisterModal">
+                                    Register
+                                </button>
+                            @endauth
                         </div>
                     </div>
                 </div>
