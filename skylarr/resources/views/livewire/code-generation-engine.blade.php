@@ -1,6 +1,6 @@
-<div class="h-full flex flex-col bg-white">
+<div class="h-full flex flex-col">
     {{-- Header with Toggle --}}
-    <div class="p-4 border-b border-gray-200 bg-gray-50">
+    <div class="p-4 border-b border-secondary-200">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <h3 class="text-sm font-medium text-gray-900">Code & Preview</h3>
@@ -12,16 +12,16 @@
             </div>
             
             {{-- Toggle Buttons --}}
-            <div class="flex items-center bg-gray-100 rounded-lg p-1">
+            <div class="flex items-center bg-secondary-100 rounded-lg p-1">
                 <button 
                     wire:click="$set('activeTab', 'code')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">
+                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'shadow-sm' : 'hover:text-secondary-500' }}">
                     <x-icon name="o-code-bracket" class="w-4 h-4 mr-1" />
                     Code
                 </button>
                 <button 
                     wire:click="$set('activeTab', 'preview')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900' }}">
+                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
                     <x-icon name="o-eye" class="w-4 h-4 mr-1" />
                     Preview
                 </button>

@@ -1,4 +1,4 @@
-<div class="h-screen flex flex-col bg-gray-50">
+<div class="h-screen flex flex-col">
     {{-- Navigation Bar --}}
     <livewire:custom-components.navigation-bar />
 
@@ -36,8 +36,8 @@
     {{-- Main Split Layout with Resizable Panels --}}
     <div class="flex-1 flex overflow-hidden" id="main-container">
         {{-- Left Panel: Chat Interface (Smaller by default) --}}
-        <div class="flex flex-col bg-white border-r border-gray-200" id="chat-panel" style="width: 350px; min-width: 300px; max-width: 600px;">
-            <div class="p-4 border-b border-gray-200 bg-gray-50">
+        <div class="flex flex-col border-r" id="chat-panel" style="width: 350px; min-width: 300px; max-width: 600px;">
+            <div class="p-4 border-b">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold text-gray-900">AI Assistant</h2>
                     <div class="flex items-center gap-2">
@@ -62,13 +62,13 @@
         </div>
 
         {{-- Resize Handle --}}
-        <div class="w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize transition-colors" id="resize-handle"></div>
+        <div class="w-1 bg-secondary-200 hover:bg-sedondary-300 cursor-col-resize transition-colors" id="resize-handle"></div>
 
         {{-- Right Panel: Code Generation Engine (Larger by default) --}}
-        <div class="flex-1 flex flex-col bg-white" id="code-panel">
-            <div class="p-4 border-b border-gray-200 bg-gray-50">
+        <div class="flex-1 flex flex-col " id="code-panel">
+            <div class="p-4 border-b">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Code Generator</h2>
+                <br />
                     @if($selectedProject)
                         <div class="flex items-center gap-2">
                             <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
