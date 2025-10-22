@@ -10,10 +10,14 @@ use Mary\Traits\Toast;
 class CodeGenerator extends Component
 {
     use Toast;
+    
     public bool $projectSelectionModal = true;
     public bool $createNewProjectModal = false;
-    public string $projectName, $projectDescription;
-    public $projects, $selectedProjectId;
+    public string $projectName = '';
+    public string $projectDescription = '';
+    public $projects;
+    public $selectedProjectId;
+    public ?Project $selectedProject = null;
 
     public function openCreateProjectModal()
     {
@@ -22,17 +26,25 @@ class CodeGenerator extends Component
 
     public function submitProjectCreation()
     {
-        $this->selectedProjectId = $this->projects->first()->id;
-        $this->projectSelectionModal = false;
-        $this->success('Project selected successfully');
+        if ($this->projects->count() > 0) {
+            $this->selectedProject = $this->projects->first();
+            $this->selectedProjectId = $this->selectedProject->id;
+            $this->projectSelectionModal = false;
+            $this->success('Project selected successfully');
+        }
     }
 
     public function mount()
     {
         $this->projects = Project::where('user_id', Auth::id())->get();
+        
         if ($this->projects->count() > 0) {
-            $this->success('Please create a project to get started');
+            // Auto-select the first project if projects exist
+            $this->selectedProject = $this->projects->first();
+            $this->selectedProjectId = $this->selectedProject->id;
             $this->projectSelectionModal = false;
+        } else {
+            // Show project creation modal if no projects exist
             $this->projectSelectionModal = true;
         }
     }
@@ -44,27 +56,36 @@ class CodeGenerator extends Component
             'projectDescription' => 'nullable|string|max:1000',
         ]);
 
-        Project::create([
+        $project = Project::create([
             'user_id' => Auth::id(),
             'name' => $this->projectName,
             'description' => $this->projectDescription,
+            'status' => 'creating',
+            'metadata' => [
+                'components' => [],
+                'routes' => [],
+                'created_at' => now()->toISOString()
+            ]
         ]);
 
+        // Set the newly created project as selected
+        $this->selectedProject = $project;
+        $this->selectedProjectId = $project->id;
+        
+        // Close modals and reset form
         $this->projectSelectionModal = false;
         $this->createNewProjectModal = false;
         $this->projectName = '';
         $this->projectDescription = '';
+        
+        // Refresh projects list
+        $this->projects = Project::where('user_id', Auth::id())->get();
+        
         $this->success('Project created successfully');
-        $this->createNewProjectModal = false;
-        $this->projectSelectionModal = true;
     }
     
     public function render()
     {
-        return view('livewire.code-generator',
-        [
-            'projects' => $this->projects
-        ]
-    );
+        return view('livewire.code-generator');
     }
 }
