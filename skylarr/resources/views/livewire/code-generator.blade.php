@@ -33,10 +33,10 @@
         </x-form>
     </x-modal>
 
-    {{-- Main Split Layout --}}
-    <div class="flex-1 flex overflow-hidden">
-        {{-- Left Panel: Chat Interface --}}
-        <div class="w-1/2 border-r border-gray-200 flex flex-col bg-white">
+    {{-- Main Split Layout with Resizable Panels --}}
+    <div class="flex-1 flex overflow-hidden" id="main-container">
+        {{-- Left Panel: Chat Interface (Smaller by default) --}}
+        <div class="flex flex-col bg-white border-r border-gray-200" id="chat-panel" style="width: 350px; min-width: 300px; max-width: 600px;">
             <div class="p-4 border-b border-gray-200 bg-gray-50">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold text-gray-900">AI Assistant</h2>
@@ -61,8 +61,11 @@
             </div>
         </div>
 
-        {{-- Right Panel: Code Generation Engine --}}
-        <div class="w-1/2 flex flex-col bg-white">
+        {{-- Resize Handle --}}
+        <div class="w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize transition-colors" id="resize-handle"></div>
+
+        {{-- Right Panel: Code Generation Engine (Larger by default) --}}
+        <div class="flex-1 flex flex-col bg-white" id="code-panel">
             <div class="p-4 border-b border-gray-200 bg-gray-50">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold text-gray-900">Code Generator</h2>
@@ -90,4 +93,63 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('main-container');
+            const chatPanel = document.getElementById('chat-panel');
+            const codePanel = document.getElementById('code-panel');
+            const resizeHandle = document.getElementById('resize-handle');
+            
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+            
+            // Load saved width from localStorage
+            const savedWidth = localStorage.getItem('chat-panel-width');
+            if (savedWidth) {
+                chatPanel.style.width = savedWidth + 'px';
+            }
+            
+            resizeHandle.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = parseInt(window.getComputedStyle(chatPanel).width, 10);
+                
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isResizing) return;
+                
+                const width = startWidth + e.clientX - startX;
+                const minWidth = 300;
+                const maxWidth = 600;
+                
+                if (width >= minWidth && width <= maxWidth) {
+                    chatPanel.style.width = width + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    
+                    // Save width to localStorage
+                    const currentWidth = parseInt(window.getComputedStyle(chatPanel).width, 10);
+                    localStorage.setItem('chat-panel-width', currentWidth);
+                }
+            });
+            
+            // Prevent text selection while resizing
+            resizeHandle.addEventListener('selectstart', function(e) {
+                e.preventDefault();
+            });
+        });
+    </script>
 </div>
