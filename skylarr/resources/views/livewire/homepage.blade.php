@@ -132,7 +132,7 @@
                         
                         <div class="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
                             @auth
-                                <button wire:click="openDashboard" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all transform hover:scale-105 pulse-glow" responsive spinner="openRegisterModal">
+                                <button wire:click="openDashboard" style="background-color:rgb(63, 125, 88);" class="glass-effect px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[rgb(239,239,239)] hover:bg-opacity-20 transition-all transform hover:scale-105 pulse-glow" responsive spinner="openDashboard">
                                     Dashboard
                                 </button>
                             @else
