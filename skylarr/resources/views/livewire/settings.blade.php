@@ -54,7 +54,7 @@
                 @else
                     <div class="space-y-4">
                         @if($twoFactorQrSvg === '')
-                            <x-button label="Enable two-factor" wire:click="enableTwoFactor" class="bg-secondary text-white hover:bg-secondary/80" />
+                            <x-button label="Enable two-factor" wire:click="enableTwoFactor" class="bg-secondary text-white hover:bg-secondary/80" spinner="enableTwoFactor" />
                         @else
                             <div class="flex flex-col md:flex-row items-start gap-6">
                                 <div class="bg-white p-3 rounded border border-secondary/25" aria-label="QR code">
