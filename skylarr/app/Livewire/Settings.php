@@ -50,13 +50,13 @@ class Settings extends Component
             $user->save();
         }
 
-        $this->dispatch('toast', type: 'success', title: 'Saved', message: 'Profile updated');
+        $this->success('Saved', 'Profile updated');
     }
 
     public function changePassword(): void
     {
         // Implement as needed (current_password, new_password validation)
-        $this->dispatch('toast', type: 'info', title: 'Coming soon', message: 'Password change flow pending');
+        $this->warning('Coming soon', 'Password change flow pending');
     }
 
     public function initTwoFactor(): void
@@ -94,7 +94,7 @@ class Settings extends Component
         $google2fa = new Google2FA();
         $valid = $google2fa->verifyKey($this->twoFactorSecretPreview, preg_replace('/\s+/', '', $this->twoFactorCode));
         if (!$valid) {
-            $this->dispatch('toast', type: 'error', title: 'Invalid code', message: 'Please try again');
+            $this->error('Invalid code');
             return;
         }
 
@@ -110,7 +110,7 @@ class Settings extends Component
         $this->twoFactorQrSvg = '';
         $this->twoFactorCode = '';
 
-        $this->dispatch('toast', type: 'success', title: 'Two-factor enabled', message: 'Store your recovery codes safely');
+        $this->success('Two-factor enabled', 'Store your recovery codes safely');
     }
 
     public function disableTwoFactor(): void
@@ -121,7 +121,7 @@ class Settings extends Component
         $user->two_factor_recovery_codes = null;
         $user->save();
         $this->twoFactorEnabled = false;
-        $this->dispatch('toast', type: 'success', title: 'Two-factor disabled');
+        $this->success('Two-factor disabled');
     }
 
     public function regenerateRecoveryCodes(): void
@@ -132,7 +132,7 @@ class Settings extends Component
         $user->two_factor_recovery_codes = $codes;
         $user->save();
         $this->recoveryCodes = $codes;
-        $this->dispatch('toast', type: 'success', title: 'Recovery codes regenerated');
+        $this->success('Recovery codes regenerated');
     }
     public function render()
     {
