@@ -1,6 +1,6 @@
 <div class="h-full flex flex-col">
     {{-- Chat Messages Area --}}
-    <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4">
+    <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         @foreach ($messages as $m)
             <div class="flex {{ $m['role']==='user' ? 'justify-end' : 'justify-start' }}">
                 <div class="max-w-[80%] {{ $m['role']==='user' ? 'order-2' : 'order-1' }}">
@@ -41,8 +41,8 @@
         @endif
     </div>
 
-    {{-- Message Input Area --}}
-    <div class="border-t border-gray-200 p-4">
+    {{-- Message Input Area - Fixed to Bottom --}}
+    <div class="border-t border-gray-200 p-4 bg-white flex-shrink-0">
         <x-form wire:submit="sendMessage">   
             <x-textarea wire:model.defer="message" placeholder="Type your message here..." rows="2" class="resize-none" :disabled="$isStreaming" />
 
