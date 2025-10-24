@@ -42,26 +42,13 @@
     </div>
 
     {{-- Message Input Area --}}
-    <div class="border-t border-gray-200 p-4 bg-white">
-        <x-form wire:submit="sendMessage">
-            <div class="flex gap-2">
-                <div class="flex-1">
-                    <x-textarea 
-                        wire:model.defer="message" 
-                        placeholder="Type your message here..." 
-                        rows="2"
-                        class="resize-none"
-                        :disabled="$isStreaming" />
-                </div>
-                <div class="flex items-end">
-                    <x-button 
-                        type="submit" 
-                        icon="o-paper-airplane" 
-                        class="btn-primary h-10 w-10 p-0"
-                        :disabled="$isStreaming || empty($message)"
-                        spinner="sendMessage" />
-                </div>
-            </div>
+    <div class="border-t border-gray-200 p-4">
+        <x-form wire:submit="sendMessage">   
+            <x-textarea wire:model.defer="message" placeholder="Type your message here..." rows="2" class="resize-none" :disabled="$isStreaming" />
+
+            <x-slot:actions>
+                <x-button type="submit" icon="o-paper-airplane" class="btn-primary h-10 w-10 p-0" :disabled="$isStreaming || empty($message)" spinner="sendMessage" />
+            </x-slot:actions>  
         </x-form>
     </div>
 </div>

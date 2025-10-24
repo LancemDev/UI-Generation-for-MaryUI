@@ -11,7 +11,7 @@
 <body style="background-color: rgb(239, 150, 81);">
 
     {{-- MAIN --}}
-    <x-main>
+    <x-main full-width with-nav>
 
         {{-- The `$slot` goes here --}}
         <x-slot:content>
