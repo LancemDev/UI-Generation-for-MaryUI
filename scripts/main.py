@@ -49,7 +49,7 @@ async def read_root():
 @app.post("/generate/code")
 async def post_generate_code(body: GenerateRequest):
     try:
-        code = generate_code(
+        code, component_name = generate_code(
             prompt=body.prompt,
             model=body.model,
             temperature=body.temperature,
@@ -58,7 +58,7 @@ async def post_generate_code(body: GenerateRequest):
         return {
             "success": True,
             "code": code,
-            "component_name": "GeneratedComponent",
+            "component_name": component_name,
             "message": "Code generated successfully"
         }
     except Exception as exc:

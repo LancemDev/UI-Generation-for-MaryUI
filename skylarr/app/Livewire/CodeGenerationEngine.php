@@ -188,7 +188,7 @@ class CodeGenerationEngine extends Component
                 $this->loadProjectFiles();
                 
                 // Auto-select the newly generated file if it exists
-                $generatedFilePath = "/var/www/html/app/Livewire/Generated/{$this->componentName}.php";
+                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
                 if (in_array($generatedFilePath, $this->projectFiles)) {
                     $this->selectFile($generatedFilePath);
                     Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);

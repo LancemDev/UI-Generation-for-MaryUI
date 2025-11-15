@@ -103,7 +103,102 @@ class DockerPreviewService
     }
     
     /**
+     * Validate that code is a Laravel Livewire component.
+     */
+    private function validateLivewireCode(string $code): bool
+    {
+        // Must be PHP code
+        if (!str_contains($code, '<?php') && !str_starts_with(trim($code), '<?php')) {
+            Log::warning('[DOCKER] Code does not start with <?php', ['code_preview' => substr($code, 0, 100)]);
+            return false;
+        }
+        
+        // Must have Livewire namespace or use statement
+        if (!str_contains($code, 'Livewire') && !str_contains($code, 'Livewire\\Component')) {
+            Log::warning('[DOCKER] Code does not contain Livewire references');
+            return false;
+        }
+        
+        // Must extend Component
+        if (!preg_match('/extends\s+(\\\\)?Component/', $code)) {
+            Log::warning('[DOCKER] Code does not extend Component');
+            return false;
+        }
+        
+        // Must have App\Livewire namespace
+        if (!str_contains($code, 'namespace App\\Livewire') && !str_contains($code, 'namespace App\\\\Livewire')) {
+            Log::warning('[DOCKER] Code does not have App\\Livewire namespace');
+            return false;
+        }
+        
+        // Forbidden frameworks/languages
+        $forbidden = [
+            'import React',
+            'from "react"',
+            'import Vue',
+            'from "vue"',
+            'export default',
+            'function Component',
+            'const Component',
+            'class Component extends React',
+            'class Component extends Vue',
+            'def ',
+            'class.*extends.*React',
+            'class.*extends.*Vue',
+            'useState',
+            'useEffect',
+            '<script>',
+            'jsx',
+            'tsx',
+        ];
+        
+        foreach ($forbidden as $pattern) {
+            if (preg_match('/' . preg_quote($pattern, '/') . '/i', $code)) {
+                Log::warning('[DOCKER] Code contains forbidden framework pattern', ['pattern' => $pattern]);
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Parse code to extract component class name and view name.
+     */
+    private function parseComponentCode(string $code): array
+    {
+        $className = null;
+        $viewName = null;
+        
+        // Extract class name
+        if (preg_match('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends/', $code, $matches)) {
+            $className = $matches[1];
+        }
+        
+        // Extract view name from render() method
+        if (preg_match("/view\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
+            $viewName = $matches[1];
+        } elseif (preg_match("/return\s+view\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
+            $viewName = $matches[1];
+        }
+        
+        return [
+            'class_name' => $className,
+            'view_name' => $viewName,
+        ];
+    }
+    
+    /**
+     * Convert PascalCase to kebab-case.
+     */
+    private function toKebabCase(string $string): string
+    {
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
+    }
+    
+    /**
      * Inject generated code into a project container.
+     * Organizes files according to Laravel 11 conventions.
      */
     public function injectCode(Project $project, string $code, string $componentName): bool
     {
@@ -112,11 +207,30 @@ class DockerPreviewService
                 throw new \Exception("Container not running for project {$project->id}");
             }
             
-            // Create component file in container
-            $componentPath = "/var/www/html/app/Livewire/Generated/{$componentName}.php";
+            // Validate that the code is a Laravel Livewire component
+            if (!$this->validateLivewireCode($code)) {
+                Log::error("Generated code is not a valid Laravel Livewire component", [
+                    'project_id' => $project->id,
+                    'code_preview' => substr($code, 0, 200)
+                ]);
+                throw new \Exception("Generated code is not a valid Laravel Livewire component. Only Laravel Livewire components are supported.");
+            }
+            
+            // Parse the code to extract class name and view name
+            $parsed = $this->parseComponentCode($code);
+            $actualClassName = $parsed['class_name'] ?? $componentName;
+            $viewName = $parsed['view_name'];
+            
+            // Ensure component name matches the actual class name
+            if ($parsed['class_name']) {
+                $componentName = $parsed['class_name'];
+            }
+            
+            // Create component file in app/Livewire/ (Laravel 11 convention)
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
             $this->runDockerCommand([
                 'exec', $project->container_id,
-                'sh', '-c', "mkdir -p /var/www/html/app/Livewire/Generated"
+                'sh', '-c', "mkdir -p /var/www/html/app/Livewire"
             ]);
             
             // Write the component code
@@ -126,6 +240,57 @@ class DockerPreviewService
                 'sh', '-c', "echo {$escapedCode} > {$componentPath}"
             ]);
             
+            // If view name is specified, create the view file
+            if ($viewName) {
+                // Extract view path (e.g., 'livewire.my-component' -> 'livewire/my-component.blade.php')
+                $viewPath = str_replace('.', '/', $viewName);
+                if (!str_ends_with($viewPath, '.blade.php')) {
+                    $viewPath .= '.blade.php';
+                }
+                $fullViewPath = "/var/www/html/resources/views/{$viewPath}";
+                
+                // Create view directory if needed
+                $viewDir = dirname($fullViewPath);
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "mkdir -p {$viewDir}"
+                ]);
+                
+                // Create a basic view file if it doesn't exist
+                $kebabName = $this->toKebabCase($componentName);
+                $viewContent = <<<BLADE
+<div>
+    <h2 class="text-2xl font-bold mb-4">{{ \$componentName ?? '{$componentName}' }}</h2>
+    <!-- Component view content -->
+</div>
+BLADE;
+                $escapedView = escapeshellarg($viewContent);
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "echo {$escapedView} > {$fullViewPath}"
+                ]);
+            } else {
+                // Create default view if no view specified
+                $kebabName = $this->toKebabCase($componentName);
+                $defaultViewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "mkdir -p /var/www/html/resources/views/livewire"
+                ]);
+                
+                $viewContent = <<<BLADE
+<div>
+    <h2 class="text-2xl font-bold mb-4">{{ \$componentName ?? '{$componentName}' }}</h2>
+    <!-- Component view content -->
+</div>
+BLADE;
+                $escapedView = escapeshellarg($viewContent);
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "echo {$escapedView} > {$defaultViewPath}"
+                ]);
+            }
+            
             // Register the component in the container's service provider
             $this->registerComponentInContainer($project->container_id, $componentName);
             
@@ -134,6 +299,7 @@ class DockerPreviewService
             
             Log::info("Successfully injected code into project {$project->id}", [
                 'component_name' => $componentName,
+                'component_path' => $componentPath,
                 'container_id' => $project->container_id
             ]);
             
@@ -142,7 +308,8 @@ class DockerPreviewService
         } catch (\Exception $e) {
             Log::error("Failed to inject code into project {$project->id}", [
                 'error' => $e->getMessage(),
-                'component_name' => $componentName
+                'component_name' => $componentName,
+                'trace' => $e->getTraceAsString()
             ]);
             
             return false;
@@ -379,16 +546,17 @@ class DockerPreviewService
     
     /**
      * List project files from container.
+     * Organized by Laravel 11 folder structure.
      */
     public function listProjectFiles(string $containerId): array
     {
         $files = [];
         
         try {
-            // Get resources directory files
+            // Get app/Livewire files (components)
             $result = $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', 'find /var/www/html/resources -type f \( -name "*.blade.php" -o -name "*.php" -o -name "*.js" -o -name "*.css" \) | head -50'
+                'sh', '-c', 'find /var/www/html/app/Livewire -type f -name "*.php" | head -30'
             ]);
             
             if ($result->successful()) {
@@ -400,10 +568,10 @@ class DockerPreviewService
                 }
             }
             
-            // Get app/Http directory files
+            // Get resources/views/livewire files (Blade templates)
             $result2 = $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', 'find /var/www/html/app/Http -type f -name "*.php" | head -20'
+                'sh', '-c', 'find /var/www/html/resources/views/livewire -type f -name "*.blade.php" | head -30'
             ]);
             
             if ($result2->successful()) {
@@ -415,11 +583,41 @@ class DockerPreviewService
                 }
             }
             
+            // Get app/Http directory files (controllers, etc.)
+            $result3 = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'find /var/www/html/app/Http -type f -name "*.php" | head -20'
+            ]);
+            
+            if ($result3->successful()) {
+                $lines = explode("\n", trim($result3->output()));
+                foreach ($lines as $line) {
+                    if (!empty($line)) {
+                        $files[] = $line;
+                    }
+                }
+            }
+            
+            // Get routes
+            $result4 = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'find /var/www/html/routes -type f -name "*.php" | head -10'
+            ]);
+            
+            if ($result4->successful()) {
+                $lines = explode("\n", trim($result4->output()));
+                foreach ($lines as $line) {
+                    if (!empty($line)) {
+                        $files[] = $line;
+                    }
+                }
+            }
+            
         } catch (\Exception $e) {
             Log::error("Failed to list files", ['error' => $e->getMessage()]);
         }
         
-        return $files;
+        return array_unique($files);
     }
     
     /**
