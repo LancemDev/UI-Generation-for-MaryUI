@@ -34,62 +34,57 @@
     </x-modal>
 
     {{-- Main Split Layout with Resizable Panels --}}
-    <div class="flex-1 flex overflow-hidden" id="main-container">
-        {{-- Left Panel: Chat Interface (Smaller by default) --}}
-        <div class="flex flex-col border-r" id="chat-panel" style="width: 350px; min-width: 300px; max-width: 600px;">
-            <div class="p-4 border-b">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">AI Assistant</h2>
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 bg-green-400 rounded-full"></div>
-                        <span class="text-sm text-gray-600">Online</span>
-                    </div>
+    <div class="flex-1 flex flex-col overflow-hidden" id="main-container">
+        {{-- Top Bar with Project Name --}}
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+            <div class="flex items-center gap-4">
+                <h2 class="text-lg font-semibold text-gray-900">Code Generator</h2>
+            </div>
+            @if($selectedProject)
+                <div class="flex items-center gap-2">
+                    <span class="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800 font-medium">
+                        {{ $selectedProject->name }}
+                    </span>
                 </div>
-            </div>
-            
-            <div class="flex-1 flex flex-col">
-                @if($selectedProject)
-                    <livewire:chat-interface :project-id="$selectedProject->id" />
-                @else
-                    <div class="flex-1 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <x-icon name="o-folder-open" class="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p class="text-sm">Select a project to start chatting</p>
-                        </div>
-                    </div>
-                @endif
-            </div>
+            @endif
         </div>
 
-        {{-- Resize Handle --}}
-        <div class="w-1 bg-secondary-200 hover:bg-sedondary-300 cursor-col-resize transition-colors" id="resize-handle"></div>
-
-        {{-- Right Panel: Code Generation Engine (Larger by default) --}}
-        <div class="flex-1 flex flex-col " id="code-panel">
-            <div class="p-4 border-b">
-                <div class="flex items-center justify-between">
-                <br />
+        {{-- Main Content Area --}}
+        <div class="flex-1 flex overflow-hidden">
+            {{-- Left Panel: Chat Interface (Smaller by default) --}}
+            <div class="flex flex-col border-r" id="chat-panel" style="width: 350px; min-width: 300px; max-width: 600px;">
+                
+                <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
                     @if($selectedProject)
-                        <div class="flex items-center gap-2">
-                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                                {{ $selectedProject->name }}
-                            </span>
+                        <livewire:chat-interface :project-id="$selectedProject->id" />
+                    @else
+                        <div class="flex-1 flex items-center justify-center text-gray-500">
+                            <div class="text-center">
+                                <x-icon name="o-folder-open" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p class="text-sm">Select a project to start chatting</p>
+                            </div>
                         </div>
                     @endif
                 </div>
             </div>
-            
-            <div class="flex-1">
-                @if($selectedProject)
-                    <livewire:code-generation-engine :project-id="$selectedProject->id" />
-                @else
-                    <div class="flex-1 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p class="text-sm">Select a project to start generating code</p>
+
+            {{-- Resize Handle --}}
+            <div class="w-1 bg-secondary-200 hover:bg-sedondary-300 cursor-col-resize transition-colors" id="resize-handle"></div>
+
+            {{-- Right Panel: Code Generation Engine (Larger by default) --}}
+            <div class="flex-1 flex flex-col" id="code-panel">
+                <div class="flex-1">
+                    @if($selectedProject)
+                        <livewire:code-generation-engine :project-id="$selectedProject->id" />
+                    @else
+                        <div class="flex-1 flex items-center justify-center text-gray-500">
+                            <div class="text-center">
+                                <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p class="text-sm">Select a project to start generating code</p>
+                            </div>
                         </div>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
         </div>
     </div>

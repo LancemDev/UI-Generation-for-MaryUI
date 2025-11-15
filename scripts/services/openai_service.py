@@ -57,7 +57,25 @@ MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI
 
 {gnn_context}
 
-Generate valid MaryUI Blade code that follows the component relationships. Use <x-component> syntax (no maryui prefix) and ensure proper nesting. Return only the code unless asked to explain."""
+CRITICAL INSTRUCTIONS:
+1. Generate ONLY valid PHP code - a complete Livewire component class
+2. The code must start with <?php
+3. Return a complete PHP class with namespace, imports, and methods
+4. Do NOT include markdown code blocks (```php or ```)
+5. Do NOT include explanations before or after the code
+6. Return ONLY the code, nothing else
+
+Example format:
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+class MyComponent extends Component
+{{
+    public function render()
+    {{
+        return view('livewire.my-component');
+    }}
+}}"""
 
     completion = client.chat.completions.create(
         model=selected_model,
@@ -70,6 +88,18 @@ Generate valid MaryUI Blade code that follows the component relationships. Use <
     )
 
     content = completion.choices[0].message.content if completion.choices else ""
+    
+    # Remove markdown code blocks if present
+    if content.startswith("```"):
+        lines = content.split("\n")
+        # Remove first line if it's a code block marker
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        # Remove last line if it's a code block marker
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        content = "\n".join(lines)
+    
     return content.strip()
 
 
@@ -116,7 +146,12 @@ MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI
 
 {gnn_context}
 
-Generate valid MaryUI Blade code that follows the component relationships. Use <x-component> syntax (no maryui prefix) and ensure proper nesting."""
+IMPORTANT: When the user asks you to create/build/generate components:
+1. DO NOT show code in the chat response
+2. Instead, acknowledge their request and tell them you're working on it
+3. Example: "I'll create that for you! Working on it now..." or "Building your component now..."
+4. Keep responses short and conversational
+5. The code generation happens in the background - just acknowledge the request"""
         }
         
         # Insert system message at the beginning

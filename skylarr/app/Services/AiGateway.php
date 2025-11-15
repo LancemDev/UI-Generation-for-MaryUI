@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Generator;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AiGateway
 {
@@ -52,7 +53,12 @@ class AiGateway
      */
     public function generateCode(string $prompt): array
     {
-        $baseUrl = config('services.aigateway.url', env('PY_BACKEND_URL', 'http://127.0.0.1:8000'));
+        $baseUrl = config('services.aigateway.url', env('PY_BACKEND_URL', 'http://127.0.0.1:8001'));
+        
+        Log::info('[AI_GATEWAY] Starting code generation', [
+            'url' => $baseUrl,
+            'prompt_length' => strlen($prompt)
+        ]);
         
         try {
             $response = Http::timeout(30)->post(rtrim($baseUrl, '/') . '/generate/code', [
@@ -62,7 +68,17 @@ class AiGateway
                 'max_tokens' => 2048,
             ]);
 
+            Log::info('[AI_GATEWAY] HTTP request completed', [
+                'status' => $response->status(),
+                'success' => $response->successful()
+            ]);
+
             if ($response->failed()) {
+                Log::error('[AI_GATEWAY] HTTP request failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                
                 return [
                     'success' => false,
                     'message' => 'AI backend request failed: ' . $response->body()
@@ -71,7 +87,17 @@ class AiGateway
 
             $data = $response->json();
             
+            Log::info('[AI_GATEWAY] Response parsed', [
+                'has_code' => isset($data['code']),
+                'has_component_name' => isset($data['component_name'])
+            ]);
+            
             if (isset($data['code']) && isset($data['component_name'])) {
+                Log::info('[AI_GATEWAY] Code generated successfully', [
+                    'component_name' => $data['component_name'],
+                    'code_length' => strlen($data['code'])
+                ]);
+                
                 return [
                     'success' => true,
                     'code' => $data['code'],
@@ -79,12 +105,19 @@ class AiGateway
                 ];
             }
 
+            Log::error('[AI_GATEWAY] Invalid response format', ['data' => $data]);
+
             return [
                 'success' => false,
                 'message' => 'Invalid response format from AI backend'
             ];
 
         } catch (\Exception $e) {
+            Log::error('[AI_GATEWAY] Exception during code generation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return [
                 'success' => false,
                 'message' => 'Error generating code: ' . $e->getMessage()

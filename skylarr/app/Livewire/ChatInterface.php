@@ -8,6 +8,7 @@ use App\Models\ChatThread;
 use App\Models\ChatMessage;
 use App\Services\AiGateway;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class ChatInterface extends Component
 {
@@ -84,6 +85,12 @@ class ChatInterface extends Component
             return;
         }
 
+        Log::info('[CHAT] User message received', [
+            'message' => $content,
+            'project_id' => $this->projectId,
+            'thread_id' => $this->threadId
+        ]);
+
         $this->isStreaming = true;
 
         // Persist user message
@@ -127,20 +134,35 @@ class ChatInterface extends Component
         $gateway = app(AiGateway::class);
 
         try {
+            Log::info('[CHAT] Starting AI stream', ['history_count' => count($history)]);
+            
+            // Check user message for code generation trigger BEFORE streaming
+            Log::info('[CHAT] Checking user message for code generation trigger');
+            $this->checkForCodeGeneration($content);
+            
             foreach ($gateway->streamChat($history) as $delta) {
                 $this->messages[$assistantIndex]['content'] .= $delta;
                 $this->dispatch('chat-scrolled');
             }
+            
+            $finalContent = $this->messages[$assistantIndex]['content'];
+            Log::info('[CHAT] AI stream complete', [
+                'response_length' => strlen($finalContent),
+                'message_id' => $assistantMsg->id
+            ]);
+            
             $this->messages[$assistantIndex]['status'] = 'complete';
             $assistantMsg->update([
-                'content' => $this->messages[$assistantIndex]['content'],
+                'content' => $finalContent,
                 'status' => 'complete',
             ]);
             
-            // Check if the response contains code generation request
-            $this->checkForCodeGeneration($this->messages[$assistantIndex]['content']);
-            
         } catch (\Throwable $e) {
+            Log::error('[CHAT] Stream failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             $this->messages[$assistantIndex]['status'] = 'error';
             $assistantMsg->update([
                 'status' => 'error',
@@ -149,49 +171,49 @@ class ChatInterface extends Component
             $this->error('Streaming failed');
         } finally {
             $this->isStreaming = false;
+            Log::info('[CHAT] Stream process finished');
         }
     }
     
     /**
-     * Check if the assistant response contains a code generation request
+     * Check if the user message contains a code generation request
      * and trigger code generation if needed.
      */
-    private function checkForCodeGeneration(string $response): void
+    private function checkForCodeGeneration(string $userMessage): void
     {
         // Simple heuristic to detect code generation requests
         $codeKeywords = [
-            'create a component',
-            'build a component',
-            'generate code',
-            'make a livewire',
-            'create livewire',
-            'build livewire',
-            'component for',
-            'livewire component'
+            'create',
+            'build',
+            'generate',
+            'make',
+            'component',
+            'livewire',
+            'form',
+            'modal',
+            'table',
+            'dashboard',
+            'page',
+            'view'
         ];
         
-        $lowerResponse = strtolower($response);
+        $lowerMessage = strtolower($userMessage);
         
         foreach ($codeKeywords as $keyword) {
-            if (str_contains($lowerResponse, $keyword)) {
-                // Extract the user's original request for code generation
-                // Find the last user message (not the assistant's response)
-                $userMessage = null;
-                for ($i = count($this->messages) - 1; $i >= 0; $i--) {
-                    if ($this->messages[$i]['role'] === 'user') {
-                        $userMessage = $this->messages[$i];
-                        break;
-                    }
-                }
+            if (str_contains($lowerMessage, $keyword)) {
+                Log::info('[CHAT] Dispatching generate-code event', [
+                    'trigger_keyword' => $keyword,
+                    'prompt' => $userMessage
+                ]);
                 
-                if ($userMessage) {
-                    $this->dispatch('generate-code', [
-                        'prompt' => $userMessage['content']
-                    ]);
-                }
-                break;
+                $this->dispatch('generate-code', [
+                    'prompt' => $userMessage
+                ]);
+                return;
             }
         }
+        
+        Log::info('[CHAT] No code generation trigger found');
     }
 
     public function render()
