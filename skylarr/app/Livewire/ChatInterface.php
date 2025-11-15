@@ -216,6 +216,70 @@ class ChatInterface extends Component
         Log::info('[CHAT] No code generation trigger found');
     }
 
+    protected $listeners = [
+        'code-generation-complete' => 'addCodeGenerationMessage',
+        'code-generation-failed' => 'addCodeGenerationErrorMessage',
+    ];
+
+    public function addCodeGenerationMessage($data)
+    {
+        if (!$this->threadId || !$this->projectId) {
+            return;
+        }
+
+        $message = $data['message'] ?? 'Code generation completed successfully!';
+        $componentName = $data['component_name'] ?? 'component';
+
+        $fullMessage = "✅ Code generation complete! I've created the `{$componentName}` component. You can view it in the Code tab and see the live preview in the Preview tab.";
+
+        // Create assistant message
+        $assistantMsg = ChatMessage::create([
+            'chat_thread_id' => $this->threadId,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'complete',
+        ]);
+
+        $this->messages[] = [
+            'id' => $assistantMsg->id,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'complete',
+            'created_at' => $assistantMsg->created_at?->toDateTimeString(),
+        ];
+
+        $this->dispatch('chat-scrolled');
+    }
+
+    public function addCodeGenerationErrorMessage($data)
+    {
+        if (!$this->threadId || !$this->projectId) {
+            return;
+        }
+
+        $errorMessage = $data['message'] ?? 'Code generation failed. Please try again.';
+
+        $fullMessage = "❌ Sorry, I encountered an error while generating the code: {$errorMessage}";
+
+        // Create assistant message
+        $assistantMsg = ChatMessage::create([
+            'chat_thread_id' => $this->threadId,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'error',
+        ]);
+
+        $this->messages[] = [
+            'id' => $assistantMsg->id,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'error',
+            'created_at' => $assistantMsg->created_at?->toDateTimeString(),
+        ];
+
+        $this->dispatch('chat-scrolled');
+    }
+
     public function render()
     {
         return view('livewire.chat-interface');

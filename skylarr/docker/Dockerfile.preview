@@ -33,14 +33,21 @@ COPY ./preview-base/ /var/www/html/
 RUN cp composer.json composer.json.backup && \
     sed -i '/"post-autoload-dump"/,/],/d' composer.json
 
-# Install PHP dependencies
+# Install PHP dependencies (--no-dev will skip Pail since it's in require-dev)
 RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
 
 # Restore original composer.json
 RUN mv composer.json.backup composer.json
 
-# Clear config cache to remove any dev service provider references
-RUN php artisan config:clear || true
+# Clear all Laravel caches to remove any dev service provider references
+# This is critical to prevent PailServiceProvider errors
+RUN rm -rf bootstrap/cache/*.php 2>/dev/null || true && \
+    rm -rf storage/framework/cache/* 2>/dev/null || true && \
+    php artisan config:clear 2>/dev/null || true && \
+    php artisan cache:clear 2>/dev/null || true && \
+    php artisan route:clear 2>/dev/null || true && \
+    php artisan view:clear 2>/dev/null || true && \
+    composer dump-autoload --no-dev --optimize --classmap-authoritative 2>/dev/null || true
 
 # Install dependencies and build assets with Bun
 RUN bun install && bun run build

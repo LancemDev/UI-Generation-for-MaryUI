@@ -21,7 +21,7 @@ class CodeGenerationEngine extends Component
     public string $componentName = '';
     public bool $isGenerating = false;
     public bool $previewReady = false;
-    public string $activeTab = 'code';
+    public string $activeTab = 'preview';
     public array $projectFiles = [];
     public string $selectedFile = '';
     public string $selectedFilePath = '';
@@ -102,14 +102,28 @@ class CodeGenerationEngine extends Component
                     'code_length' => strlen($this->generatedCode)
                 ]);
                 
+                // Switch to code tab to show the generated code
+                $this->activeTab = 'code';
+                
                 // Create preview
                 Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
+                
+                // Send message to chat interface
+                $this->dispatch('code-generation-complete', [
+                    'component_name' => $this->componentName,
+                    'message' => 'Code generation completed successfully!'
+                ]);
                 
                 $this->success('Code generated successfully!');
             } else {
                 Log::error('[CODE_GEN] Code generation failed', ['message' => $response['message']]);
                 $this->error('Failed to generate code: ' . $response['message']);
+                
+                // Send error message to chat interface
+                $this->dispatch('code-generation-failed', [
+                    'message' => $response['message'] ?? 'Unknown error occurred'
+                ]);
             }
             
         } catch (\Exception $e) {
@@ -118,6 +132,11 @@ class CodeGenerationEngine extends Component
                 'trace' => $e->getTraceAsString()
             ]);
             $this->error('Error generating code: ' . $e->getMessage());
+            
+            // Send error message to chat interface
+            $this->dispatch('code-generation-failed', [
+                'message' => $e->getMessage()
+            ]);
         } finally {
             $this->isGenerating = false;
             Log::info('[CODE_GEN] Generation finished');
@@ -167,6 +186,13 @@ class CodeGenerationEngine extends Component
                 
                 // Load project files
                 $this->loadProjectFiles();
+                
+                // Auto-select the newly generated file if it exists
+                $generatedFilePath = "/var/www/html/app/Livewire/Generated/{$this->componentName}.php";
+                if (in_array($generatedFilePath, $this->projectFiles)) {
+                    $this->selectFile($generatedFilePath);
+                    Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
+                }
                 
                 Log::info('[CODE_GEN] Preview ready', ['preview_url' => $this->previewUrl]);
                 $this->success('Preview updated!');

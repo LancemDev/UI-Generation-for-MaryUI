@@ -11,6 +11,11 @@
                         {{ $componentName }}
                     </span>
                 @endif
+                @if($isGenerating)
+                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 animate-pulse">
+                        Generating...
+                    </span>
+                @endif
             </div>
             
             {{-- Toggle Buttons --}}
@@ -32,64 +37,120 @@
     </div>
 
     {{-- Content Area --}}
-    <div class="flex-1 flex p-4 gap-4" style="min-height: 0;">
+    <div class="flex-1 flex" style="min-height: 0; height: 100%;">
         {{-- Code Tab --}}
         @if($activeTab === 'code')
-            <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto">
-                <h4 class="font-semibold text-sm mb-2">Project Files</h4>
-                @if(count($projectFiles) > 0)
-                    <div class="space-y-1">
-                        @foreach($projectFiles as $file)
-                            <button 
-                                wire:click="selectFile('{{ $file }}')" 
-                                class="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded {{ $selectedFilePath === $file ? 'bg-blue-100 text-blue-800' : '' }}"
-                                title="{{ $file }}">
-                                {{ basename($file) }}
-                            </button>
-                        @endforeach
-                    </div>
-                @else
-                    <p class="text-xs text-gray-400">No files found</p>
-                @endif
-            </div>
-            
-            <div class="flex-1 overflow-auto">
-                @if($generatedCode)
-                    <div class="h-full bg-gray-900 rounded-lg p-4 overflow-auto">
-                        <pre class="text-sm text-green-400 font-mono whitespace-pre-wrap">{{ $generatedCode }}</pre>
-                    </div>
-                @else
-                    <div class="h-full flex items-center justify-center text-gray-400">
-                        <div class="text-center">
-                            <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p class="text-sm">Generated code will appear here</p>
-                            <p class="text-xs mt-2 opacity-75">Start a conversation to generate Livewire components</p>
+            <div class="flex-1 flex p-4 gap-4" style="min-height: 0;">
+                <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto">
+                    <h4 class="font-semibold text-sm mb-2">Project Files</h4>
+                    @if(count($projectFiles) > 0)
+                        <div class="space-y-1">
+                            @foreach($projectFiles as $file)
+                                <button 
+                                    wire:click="selectFile('{{ $file }}')" 
+                                    class="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded {{ $selectedFilePath === $file ? 'bg-blue-100 text-blue-800' : '' }}"
+                                    title="{{ $file }}">
+                                    {{ basename($file) }}
+                                </button>
+                            @endforeach
                         </div>
-                    </div>
-                @endif
+                    @else
+                        <p class="text-xs text-gray-400">No files found</p>
+                    @endif
+                </div>
+                
+                <div class="flex-1 overflow-auto">
+                    @if($generatedCode)
+                        <div class="h-full bg-gray-900 rounded-lg p-4 overflow-auto">
+                            <div class="mb-2 text-xs text-gray-400">
+                                @if($selectedFilePath)
+                                    <span>File: {{ basename($selectedFilePath) }}</span>
+                                @elseif($componentName)
+                                    <span>Generated: {{ $componentName }}</span>
+                                @endif
+                            </div>
+                            <pre class="text-sm text-green-400 font-mono whitespace-pre-wrap break-words">{{ $generatedCode }}</pre>
+                        </div>
+                    @else
+                        <div class="h-full flex items-center justify-center text-gray-400">
+                            <div class="text-center">
+                                <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p class="text-sm">Generated code will appear here</p>
+                                <p class="text-xs mt-2 opacity-75">Start a conversation to generate Livewire components</p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
             </div>
         @endif
 
         {{-- Preview Tab --}}
         @if($activeTab === 'preview')
             @if($previewReady && $previewUrl)
-                <div class="h-full bg-white rounded-lg overflow-hidden shadow-lg border">
-                    <iframe 
-                        src="{{ $previewUrl }}" 
-                        class="w-full h-full border-0"
-                        title="Live Preview"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox">
-                    </iframe>
+                <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;">
+                    {{-- Iframe Error Banner --}}
+                    <div id="iframe-error-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-yellow-800">
+                            <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
+                            <span>Preview blocked by browser. Click to open in new window.</span>
+                        </div>
+                        <a 
+                            href="{{ $previewUrl }}" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            class="btn btn-xs btn-primary">
+                            Open Preview
+                        </a>
+                    </div>
+                    <div class="flex-1 bg-white overflow-hidden" style="min-height: 0; height: 100%;">
+                        <iframe 
+                            id="preview-iframe"
+                            src="{{ $previewUrl }}" 
+                            class="w-full h-full border-0"
+                            title="Live Preview"
+                            style="width: 100%; height: 100%; min-height: 0;"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox">
+                        </iframe>
+                    </div>
                 </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const iframe = document.getElementById('preview-iframe');
+                        const errorBanner = document.getElementById('iframe-error-banner');
+                        
+                        if (iframe && errorBanner) {
+                            // Check if iframe loads successfully
+                            iframe.onload = function() {
+                                try {
+                                    // Try to access iframe content (will fail if blocked)
+                                    iframe.contentWindow.document;
+                                    errorBanner.classList.add('hidden');
+                                } catch (e) {
+                                    // Iframe is blocked by browser
+                                    errorBanner.classList.remove('hidden');
+                                }
+                            };
+                            
+                            // Fallback: show error banner after timeout if iframe doesn't load
+                            setTimeout(function() {
+                                try {
+                                    iframe.contentWindow.document;
+                                } catch (e) {
+                                    errorBanner.classList.remove('hidden');
+                                }
+                            }, 2000);
+                        }
+                    });
+                </script>
             @elseif($isGenerating)
-                <div class="h-full flex items-center justify-center">
+                <div class="flex-1 flex items-center justify-center" style="min-height: 0;">
                     <div class="text-center">
                         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
                         <p class="text-sm text-gray-600">Generating code...</p>
                     </div>
                 </div>
             @else
-                <div class="h-full flex items-center justify-center text-gray-400">
+                <div class="flex-1 flex items-center justify-center text-gray-400" style="min-height: 0;">
                     <div class="text-center">
                         <x-icon name="o-eye" class="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p class="text-sm">Live preview will appear here</p>
