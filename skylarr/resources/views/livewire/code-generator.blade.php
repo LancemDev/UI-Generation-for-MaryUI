@@ -53,17 +53,8 @@
         <div class="flex-1 flex overflow-hidden">
             {{-- Left Panel: Chat Interface (Smaller by default) --}}
             <div class="flex flex-col border-r" id="chat-panel" style="width: 350px; min-width: 300px; max-width: 600px;">
-                <div class="p-4 border-b">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-lg font-semibold text-gray-900">AI Assistant</h2>
-                        <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
-                            <span class="text-sm text-gray-600">Online</span>
-                        </div>
-                    </div>
-                </div>
                 
-                <div class="flex-1 flex flex-col">
+                <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
                     @if($selectedProject)
                         <livewire:chat-interface :project-id="$selectedProject->id" />
                     @else
