@@ -1,6 +1,6 @@
 <div class="h-full flex flex-col">
     {{-- Chat Messages Area --}}
-    <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+    <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 overscroll-contain" style="max-height: calc(100vh - 200px);">
         @foreach ($messages as $m)
             <div class="flex {{ $m['role']==='user' ? 'justify-end' : 'justify-start' }}">
                 <div class="max-w-[80%] {{ $m['role']==='user' ? 'order-2' : 'order-1' }}">
@@ -42,12 +42,12 @@
     </div>
 
     {{-- Message Input Area - Fixed to Bottom --}}
-    <div class="border-t border-gray-200 p-4 bg-white flex-shrink-0">
+    <div class="border-t border-gray-200 p-4 bg-white flex-shrink-0" style="min-height: 120px;">
         <x-form wire:submit="sendMessage">   
-            <x-textarea wire:model.defer="message" placeholder="Type your message here..." rows="2" class="resize-none" :disabled="$isStreaming" />
+            <x-textarea wire:model="message" placeholder="Type your message here..." rows="3" class="resize-none" :disabled="$isStreaming" />
 
             <x-slot:actions>
-                <x-button type="submit" icon="o-paper-airplane" class="btn-primary h-10 w-10 p-0" :disabled="$isStreaming || empty($message)" spinner="sendMessage" />
+                <x-button type="submit" icon="o-paper-airplane" class="btn-primary h-10 w-10 p-0" spinner="sendMessage" />
             </x-slot:actions>  
         </x-form>
     </div>

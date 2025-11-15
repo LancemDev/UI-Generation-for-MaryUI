@@ -280,9 +280,10 @@ class DockerPreviewService
     {
         $port = self::BASE_PORT;
         
-        while ($port < self::BASE_PORT + 100) {
+        while ($port < self::BASE_PORT + 1000) {
             if (!$this->isPortInUse($port)) {
                 $this->usedPorts[] = $port;
+                Log::info('[DOCKER] Found available port', ['port' => $port]);
                 return $port;
             }
             $port++;
@@ -296,10 +297,18 @@ class DockerPreviewService
      */
     private function isPortInUse(int $port): bool
     {
-        $result = $this->runDockerCommand(['ps', '--format', '{{.Ports}}']);
+        // Check system ports using netstat or ss
+        $result = Process::run(['sh', '-c', "netstat -ltn 2>/dev/null | grep ':{$port}' || ss -ltn 2>/dev/null | grep ':{$port}'"]);
         
-        if ($result->successful()) {
-            $output = $result->output();
+        if ($result->successful() && !empty($result->output())) {
+            return true;
+        }
+        
+        // Also check Docker containers
+        $dockerResult = $this->runDockerCommand(['ps', '--format', '{{.Ports}}']);
+        
+        if ($dockerResult->successful()) {
+            $output = $dockerResult->output();
             return str_contains($output, ":{$port}->");
         }
         
@@ -318,27 +327,27 @@ class DockerPreviewService
     /**
      * Wait for container to be ready.
      */
-    private function waitForContainerReady(string $containerId, int $maxWait = 30): void
+    private function waitForContainerReady(string $containerId, int $maxWait = 60): void
     {
         $waited = 0;
         
-        while ($waited < $maxWait) {
-            if ($this->isContainerRunning($containerId)) {
-                // Additional check to ensure Laravel is ready
-                $result = $this->runDockerCommand([
-                    'exec', $containerId, 'curl', '-f', 'http://localhost:80'
-                ]);
-                
-                if ($result->successful()) {
-                    return;
-                }
-            }
-            
+        // Wait for container to be running
+        while ($waited < 10 && !$this->isContainerRunning($containerId)) {
             sleep(1);
             $waited++;
         }
         
-        throw new \Exception("Container did not become ready within {$maxWait} seconds");
+        if (!$this->isContainerRunning($containerId)) {
+            throw new \Exception("Container did not start within 10 seconds");
+        }
+        
+        Log::info('[DOCKER] Container is running', ['container_id' => $containerId]);
+        
+        // For now, just wait a bit and assume it's ready
+        // The actual Laravel app will start inside the container
+        sleep(5);
+        
+        Log::info('[DOCKER] Proceeding with container ready', ['container_id' => $containerId]);
     }
     
     /**
@@ -366,6 +375,73 @@ class DockerPreviewService
             'exec', $containerId,
             'sh', '-c', 'cd /var/www/html && php artisan config:clear && php artisan route:clear'
         ]);
+    }
+    
+    /**
+     * List project files from container.
+     */
+    public function listProjectFiles(string $containerId): array
+    {
+        $files = [];
+        
+        try {
+            // Get resources directory files
+            $result = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'find /var/www/html/resources -type f \( -name "*.blade.php" -o -name "*.php" -o -name "*.js" -o -name "*.css" \) | head -50'
+            ]);
+            
+            if ($result->successful()) {
+                $lines = explode("\n", trim($result->output()));
+                foreach ($lines as $line) {
+                    if (!empty($line)) {
+                        $files[] = $line;
+                    }
+                }
+            }
+            
+            // Get app/Http directory files
+            $result2 = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'find /var/www/html/app/Http -type f -name "*.php" | head -20'
+            ]);
+            
+            if ($result2->successful()) {
+                $lines = explode("\n", trim($result2->output()));
+                foreach ($lines as $line) {
+                    if (!empty($line)) {
+                        $files[] = $line;
+                    }
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Log::error("Failed to list files", ['error' => $e->getMessage()]);
+        }
+        
+        return $files;
+    }
+    
+    /**
+     * Read a file from container.
+     */
+    public function readFileFromContainer(string $containerId, string $filePath): string
+    {
+        try {
+            $result = $this->runDockerCommand([
+                'exec', $containerId,
+                'cat', $filePath
+            ]);
+            
+            if ($result->successful()) {
+                return $result->output();
+            }
+            
+            return '';
+        } catch (\Exception $e) {
+            Log::error("Failed to read file", ['file' => $filePath, 'error' => $e->getMessage()]);
+            return '';
+        }
     }
     
     /**

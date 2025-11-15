@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Services\DockerPreviewService;
 use App\Services\AiGateway;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Mary\Traits\Toast;
 
 class CodeGenerationEngine extends Component
@@ -21,6 +22,9 @@ class CodeGenerationEngine extends Component
     public bool $isGenerating = false;
     public bool $previewReady = false;
     public string $activeTab = 'code';
+    public array $projectFiles = [];
+    public string $selectedFile = '';
+    public string $selectedFilePath = '';
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -61,9 +65,15 @@ class CodeGenerationEngine extends Component
     public function generateCode(string $prompt)
     {
         if (!$this->currentProject) {
+            Log::error('[CODE_GEN] No project selected');
             $this->error('No project selected');
             return;
         }
+        
+        Log::info('[CODE_GEN] Starting generation', [
+            'project_id' => $this->currentProject->id,
+            'prompt' => $prompt
+        ]);
         
         $this->isGenerating = true;
         $this->previewReady = false;
@@ -74,24 +84,43 @@ class CodeGenerationEngine extends Component
         try {
             // Generate code using AI
             $aiGateway = app(AiGateway::class);
+            
+            Log::info('[CODE_GEN] Calling AI Gateway');
             $response = $aiGateway->generateCode($prompt);
+            
+            Log::info('[CODE_GEN] AI Gateway response received', [
+                'success' => $response['success'] ?? false,
+                'has_code' => isset($response['code'])
+            ]);
             
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
                 $this->componentName = $response['component_name'] ?? 'GeneratedComponent';
                 
+                Log::info('[CODE_GEN] Code generated successfully', [
+                    'component_name' => $this->componentName,
+                    'code_length' => strlen($this->generatedCode)
+                ]);
+                
                 // Create preview
+                Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
                 
                 $this->success('Code generated successfully!');
             } else {
+                Log::error('[CODE_GEN] Code generation failed', ['message' => $response['message']]);
                 $this->error('Failed to generate code: ' . $response['message']);
             }
             
         } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Exception during generation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->error('Error generating code: ' . $e->getMessage());
         } finally {
             $this->isGenerating = false;
+            Log::info('[CODE_GEN] Generation finished');
             // Hide the code cube loader
             $this->dispatch('hideCodeCubeLoader');
         }
@@ -100,31 +129,57 @@ class CodeGenerationEngine extends Component
     public function createPreview()
     {
         if (empty($this->generatedCode) || !$this->currentProject) {
+            Log::warning('[CODE_GEN] Cannot create preview', [
+                'has_code' => !empty($this->generatedCode),
+                'has_project' => !empty($this->currentProject)
+            ]);
             return;
         }
         
         try {
             $dockerService = app(DockerPreviewService::class);
             
+            Log::info('[CODE_GEN] Getting or creating Docker container', [
+                'project_id' => $this->currentProject->id
+            ]);
+            
             // Get or create container for the project
             $previewUrl = $dockerService->getOrCreateProjectContainer($this->currentProject);
             
+            Log::info('[CODE_GEN] Container ready', ['preview_url' => $previewUrl]);
+            
             // Inject the generated code
+            Log::info('[CODE_GEN] Injecting code into container', [
+                'component_name' => $this->componentName
+            ]);
+            
             $success = $dockerService->injectCode(
                 $this->currentProject,
                 $this->generatedCode,
                 $this->componentName
             );
             
+            Log::info('[CODE_GEN] Code injection result', ['success' => $success]);
+            
             if ($success) {
                 $this->previewUrl = $previewUrl;
                 $this->previewReady = true;
+                
+                // Load project files
+                $this->loadProjectFiles();
+                
+                Log::info('[CODE_GEN] Preview ready', ['preview_url' => $this->previewUrl]);
                 $this->success('Preview updated!');
             } else {
+                Log::error('[CODE_GEN] Code injection failed');
                 $this->error('Failed to update preview');
             }
             
         } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Exception during preview creation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->error('Error creating preview: ' . $e->getMessage());
         }
     }
@@ -170,9 +225,33 @@ class CodeGenerationEngine extends Component
     
     public function handleGenerateCodeRequest($data)
     {
-        $prompt = $data['prompt'] ?? '';
+        Log::info('[CODE_GEN] Event received', ['data' => $data]);
+        
+        // Handle different event data formats
+        $prompt = '';
+        
+        if (is_array($data)) {
+            // Direct array format: ['prompt' => '...']
+            if (isset($data['prompt'])) {
+                $prompt = $data['prompt'];
+            }
+            // Nested array format: [['prompt' => '...']]
+            elseif (isset($data[0]) && is_array($data[0]) && isset($data[0]['prompt'])) {
+                $prompt = $data[0]['prompt'];
+            }
+            // Single element array: ['prompt']
+            elseif (count($data) === 1 && is_string($data[0])) {
+                $prompt = $data[0];
+            }
+        } elseif (is_string($data)) {
+            $prompt = $data;
+        }
+        
         if ($prompt) {
+            Log::info('[CODE_GEN] Starting code generation', ['prompt' => $prompt]);
             $this->generateCode($prompt);
+        } else {
+            Log::warning('[CODE_GEN] No prompt provided in event data', ['data_type' => gettype($data), 'data' => $data]);
         }
     }
     
@@ -222,6 +301,46 @@ class CodeGenerationEngine extends Component
             
         } catch (\Exception $e) {
             // Silently fail - preview will be created when needed
+        }
+    }
+    
+    public function loadProjectFiles()
+    {
+        if (!$this->currentProject || !$this->currentProject->container_id) {
+            $this->projectFiles = [];
+            return;
+        }
+        
+        Log::info('[CODE_GEN] Loading project files from container');
+        
+        try {
+            $dockerService = app(DockerPreviewService::class);
+            
+            // Get files from resources and app/Http
+            $this->projectFiles = $dockerService->listProjectFiles($this->currentProject->container_id);
+            
+            Log::info('[CODE_GEN] Files loaded', ['count' => count($this->projectFiles)]);
+        } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Failed to load files', ['error' => $e->getMessage()]);
+            $this->projectFiles = [];
+        }
+    }
+    
+    public function selectFile(string $filePath)
+    {
+        $this->selectedFilePath = $filePath;
+        
+        try {
+            $dockerService = app(DockerPreviewService::class);
+            $this->generatedCode = $dockerService->readFileFromContainer(
+                $this->currentProject->container_id,
+                $filePath
+            );
+            
+            Log::info('[CODE_GEN] File loaded', ['file' => $filePath]);
+        } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Failed to read file', ['error' => $e->getMessage()]);
+            $this->error('Failed to load file: ' . $e->getMessage());
         }
     }
     
