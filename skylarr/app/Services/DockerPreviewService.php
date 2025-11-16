@@ -163,12 +163,13 @@ class DockerPreviewService
     }
     
     /**
-     * Parse code to extract component class name and view name.
+     * Parse code to extract component class name, view name, and view content.
      */
     private function parseComponentCode(string $code): array
     {
         $className = null;
         $viewName = null;
+        $viewContent = null;
         
         // Extract class name
         if (preg_match('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends/', $code, $matches)) {
@@ -182,9 +183,24 @@ class DockerPreviewService
             $viewName = $matches[1];
         }
         
+        // Check if view is embedded in heredoc/nowdoc (we need to extract it)
+        // Match: return <<<'blade' ... blade;
+        if (preg_match("/return\s+<<<['\"]?(\w+)['\"]?\s*\n(.*?)\n\1\s*;/s", $code, $matches)) {
+            $viewContent = trim($matches[2]);
+            $kebabName = $this->toKebabCase($className ?? 'component');
+            // Remove the heredoc from the component code and replace with view() call
+            $code = preg_replace(
+                "/return\s+<<<['\"]?\w+['\"]?\s*\n.*?\n\w+\s*;/s",
+                "return view('livewire.{$kebabName}');",
+                $code
+            );
+        }
+        
         return [
             'class_name' => $className,
             'view_name' => $viewName,
+            'view_content' => $viewContent,
+            'cleaned_code' => $code, // Code with heredoc removed
         ];
     }
     
@@ -216,15 +232,30 @@ class DockerPreviewService
                 throw new \Exception("Generated code is not a valid Laravel Livewire component. Only Laravel Livewire components are supported.");
             }
             
-            // Parse the code to extract class name and view name
+            // Parse the code to extract class name, view name, and view content
             $parsed = $this->parseComponentCode($code);
             $actualClassName = $parsed['class_name'] ?? $componentName;
             $viewName = $parsed['view_name'];
+            $viewContent = $parsed['view_content'];
+            $cleanedCode = $parsed['cleaned_code'] ?? $code;
             
             // Ensure component name matches the actual class name
             if ($parsed['class_name']) {
                 $componentName = $parsed['class_name'];
             }
+            
+            // Determine view name - use kebab-case of component name if not specified
+            $kebabName = $this->toKebabCase($componentName);
+            if (!$viewName) {
+                $viewName = "livewire.{$kebabName}";
+            }
+            
+            // Extract view path (e.g., 'livewire.my-component' -> 'livewire/my-component.blade.php')
+            $viewPath = str_replace('.', '/', $viewName);
+            if (!str_ends_with($viewPath, '.blade.php')) {
+                $viewPath .= '.blade.php';
+            }
+            $fullViewPath = "/var/www/html/resources/views/{$viewPath}";
             
             // Create component file in app/Livewire/ (Laravel 11 convention)
             $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
@@ -233,63 +264,49 @@ class DockerPreviewService
                 'sh', '-c', "mkdir -p /var/www/html/app/Livewire"
             ]);
             
-            // Write the component code
-            $escapedCode = escapeshellarg($code);
+            // Ensure render() method uses view() instead of heredoc
+            if (!preg_match("/return\s+view\(['\"]/", $cleanedCode)) {
+                // Replace any heredoc/nowdoc with proper view() call
+                $cleanedCode = preg_replace(
+                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?\w+['\"]?.*?;/s",
+                    "public function render()\n    {\n        return view('livewire.{$kebabName}');\n    }",
+                    $cleanedCode
+                );
+            }
+            
+            // Write the component code (without embedded view)
+            $escapedCode = escapeshellarg($cleanedCode);
             $this->runDockerCommand([
                 'exec', $project->container_id,
                 'sh', '-c', "echo {$escapedCode} > {$componentPath}"
             ]);
             
-            // If view name is specified, create the view file
-            if ($viewName) {
-                // Extract view path (e.g., 'livewire.my-component' -> 'livewire/my-component.blade.php')
-                $viewPath = str_replace('.', '/', $viewName);
-                if (!str_ends_with($viewPath, '.blade.php')) {
-                    $viewPath .= '.blade.php';
-                }
-                $fullViewPath = "/var/www/html/resources/views/{$viewPath}";
-                
-                // Create view directory if needed
-                $viewDir = dirname($fullViewPath);
-                $this->runDockerCommand([
-                    'exec', $project->container_id,
-                    'sh', '-c', "mkdir -p {$viewDir}"
-                ]);
-                
-                // Create a basic view file if it doesn't exist
-                $kebabName = $this->toKebabCase($componentName);
-                $viewContent = <<<BLADE
-<div>
-    <h2 class="text-2xl font-bold mb-4">{{ \$componentName ?? '{$componentName}' }}</h2>
-    <!-- Component view content -->
-</div>
-BLADE;
-                $escapedView = escapeshellarg($viewContent);
-                $this->runDockerCommand([
-                    'exec', $project->container_id,
-                    'sh', '-c', "echo {$escapedView} > {$fullViewPath}"
-                ]);
+            // Create view directory if needed
+            $viewDir = dirname($fullViewPath);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "mkdir -p {$viewDir}"
+            ]);
+            
+            // Create the view file with extracted content or default
+            if ($viewContent) {
+                // Use extracted view content from heredoc
+                $finalViewContent = $viewContent;
             } else {
-                // Create default view if no view specified
-                $kebabName = $this->toKebabCase($componentName);
-                $defaultViewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
-                $this->runDockerCommand([
-                    'exec', $project->container_id,
-                    'sh', '-c', "mkdir -p /var/www/html/resources/views/livewire"
-                ]);
-                
-                $viewContent = <<<BLADE
+                // Create a basic default view
+                $finalViewContent = <<<BLADE
 <div>
     <h2 class="text-2xl font-bold mb-4">{{ \$componentName ?? '{$componentName}' }}</h2>
     <!-- Component view content -->
 </div>
 BLADE;
-                $escapedView = escapeshellarg($viewContent);
-                $this->runDockerCommand([
-                    'exec', $project->container_id,
-                    'sh', '-c', "echo {$escapedView} > {$defaultViewPath}"
-                ]);
             }
+            
+            $escapedView = escapeshellarg($finalViewContent);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "echo {$escapedView} > {$fullViewPath}"
+            ]);
             
             // Register the component in the container's service provider
             $this->registerComponentInContainer($project->container_id, $componentName);

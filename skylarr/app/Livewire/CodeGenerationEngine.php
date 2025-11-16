@@ -23,6 +23,7 @@ class CodeGenerationEngine extends Component
     public bool $previewReady = false;
     public string $activeTab = 'preview';
     public array $projectFiles = [];
+    public array $projectFilesTree = [];
     public string $selectedFile = '';
     public string $selectedFilePath = '';
     
@@ -334,6 +335,7 @@ class CodeGenerationEngine extends Component
     {
         if (!$this->currentProject || !$this->currentProject->container_id) {
             $this->projectFiles = [];
+            $this->projectFilesTree = [];
             return;
         }
         
@@ -345,11 +347,58 @@ class CodeGenerationEngine extends Component
             // Get files from resources and app/Http
             $this->projectFiles = $dockerService->listProjectFiles($this->currentProject->container_id);
             
+            // Organize files into a tree structure
+            $this->projectFilesTree = $this->organizeFilesIntoTree($this->projectFiles);
+            
             Log::info('[CODE_GEN] Files loaded', ['count' => count($this->projectFiles)]);
         } catch (\Exception $e) {
             Log::error('[CODE_GEN] Failed to load files', ['error' => $e->getMessage()]);
             $this->projectFiles = [];
+            $this->projectFilesTree = [];
         }
+    }
+    
+    /**
+     * Organize files into a tree structure by directory.
+     */
+    private function organizeFilesIntoTree(array $files): array
+    {
+        $tree = [];
+        
+        foreach ($files as $file) {
+            // Remove /var/www/html prefix
+            $relativePath = str_replace('/var/www/html/', '', $file);
+            $parts = explode('/', $relativePath);
+            
+            $current = &$tree;
+            $path = '';
+            
+            // Build nested structure
+            for ($i = 0; $i < count($parts) - 1; $i++) {
+                $part = $parts[$i];
+                $path .= ($path ? '/' : '') . $part;
+                
+                if (!isset($current[$part])) {
+                    $current[$part] = [
+                        'type' => 'folder',
+                        'path' => '/var/www/html/' . $path,
+                        'children' => []
+                    ];
+                }
+                
+                $current = &$current[$part]['children'];
+            }
+            
+            // Add file
+            $filename = end($parts);
+            $current[$filename] = [
+                'type' => 'file',
+                'path' => $file,
+                'name' => $filename
+            ];
+        }
+        
+        return $tree;
     }
     
     public function selectFile(string $filePath)

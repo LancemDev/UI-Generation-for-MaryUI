@@ -113,17 +113,37 @@ CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:
 
 FORBIDDEN: React, Vue, Angular, Svelte, Next.js, Nuxt, JavaScript, TypeScript, JSX, TSX, Python, Ruby, Java, or any non-PHP code.
 
-REQUIRED FORMAT:
+REQUIRED FORMAT - SEPARATE PHP AND BLADE FILES:
+The component class MUST use view() method, NOT heredoc/nowdoc strings.
+
+CORRECT FORMAT:
 <?php
 namespace App\\Livewire;
 use Livewire\\Component;
+
 class MyComponent extends Component
 {{
+    public $field1;
+    public $field2;
+
+    public function submit()
+    {{
+        $this->validate([
+            'field1' => 'required',
+            'field2' => 'required',
+        ]);
+        // Handle submission
+    }}
+
     public function render()
     {{
         return view('livewire.my-component');
     }}
-}}"""
+}}
+
+The view file (livewire/my-component.blade.php) will be created separately.
+DO NOT use heredoc (<<<'blade') or nowdoc (<<<'BLADE') in the render() method.
+ALWAYS return view('livewire.component-name') where component-name is kebab-case of the class name."""
 
     completion = client.chat.completions.create(
         model=selected_model,

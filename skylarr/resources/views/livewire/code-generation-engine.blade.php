@@ -43,15 +43,15 @@
             <div class="flex-1 flex p-4 gap-4" style="min-height: 0;">
                 <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto">
                     <h4 class="font-semibold text-sm mb-2">Project Files</h4>
-                    @if(count($projectFiles) > 0)
-                        <div class="space-y-1">
-                            @foreach($projectFiles as $file)
-                                <button 
-                                    wire:click="selectFile('{{ $file }}')" 
-                                    class="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded {{ $selectedFilePath === $file ? 'bg-blue-100 text-blue-800' : '' }}"
-                                    title="{{ $file }}">
-                                    {{ basename($file) }}
-                                </button>
+                    @if(count($projectFilesTree) > 0)
+                        <div class="space-y-0.5">
+                            @foreach($projectFilesTree as $key => $item)
+                                @include('livewire.partials.file-tree-item', [
+                                    'item' => $item,
+                                    'key' => $key,
+                                    'level' => 0,
+                                    'selectedFilePath' => $selectedFilePath
+                                ])
                             @endforeach
                         </div>
                     @else
@@ -88,21 +88,44 @@
         @if($activeTab === 'preview')
             @if($previewReady && $previewUrl)
                 <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;">
-                    {{-- Iframe Error Banner --}}
-                    <div id="iframe-error-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
-                        <div class="flex items-center gap-2 text-sm text-yellow-800">
-                            <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
-                            <span>Preview blocked by browser. Click to open in new window.</span>
+                    {{-- Preview Controls Bar --}}
+                    <div class="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-gray-600">Preview URL:</span>
+                            <code class="text-xs bg-white px-2 py-1 rounded border">{{ $previewUrl }}</code>
                         </div>
                         <a 
                             href="{{ $previewUrl }}" 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            class="btn btn-xs btn-primary">
-                            Open Preview
+                            class="btn btn-sm btn-primary flex items-center gap-2">
+                            <x-icon name="o-arrow-top-right-on-square" class="w-4 h-4" />
+                            Open in New Window
                         </a>
                     </div>
-                    <div class="flex-1 bg-white overflow-hidden" style="min-height: 0; height: 100%;">
+                    
+                    {{-- Iframe Error Banner (shown if blocked) --}}
+                    <div id="iframe-error-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-3">
+                        <div class="flex items-start gap-3">
+                            <x-icon name="o-exclamation-triangle" class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-yellow-800 mb-1">Preview blocked by browser security settings</p>
+                                <p class="text-xs text-yellow-700 mb-2">
+                                    Zen browser is blocking localhost iframes. To fix this:
+                                </p>
+                                <ol class="text-xs text-yellow-700 list-decimal list-inside space-y-1 mb-2">
+                                    <li>Open Zen browser settings: <code class="bg-yellow-100 px-1 rounded">zen://settings/security</code></li>
+                                    <li>Find "X-Frame-Options" or "Frame Options" settings</li>
+                                    <li>Add <code class="bg-yellow-100 px-1 rounded">localhost</code> to allowed origins, or disable blocking for localhost</li>
+                                </ol>
+                                <p class="text-xs text-yellow-700">
+                                    Alternatively, click "Open in New Window" above to view the preview.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 bg-white overflow-hidden relative" style="min-height: 0; height: 100%;">
                         <iframe 
                             id="preview-iframe"
                             src="{{ $previewUrl }}" 
@@ -202,4 +225,8 @@
             </div>
         </div>
     </div>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
 </div>
