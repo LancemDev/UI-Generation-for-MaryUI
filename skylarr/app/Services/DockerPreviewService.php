@@ -226,15 +226,15 @@ class DockerPreviewService
         
         // Step 7: Check if view is embedded in heredoc/nowdoc (we need to extract it)
         // Match: return <<<'blade' ... blade;
-        // Use a pattern that ensures the delimiter is at the start of a line (not in content)
-        // Pattern: match any character except when it's a newline followed by delimiter and semicolon
-        if (preg_match("/return\s+<<<['\"]?(\w+)['\"]?\s*\n((?:[^\n]|\n(?!\1\s*;))*)\n\1\s*;/s", $code, $matches)) {
+        // Pattern ensures the closing delimiter matches the opening delimiter and is at start of line
+        // Uses negative lookahead to prevent matching delimiter word that appears in content
+        if (preg_match("/return\s+<<<['\"]?(\w+)['\"]?\s*\n((?:(?!\n\1\s*;).)*)\n\1\s*;/s", $code, $matches)) {
             $viewContent = trim($matches[2]);
             $kebabName = $this->toKebabCase($className ?? 'component');
             // Remove the heredoc from the component code and replace with view() call
-            // Use the same improved pattern for replacement
+            // Use the same improved pattern for replacement - captures delimiter to ensure match
             $code = preg_replace(
-                "/return\s+<<<['\"]?(\w+)['\"]?\s*\n(?:[^\n]|\n(?!\1\s*;))*\n\1\s*;/s",
+                "/return\s+<<<['\"]?(\w+)['\"]?\s*\n(?:(?!\n\1\s*;).)*\n\1\s*;/s",
                 "return view('livewire.{$kebabName}');",
                 $code
             );
@@ -374,10 +374,11 @@ class DockerPreviewService
             // Ensure render() method uses view() instead of heredoc
             if (!preg_match("/return\s+view\(['\"]/", $cleanedCode)) {
                 $kebabViewName = $viewName ? str_replace('livewire.', '', $viewName) : $kebabName;
-                // Use improved heredoc pattern that prevents premature matching
+                // Use improved heredoc pattern that captures delimiter and ensures proper matching
                 // Match: public function render() { ... return <<<'DELIMITER' ... DELIMITER; }
+                // Pattern uses negative lookahead to prevent matching delimiter word in content
                 $cleanedCode = preg_replace(
-                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?(\w+)['\"]?\s*\n(?:[^\n]|\n(?!\1\s*;))*\n\1\s*;/s",
+                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?(\w+)['\"]?\s*\n(?:(?!\n\1\s*;).)*\n\1\s*;/s",
                     "public function render()\n    {\n        return view('livewire.{$kebabViewName}');\n    }",
                     $cleanedCode
                 );
