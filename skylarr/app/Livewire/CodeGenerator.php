@@ -36,7 +36,7 @@ class CodeGenerator extends Component
 
     public function mount()
     {
-        $this->projects = Project::where('user_id', Auth::id())->get();
+        $this->loadProjects();
         
         if ($this->projects->count() > 0) {
             // Auto-select the first project if projects exist
@@ -47,6 +47,43 @@ class CodeGenerator extends Component
             // Show project creation modal if no projects exist
             $this->projectSelectionModal = true;
         }
+    }
+    
+    /**
+     * Load projects for the current user.
+     */
+    public function loadProjects()
+    {
+        $this->projects = Project::where('user_id', Auth::id())
+            ->orderBy('updated_at', 'desc')
+            ->get();
+    }
+    
+    /**
+     * Switch to a different project.
+     */
+    public function switchProject($projectId)
+    {
+        $project = Project::where('user_id', Auth::id())
+            ->find($projectId);
+        
+        if ($project) {
+            $this->selectedProject = $project;
+            $this->selectedProjectId = $project->id;
+            $this->projectSelectionModal = false;
+            $this->success("Switched to project: {$project->name}");
+        } else {
+            $this->error('Project not found');
+        }
+    }
+    
+    /**
+     * Open project selection modal.
+     */
+    public function openProjectSelection()
+    {
+        $this->loadProjects();
+        $this->projectSelectionModal = true;
     }
 
     public function createProject()
@@ -79,7 +116,7 @@ class CodeGenerator extends Component
         $this->projectDescription = '';
         
         // Refresh projects list
-        $this->projects = Project::where('user_id', Auth::id())->get();
+        $this->loadProjects();
         
         $this->success('Project created successfully');
     }

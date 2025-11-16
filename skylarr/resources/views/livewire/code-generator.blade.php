@@ -6,20 +6,44 @@
     <x-modal wire:model="projectSelectionModal">
         <x-header title="Project Selection" subtitle="Select existing project or create new project" />
 
-        <x-form wire:submit="submitProjectCreation">
-            <x-select label="Projects" :options="$projects" single>
-                <x-slot:prepend>
-                    <x-button icon="o-chevron-double-right" class="join-item" />
-                </x-slot:prepend>
-                <x-slot:append>
-                    <x-button wire:click="openCreateProjectModal" label="Create" icon="o-plus" class="join-item btn-primary" />
-                </x-slot:append>
-            </x-select>
+        <div class="space-y-4">
+            @if($projects && $projects->count() > 0)
+                <div class="space-y-2">
+                    <label class="label">
+                        <span class="label-text font-medium">Select a Project</span>
+                    </label>
+                    <div class="space-y-1 max-h-60 overflow-y-auto">
+                        @foreach($projects as $project)
+                            <button
+                                wire:click="switchProject({{ $project->id }})"
+                                class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors {{ $selectedProjectId == $project->id ? 'border-blue-500 bg-blue-50' : '' }}"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium text-gray-900">{{ $project->name }}</p>
+                                        @if($project->description)
+                                            <p class="text-sm text-gray-500 mt-1">{{ \Illuminate\Support\Str::limit($project->description, 50) }}</p>
+                                        @endif
+                                    </div>
+                                    @if($selectedProjectId == $project->id)
+                                        <x-icon name="o-check-circle" class="w-5 h-5 text-blue-600" />
+                                    @endif
+                                </div>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
-            <x-slot:actions>
-                <x-button label="Proceed" type="submit" spinner="submitProjectCreation" icon="o-check-circle" />
-            </x-slot:actions>
-        </x-form>
+            <div class="pt-4 border-t border-gray-200">
+                <x-button 
+                    wire:click="openCreateProjectModal" 
+                    label="Create New Project" 
+                    icon="o-plus" 
+                    class="btn-primary w-full" 
+                />
+            </div>
+        </div>
     </x-modal>
 
     <x-modal wire:model="createNewProjectModal">
@@ -35,18 +59,83 @@
 
     {{-- Main Split Layout with Resizable Panels --}}
     <div class="flex-1 flex flex-col overflow-hidden" id="main-container">
-        {{-- Top Bar with Project Name --}}
+        {{-- Top Bar with Project Selector --}}
         <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
             <div class="flex items-center gap-4">
                 <h2 class="text-lg font-semibold text-gray-900">Code Generator</h2>
             </div>
-            @if($selectedProject)
-                <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800 font-medium">
-                        {{ $selectedProject->name }}
-                    </span>
-                </div>
-            @endif
+            <div class="flex items-center gap-3">
+                @if($selectedProject)
+                    {{-- Project Selector Dropdown --}}
+                    <div class="relative" x-data="{ open: false }">
+                        <button
+                            @click="open = !open"
+                            class="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 hover:border-blue-500 transition-colors"
+                        >
+                            <x-icon name="o-folder" class="w-4 h-4 text-gray-500" />
+                            <span class="font-medium text-gray-900">{{ $selectedProject->name }}</span>
+                            <x-icon name="o-chevron-down" class="w-4 h-4 text-gray-400" />
+                        </button>
+                        
+                        {{-- Dropdown Menu --}}
+                        <div
+                            x-show="open"
+                            @click.away="open = false"
+                            x-cloak
+                            class="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto"
+                        >
+                            <div class="p-2">
+                                <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200 mb-2">
+                                    Projects ({{ $projects->count() }})
+                                </div>
+                                
+                                @if($projects && $projects->count() > 0)
+                                    <div class="space-y-1">
+                                        @foreach($projects as $project)
+                                            <button
+                                                wire:click="switchProject({{ $project->id }})"
+                                                @click="open = false"
+                                                class="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors {{ $selectedProjectId == $project->id ? 'bg-blue-50 text-blue-900' : 'text-gray-700' }}"
+                                            >
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="font-medium truncate">{{ $project->name }}</p>
+                                                        @if($project->description)
+                                                            <p class="text-xs text-gray-500 truncate mt-0.5">{{ \Illuminate\Support\Str::limit($project->description, 40) }}</p>
+                                                        @endif
+                                                    </div>
+                                                    @if($selectedProjectId == $project->id)
+                                                        <x-icon name="o-check-circle" class="w-4 h-4 text-blue-600 ml-2 flex-shrink-0" />
+                                                    @endif
+                                                </div>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                
+                                <div class="mt-2 pt-2 border-t border-gray-200">
+                                    <button
+                                        wire:click="openCreateProjectModal"
+                                        @click="open = false"
+                                        class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                    >
+                                        <x-icon name="o-plus" class="w-4 h-4" />
+                                        <span>Create New Project</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <button
+                        wire:click="openProjectSelection"
+                        class="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 hover:border-blue-500 transition-colors"
+                    >
+                        <x-icon name="o-folder-open" class="w-4 h-4 text-gray-500" />
+                        <span class="font-medium text-gray-700">Select Project</span>
+                    </button>
+                @endif
+            </div>
         </div>
 
         {{-- Main Content Area --}}
@@ -56,7 +145,7 @@
                 
                 <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
                     @if($selectedProject)
-                        <livewire:chat-interface :project-id="$selectedProject->id" />
+                        <livewire:chat-interface :project-id="$selectedProject->id" :key="'chat-' . $selectedProject->id" />
                     @else
                         <div class="flex-1 flex items-center justify-center text-gray-500">
                             <div class="text-center">
@@ -75,7 +164,7 @@
             <div class="flex-1 flex flex-col" id="code-panel">
                 <div class="flex-1">
                     @if($selectedProject)
-                        <livewire:code-generation-engine :project-id="$selectedProject->id" />
+                        <livewire:code-generation-engine :project-id="$selectedProject->id" :key="'code-' . $selectedProject->id" />
                     @else
                         <div class="flex-1 flex items-center justify-center text-gray-500">
                             <div class="text-center">
