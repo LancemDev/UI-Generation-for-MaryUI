@@ -22,7 +22,7 @@
             <div class="flex items-center bg-secondary-100 rounded-lg p-1">
                 <button 
                     wire:click="$set('activeTab', 'code')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'shadow-sm' : 'hover:text-secondary-500' }}">
+                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
                     <x-icon name="o-code-bracket" class="w-4 h-4 mr-1" />
                     Code
                 </button>
