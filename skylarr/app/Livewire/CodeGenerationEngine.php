@@ -122,11 +122,17 @@ class CodeGenerationEngine extends Component
                 // Dispatch event to refresh notifications
                 $this->dispatch('notification-created');
                 
-                // Dispatch as browser event for sibling components (ChatInterface listens via Alpine.js)
+                // Dispatch Livewire event (for Livewire listeners)
                 $this->dispatch('code-generation-complete', [
                     'component_name' => $this->componentName,
                     'message' => 'Code generation completed successfully!'
                 ]);
+                
+                // Dispatch browser event for Alpine.js listeners (sibling components)
+                $this->js("window.dispatchEvent(new CustomEvent('code-generation-complete', { detail: " . json_encode([
+                    'component_name' => $this->componentName,
+                    'message' => 'Code generation completed successfully!'
+                ]) . " }))");
                 
                 Log::info('[CODE_GEN] Success events dispatched', [
                     'component_name' => $this->componentName,
@@ -152,10 +158,15 @@ class CodeGenerationEngine extends Component
                 
                 $this->error('Failed to generate code: ' . $errorMessage);
                 
-                // Dispatch as browser event for sibling components
+                // Dispatch Livewire event (for Livewire listeners)
                 $this->dispatch('code-generation-failed', [
                     'message' => $errorMessage
                 ]);
+                
+                // Dispatch browser event for Alpine.js listeners (sibling components)
+                $this->js("window.dispatchEvent(new CustomEvent('code-generation-failed', { detail: " . json_encode([
+                    'message' => $errorMessage
+                ]) . " }))");
             }
             
         } catch (\Exception $e) {
@@ -178,10 +189,15 @@ class CodeGenerationEngine extends Component
             
             $this->error('Error generating code: ' . $errorMessage);
             
-            // Dispatch as browser event for sibling components
+            // Dispatch Livewire event (for Livewire listeners)
             $this->dispatch('code-generation-failed', [
                 'message' => $errorMessage
             ]);
+            
+            // Dispatch browser event for Alpine.js listeners (sibling components)
+            $this->js("window.dispatchEvent(new CustomEvent('code-generation-failed', { detail: " . json_encode([
+                'message' => $errorMessage
+            ]) . " }))");
         } finally {
             $this->isGenerating = false;
             Log::info('[CODE_GEN] Generation finished');
