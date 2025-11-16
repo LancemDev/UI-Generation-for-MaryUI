@@ -5,6 +5,7 @@ namespace App\Livewire\CustomComponents;
 use Livewire\Component;
 use Mary\Traits\Toast;
 use App\Models\Project;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Auth;
 
 class NavigationBar extends Component
@@ -14,10 +15,13 @@ class NavigationBar extends Component
     public $projects = [];
     public $selectedProjectId = null;
     public $selectedProject = null;
+    public $notifications = [];
+    public $unreadCount = 0;
 
     public function mount($projects = null, $selectedProjectId = null, $selectedProject = null)
     {
         $this->updateProjectData($projects, $selectedProjectId, $selectedProject);
+        $this->loadNotifications();
     }
 
     /**
@@ -32,6 +36,7 @@ class NavigationBar extends Component
 
     protected $listeners = [
         'project-updated' => 'refreshProjectData',
+        'notification-created' => 'loadNotifications',
     ];
 
     /**
@@ -80,6 +85,73 @@ class NavigationBar extends Component
     public function settings()
     {
         return redirect()->route('settings');
+    }
+
+    /**
+     * Load projects for the current user.
+     */
+    public function loadProjects()
+    {
+        if (!Auth::check()) {
+            $this->projects = [];
+            return;
+        }
+
+        $this->projects = Project::where('user_id', Auth::id())
+            ->orderBy('updated_at', 'desc')
+            ->get();
+    }
+
+    /**
+     * Load notifications for the current user.
+     */
+    public function loadNotifications()
+    {
+        if (!Auth::check()) {
+            $this->notifications = [];
+            $this->unreadCount = 0;
+            return;
+        }
+
+        $this->notifications = Notification::where('user_id', Auth::id())
+            ->recent(20)
+            ->with('project')
+            ->get()
+            ->toArray();
+
+        $this->unreadCount = Notification::where('user_id', Auth::id())
+            ->unread()
+            ->count();
+    }
+
+
+    /**
+     * Mark notification as read.
+     */
+    public function markAsRead($notificationId)
+    {
+        $notification = Notification::where('user_id', Auth::id())
+            ->find($notificationId);
+
+        if ($notification) {
+            $notification->markAsRead();
+            $this->loadNotifications();
+        }
+    }
+
+    /**
+     * Mark all notifications as read.
+     */
+    public function markAllAsRead()
+    {
+        Notification::where('user_id', Auth::id())
+            ->unread()
+            ->update([
+                'read' => true,
+                'read_at' => now(),
+            ]);
+
+        $this->loadNotifications();
     }
     
     public function render()

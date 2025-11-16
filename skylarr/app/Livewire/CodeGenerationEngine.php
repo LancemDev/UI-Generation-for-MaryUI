@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Project;
 use App\Services\DockerPreviewService;
 use App\Services\AiGateway;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Mary\Traits\Toast;
@@ -110,6 +111,17 @@ class CodeGenerationEngine extends Component
                 Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
                 
+                // Create success notification
+                NotificationService::success(
+                    'Component Generated',
+                    "Successfully generated component: {$this->componentName}",
+                    $this->currentProject->id,
+                    ['component_name' => $this->componentName]
+                );
+                
+                // Dispatch event to refresh notifications
+                $this->dispatch('notification-created');
+                
                 // Send message to chat interface
                 $this->dispatch('code-generation-complete', [
                     'component_name' => $this->componentName,
@@ -118,25 +130,51 @@ class CodeGenerationEngine extends Component
                 
                 $this->success('Code generated successfully!');
             } else {
-                Log::error('[CODE_GEN] Code generation failed', ['message' => $response['message']]);
-                $this->error('Failed to generate code: ' . $response['message']);
+                $errorMessage = $response['message'] ?? 'Unknown error occurred';
+                Log::error('[CODE_GEN] Code generation failed', ['message' => $errorMessage]);
+                
+                // Create error notification
+                NotificationService::error(
+                    'Code Generation Failed',
+                    $errorMessage,
+                    $this->currentProject->id ?? null,
+                    ['prompt' => $prompt]
+                );
+                
+                // Dispatch event to refresh notifications
+                $this->dispatch('notification-created');
+                
+                $this->error('Failed to generate code: ' . $errorMessage);
                 
                 // Send error message to chat interface
                 $this->dispatch('code-generation-failed', [
-                    'message' => $response['message'] ?? 'Unknown error occurred'
+                    'message' => $errorMessage
                 ]);
             }
             
         } catch (\Exception $e) {
+            $errorMessage = $e->getMessage();
             Log::error('[CODE_GEN] Exception during generation', [
-                'error' => $e->getMessage(),
+                'error' => $errorMessage,
                 'trace' => $e->getTraceAsString()
             ]);
-            $this->error('Error generating code: ' . $e->getMessage());
+            
+            // Create error notification
+            NotificationService::error(
+                'Code Generation Error',
+                $errorMessage,
+                $this->currentProject->id ?? null,
+                ['prompt' => $prompt, 'exception' => get_class($e)]
+            );
+            
+            // Dispatch event to refresh notifications
+            $this->dispatch('notification-created');
+            
+            $this->error('Error generating code: ' . $errorMessage);
             
             // Send error message to chat interface
             $this->dispatch('code-generation-failed', [
-                'message' => $e->getMessage()
+                'message' => $errorMessage
             ]);
         } finally {
             $this->isGenerating = false;
@@ -199,6 +237,18 @@ class CodeGenerationEngine extends Component
                 $this->success('Component generated, validated, and preview ready!');
             } else {
                 Log::error('[CODE_GEN] Code injection failed');
+                
+                // Create error notification for preview failure
+                NotificationService::error(
+                    'Preview Creation Failed',
+                    'Failed to generate component. The code may have validation errors or the container may need to be restarted.',
+                    $this->currentProject->id ?? null,
+                    ['component_name' => $this->componentName ?? 'Unknown']
+                );
+                
+                // Dispatch event to refresh notifications
+                $this->dispatch('notification-created');
+                
                 $this->error('Failed to generate component. The code may have validation errors or the container may need to be restarted.');
             }
             
