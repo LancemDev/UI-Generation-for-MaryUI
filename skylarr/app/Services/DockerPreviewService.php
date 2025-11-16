@@ -202,9 +202,32 @@ class DockerPreviewService
         }
         
         // Step 3: Remove any text after the closing brace of the class
-        // Find the last closing brace that matches the class structure
-        if (preg_match('/(.*?class\s+\w+\s+extends\s+Component\s*\{.*?\})\s*$/s', $code, $matches)) {
-            $code = $matches[1];
+        // Find the class declaration and extract everything up to the matching closing brace
+        // Use brace counting to handle nested braces correctly (methods with if-statements, loops, etc.)
+        if (preg_match('/class\s+\w+\s+extends\s+Component\s*\{/s', $code, $matches, PREG_OFFSET_CAPTURE)) {
+            $classStartPos = $matches[0][1];
+            $braceStartPos = $classStartPos + strlen($matches[0][0]) - 1; // Position of opening brace '{'
+            
+            // Count braces to find the matching closing brace
+            // Start counting from the opening brace (braceCount = 1)
+            $braceCount = 1;
+            $pos = $braceStartPos + 1;
+            $codeLength = strlen($code);
+            
+            while ($pos < $codeLength) {
+                $char = $code[$pos];
+                if ($char === '{') {
+                    $braceCount++;
+                } elseif ($char === '}') {
+                    $braceCount--;
+                    if ($braceCount === 0) {
+                        // Found the matching closing brace for the class
+                        $code = substr($code, 0, $pos + 1);
+                        break;
+                    }
+                }
+                $pos++;
+            }
         }
         
         // Step 4: Clean up the code - remove any remaining markdown or explanatory text
