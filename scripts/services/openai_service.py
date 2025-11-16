@@ -25,12 +25,52 @@ def _get_client() -> OpenAI:
     return _client
 
 
+def extract_component_name(prompt: str, code: str = "") -> str:
+    """Extract a meaningful component name from prompt or code."""
+    import re
+    
+    # First, try to extract from code if provided
+    if code:
+        # Look for class definition: class ComponentName extends
+        match = re.search(r'class\s+([A-Z][a-zA-Z0-9]*)\s+extends', code)
+        if match:
+            return match.group(1)
+    
+    # Extract from prompt
+    prompt_lower = prompt.lower()
+    
+    # Common patterns
+    patterns = [
+        r'(?:create|build|generate|make)\s+(?:a\s+)?(?:simple\s+)?(?:complex\s+)?(?:basic\s+)?([a-z]+)\s+(?:component|form|modal|table|dashboard|page|view)',
+        r'([a-z]+)\s+(?:component|form|modal|table|dashboard|page|view)',
+        r'(?:a|an|the)\s+([a-z]+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, prompt_lower)
+        if match:
+            name = match.group(1)
+            # Convert to PascalCase
+            return name.capitalize()
+    
+    # Fallback: use first meaningful word
+    words = re.findall(r'\b[a-z]{3,}\b', prompt_lower)
+    if words:
+        # Skip common words
+        skip_words = {'create', 'build', 'generate', 'make', 'component', 'form', 'modal', 'table', 'with', 'that', 'this', 'the', 'a', 'an'}
+        for word in words:
+            if word not in skip_words:
+                return word.capitalize()
+    
+    return "Component"
+
+
 def generate_code(
     prompt: str,
     model: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 1024,
-) -> str:
+) -> tuple[str, str]:
     """
     Generate code from a natural language prompt using OpenAI chat completions with GNN context.
 
@@ -57,25 +97,53 @@ MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI
 
 {gnn_context}
 
-CRITICAL INSTRUCTIONS:
-1. Generate ONLY valid PHP code - a complete Livewire component class
-2. The code must start with <?php
-3. Return a complete PHP class with namespace, imports, and methods
-4. Do NOT include markdown code blocks (```php or ```)
-5. Do NOT include explanations before or after the code
-6. Return ONLY the code, nothing else
+CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:
+1. Generate ONLY Laravel Livewire component code - NO other frameworks (React, Vue, Angular, Svelte, etc.)
+2. Generate ONLY PHP code - NO JavaScript, TypeScript, Python, or any other language
+3. The code MUST be a Livewire component that extends Livewire\\Component
+4. The code MUST use namespace App\\Livewire
+5. The code MUST use Laravel Blade syntax for views
+6. The code MUST use MaryUI components (x-form, x-input, x-button, etc.)
+7. The code must start with <?php
+8. Return a complete PHP class with namespace, imports, and methods
+9. Do NOT include markdown code blocks (```php or ```)
+10. Do NOT include explanations before or after the code
+11. Do NOT generate React components, Vue components, or any frontend framework code
+12. Return ONLY Laravel Livewire PHP code, nothing else
 
-Example format:
+FORBIDDEN: React, Vue, Angular, Svelte, Next.js, Nuxt, JavaScript, TypeScript, JSX, TSX, Python, Ruby, Java, or any non-PHP code.
+
+REQUIRED FORMAT - SEPARATE PHP AND BLADE FILES:
+The component class MUST use view() method, NOT heredoc/nowdoc strings.
+
+CORRECT FORMAT:
 <?php
 namespace App\\Livewire;
 use Livewire\\Component;
+
 class MyComponent extends Component
 {{
+    public $field1;
+    public $field2;
+
+    public function submit()
+    {{
+        $this->validate([
+            'field1' => 'required',
+            'field2' => 'required',
+        ]);
+        // Handle submission
+    }}
+
     public function render()
     {{
         return view('livewire.my-component');
     }}
-}}"""
+}}
+
+The view file (livewire/my-component.blade.php) will be created separately.
+DO NOT use heredoc (<<<'blade') or nowdoc (<<<'BLADE') in the render() method.
+ALWAYS return view('livewire.component-name') where component-name is kebab-case of the class name."""
 
     completion = client.chat.completions.create(
         model=selected_model,
@@ -100,7 +168,12 @@ class MyComponent extends Component
             lines = lines[:-1]
         content = "\n".join(lines)
     
-    return content.strip()
+    code = content.strip()
+    
+    # Extract component name from code or prompt
+    component_name = extract_component_name(prompt, code)
+    
+    return code, component_name
 
 
 def stream_chat(
@@ -146,12 +219,15 @@ MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI
 
 {gnn_context}
 
+CRITICAL: This tool ONLY generates Laravel Livewire components. We do NOT support React, Vue, Angular, Svelte, or any other frameworks.
+
 IMPORTANT: When the user asks you to create/build/generate components:
 1. DO NOT show code in the chat response
 2. Instead, acknowledge their request and tell them you're working on it
 3. Example: "I'll create that for you! Working on it now..." or "Building your component now..."
 4. Keep responses short and conversational
-5. The code generation happens in the background - just acknowledge the request"""
+5. The code generation happens in the background - just acknowledge the request
+6. If the user asks for non-Laravel/Livewire code, politely redirect them to Laravel Livewire alternatives"""
         }
         
         # Insert system message at the beginning

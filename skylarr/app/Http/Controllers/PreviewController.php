@@ -236,4 +236,74 @@ class PreviewController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Clean up orphaned containers (containers without database records).
+     */
+    public function cleanupOrphanedContainers(): JsonResponse
+    {
+        try {
+            $cleaned = $this->dockerService->cleanupOrphanedContainers();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Cleaned up {$cleaned} orphaned containers"
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to cleanup orphaned containers: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove container by port number.
+     */
+    public function removeContainerByPort(int $port): JsonResponse
+    {
+        try {
+            $removed = $this->dockerService->removeContainerByPort($port);
+
+            if ($removed) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Container on port {$port} removed successfully"
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => "No container found on port {$port}"
+            ], 404);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove container: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove all Skylarr containers (nuclear option).
+     */
+    public function removeAllContainers(): JsonResponse
+    {
+        try {
+            $removed = $this->dockerService->removeAllSkylarrContainers();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Removed {$removed} Skylarr containers"
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove containers: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

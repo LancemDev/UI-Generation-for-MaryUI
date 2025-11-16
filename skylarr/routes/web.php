@@ -50,6 +50,9 @@ Route::middleware(['auth'])->group(function () {
         
         // Admin cleanup (optional)
         Route::post('preview/cleanup', [PreviewController::class, 'cleanupExpiredContainers'])->name('preview.cleanup');
+        Route::post('preview/cleanup-orphaned', [PreviewController::class, 'cleanupOrphanedContainers'])->name('preview.cleanup-orphaned');
+        Route::delete('preview/port/{port}', [PreviewController::class, 'removeContainerByPort'])->name('preview.remove-by-port');
+        Route::delete('preview/remove-all', [PreviewController::class, 'removeAllContainers'])->name('preview.remove-all');
     });
 });
 

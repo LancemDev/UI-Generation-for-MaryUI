@@ -1,4 +1,10 @@
-<div class="h-full flex flex-col bg-white" style="height: 100%; display: flex; flex-direction: column;">
+<div 
+    class="h-full flex flex-col bg-white" 
+    style="height: 100%; display: flex; flex-direction: column;"
+    x-data=""
+    @code-generation-complete.window="$wire.addCodeGenerationMessage($event.detail)"
+    @code-generation-failed.window="$wire.addCodeGenerationErrorMessage($event.detail)"
+>
     {{-- Chat Messages Area - Scrollable --}}
     <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4" style="min-height: 0; flex: 1 1 auto;">
         @foreach ($messages as $m)
@@ -50,7 +56,7 @@
                         wire:model="message" 
                         placeholder="Type your message here..." 
                         rows="2" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         @if($isStreaming) disabled @endif
                         x-on:keydown.enter.prevent="if (!event.shiftKey && $wire.message.trim()) { $wire.sendMessage(); }"
                     ></textarea>
@@ -58,8 +64,8 @@
                 <button 
                     type="button"
                     wire:click="sendMessage"
-                    class="btn btn-primary px-4 py-2 h-auto flex items-center gap-2 whitespace-nowrap"
-                    @if(!trim($message) || $isStreaming) disabled @endif
+                    class="chat-submit-btn btn btn-primary px-4 py-2 h-auto flex items-center gap-2 whitespace-nowrap"
+                    style="visibility: visible !important; opacity: 1 !important; display: inline-flex !important;"
                 >
                     <x-icon name="o-paper-airplane" class="w-4 h-4" />
                     <span class="hidden sm:inline">Send</span>
@@ -104,6 +110,23 @@
         
         .animate-fade-in {
             animation: fade-in 0.3s ease-out;
+        }
+        
+        /* Ensure submit button is always visible */
+        .chat-submit-btn {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: inline-flex !important;
+        }
+        
+        /* Ensure textarea text is visible */
+        textarea {
+            color: #111827 !important;
+            background-color: #ffffff !important;
+        }
+        
+        textarea::placeholder {
+            color: #9ca3af !important;
         }
     </style>
 

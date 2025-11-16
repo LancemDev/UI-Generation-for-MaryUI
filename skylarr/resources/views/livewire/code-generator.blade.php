@@ -1,25 +1,54 @@
 <div class="h-screen flex flex-col">
     {{-- Navigation Bar --}}
-    <livewire:custom-components.navigation-bar />
+    <livewire:custom-components.navigation-bar 
+        :projects="$projects" 
+        :selected-project-id="$selectedProjectId"
+        :selected-project="$selectedProject"
+        :key="'nav-' . ($selectedProjectId ?? 'none')"
+    />
 
     {{-- Project Selection Modal --}}
     <x-modal wire:model="projectSelectionModal">
         <x-header title="Project Selection" subtitle="Select existing project or create new project" />
 
-        <x-form wire:submit="submitProjectCreation">
-            <x-select label="Projects" :options="$projects" single>
-                <x-slot:prepend>
-                    <x-button icon="o-chevron-double-right" class="join-item" />
-                </x-slot:prepend>
-                <x-slot:append>
-                    <x-button wire:click="openCreateProjectModal" label="Create" icon="o-plus" class="join-item btn-primary" />
-                </x-slot:append>
-            </x-select>
+        <div class="space-y-4">
+            @if($projects && $projects->count() > 0)
+                <div class="space-y-2">
+                    <label class="label">
+                        <span class="label-text font-medium">Select a Project</span>
+                    </label>
+                    <div class="space-y-1 max-h-60 overflow-y-auto">
+                        @foreach($projects as $project)
+                            <button
+                                wire:click="switchProject({{ $project->id }})"
+                                class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors {{ $selectedProjectId == $project->id ? 'border-blue-500 bg-blue-50' : '' }}"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium text-gray-900">{{ $project->name }}</p>
+                                        @if($project->description)
+                                            <p class="text-sm text-gray-500 mt-1">{{ \Illuminate\Support\Str::limit($project->description, 50) }}</p>
+                                        @endif
+                                    </div>
+                                    @if($selectedProjectId == $project->id)
+                                        <x-icon name="o-check-circle" class="w-5 h-5 text-blue-600" />
+                                    @endif
+                                </div>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
-            <x-slot:actions>
-                <x-button label="Proceed" type="submit" spinner="submitProjectCreation" icon="o-check-circle" />
-            </x-slot:actions>
-        </x-form>
+            <div class="pt-4 border-t border-gray-200">
+                <x-button 
+                    wire:click="openCreateProjectModal" 
+                    label="Create New Project" 
+                    icon="o-plus" 
+                    class="btn-primary w-full" 
+                />
+            </div>
+        </div>
     </x-modal>
 
     <x-modal wire:model="createNewProjectModal">
@@ -35,20 +64,6 @@
 
     {{-- Main Split Layout with Resizable Panels --}}
     <div class="flex-1 flex flex-col overflow-hidden" id="main-container">
-        {{-- Top Bar with Project Name --}}
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-            <div class="flex items-center gap-4">
-                <h2 class="text-lg font-semibold text-gray-900">Code Generator</h2>
-            </div>
-            @if($selectedProject)
-                <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800 font-medium">
-                        {{ $selectedProject->name }}
-                    </span>
-                </div>
-            @endif
-        </div>
-
         {{-- Main Content Area --}}
         <div class="flex-1 flex overflow-hidden">
             {{-- Left Panel: Chat Interface (Smaller by default) --}}
@@ -56,7 +71,7 @@
                 
                 <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
                     @if($selectedProject)
-                        <livewire:chat-interface :project-id="$selectedProject->id" />
+                        <livewire:chat-interface :project-id="$selectedProject->id" :key="'chat-' . $selectedProject->id" />
                     @else
                         <div class="flex-1 flex items-center justify-center text-gray-500">
                             <div class="text-center">
@@ -75,7 +90,7 @@
             <div class="flex-1 flex flex-col" id="code-panel">
                 <div class="flex-1">
                     @if($selectedProject)
-                        <livewire:code-generation-engine :project-id="$selectedProject->id" />
+                        <livewire:code-generation-engine :project-id="$selectedProject->id" :key="'code-' . $selectedProject->id" />
                     @else
                         <div class="flex-1 flex items-center justify-center text-gray-500">
                             <div class="text-center">

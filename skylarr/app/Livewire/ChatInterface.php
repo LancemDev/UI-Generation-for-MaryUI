@@ -48,14 +48,32 @@ class ChatInterface extends Component
         }
 
         if (!$thread) {
-            // Try latest thread for this user and project
+            // Try to find the thread with the most recent message for this user and project
             $thread = ChatThread::where('user_id', $userId)
                 ->when($this->projectId, function ($query) {
                     return $query->where('project_id', $this->projectId);
                 })
-                ->orderByDesc('id')
-                ->with(['messages' => function ($q) { $q->orderBy('id'); }])
+                ->whereHas('messages') // Only threads that have messages
+                ->with(['messages' => function ($q) { 
+                    $q->orderBy('id'); // Order messages oldest to newest for display
+                }])
+                ->withMax('messages', 'created_at') // Get the latest message timestamp
+                ->orderByDesc('messages_max_created_at') // Order by most recent message
                 ->first();
+            
+            // If no thread with messages found, try by thread updated_at or created_at
+            if (!$thread) {
+                $thread = ChatThread::where('user_id', $userId)
+                    ->when($this->projectId, function ($query) {
+                        return $query->where('project_id', $this->projectId);
+                    })
+                    ->orderByDesc('updated_at')
+                    ->orderByDesc('created_at')
+                    ->with(['messages' => function ($q) { 
+                        $q->orderBy('id'); 
+                    }])
+                    ->first();
+            }
         }
 
         if (!$thread) {
@@ -69,13 +87,23 @@ class ChatInterface extends Component
 
         $this->threadId = $thread->id;
 
-        $this->messages = $thread->messages->map(fn($m) => [
+        // Ensure messages are ordered correctly (oldest to newest) for display
+        // The relationship might have default ordering, so we sort the collection
+        $messages = $thread->messages->sortBy('id')->values();
+        
+        $this->messages = $messages->map(fn($m) => [
             'id' => $m->id,
             'role' => $m->role,
             'content' => $m->content,
             'status' => $m->status,
             'created_at' => $m->created_at?->toDateTimeString(),
         ])->values()->all();
+        
+        Log::info('[CHAT] Thread loaded', [
+            'thread_id' => $this->threadId,
+            'message_count' => count($this->messages),
+            'last_message' => count($this->messages) > 0 ? substr($this->messages[count($this->messages) - 1]['content'], 0, 50) : 'none'
+        ]);
     }
 
     public function sendMessage(): void
@@ -214,6 +242,70 @@ class ChatInterface extends Component
         }
         
         Log::info('[CHAT] No code generation trigger found');
+    }
+
+    protected $listeners = [
+        'code-generation-complete' => 'addCodeGenerationMessage',
+        'code-generation-failed' => 'addCodeGenerationErrorMessage',
+    ];
+
+    public function addCodeGenerationMessage($data)
+    {
+        if (!$this->threadId || !$this->projectId) {
+            return;
+        }
+
+        $message = $data['message'] ?? 'Code generation completed successfully!';
+        $componentName = $data['component_name'] ?? 'component';
+
+        $fullMessage = "✅ Code generation complete! I've created the `{$componentName}` component. You can view it in the Code tab and see the live preview in the Preview tab.";
+
+        // Create assistant message
+        $assistantMsg = ChatMessage::create([
+            'chat_thread_id' => $this->threadId,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'complete',
+        ]);
+
+        $this->messages[] = [
+            'id' => $assistantMsg->id,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'complete',
+            'created_at' => $assistantMsg->created_at?->toDateTimeString(),
+        ];
+
+        $this->dispatch('chat-scrolled');
+    }
+
+    public function addCodeGenerationErrorMessage($data)
+    {
+        if (!$this->threadId || !$this->projectId) {
+            return;
+        }
+
+        $errorMessage = $data['message'] ?? 'Code generation failed. Please try again.';
+
+        $fullMessage = "❌ Sorry, I encountered an error while generating the code: {$errorMessage}";
+
+        // Create assistant message
+        $assistantMsg = ChatMessage::create([
+            'chat_thread_id' => $this->threadId,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'error',
+        ]);
+
+        $this->messages[] = [
+            'id' => $assistantMsg->id,
+            'role' => 'assistant',
+            'content' => $fullMessage,
+            'status' => 'error',
+            'created_at' => $assistantMsg->created_at?->toDateTimeString(),
+        ];
+
+        $this->dispatch('chat-scrolled');
     }
 
     public function render()

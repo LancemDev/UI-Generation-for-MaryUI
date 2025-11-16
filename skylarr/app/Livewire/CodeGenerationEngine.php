@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Project;
 use App\Services\DockerPreviewService;
 use App\Services\AiGateway;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Mary\Traits\Toast;
@@ -21,8 +22,9 @@ class CodeGenerationEngine extends Component
     public string $componentName = '';
     public bool $isGenerating = false;
     public bool $previewReady = false;
-    public string $activeTab = 'code';
+    public string $activeTab = 'preview';
     public array $projectFiles = [];
+    public array $projectFilesTree = [];
     public string $selectedFile = '';
     public string $selectedFilePath = '';
     
@@ -102,22 +104,100 @@ class CodeGenerationEngine extends Component
                     'code_length' => strlen($this->generatedCode)
                 ]);
                 
+                // Switch to code tab to show the generated code
+                $this->activeTab = 'preview';
+                
                 // Create preview
                 Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
                 
+                // Create success notification
+                NotificationService::success(
+                    'Component Generated',
+                    "Successfully generated component: {$this->componentName}",
+                    $this->currentProject->id,
+                    ['component_name' => $this->componentName]
+                );
+                
+                // Dispatch event to refresh notifications
+                $this->dispatch('notification-created');
+                
+                // Dispatch Livewire event (for Livewire listeners)
+                $this->dispatch('code-generation-complete', [
+                    'component_name' => $this->componentName,
+                    'message' => 'Code generation completed successfully!'
+                ]);
+                
+                // Dispatch browser event for Alpine.js listeners (sibling components)
+                $this->js("window.dispatchEvent(new CustomEvent('code-generation-complete', { detail: " . json_encode([
+                    'component_name' => $this->componentName,
+                    'message' => 'Code generation completed successfully!'
+                ]) . " }))");
+                
+                Log::info('[CODE_GEN] Success events dispatched', [
+                    'component_name' => $this->componentName,
+                    'is_generating' => $this->isGenerating,
+                    'preview_ready' => $this->previewReady
+                ]);
+                
                 $this->success('Code generated successfully!');
             } else {
-                Log::error('[CODE_GEN] Code generation failed', ['message' => $response['message']]);
-                $this->error('Failed to generate code: ' . $response['message']);
+                $errorMessage = $response['message'] ?? 'Unknown error occurred';
+                Log::error('[CODE_GEN] Code generation failed', ['message' => $errorMessage]);
+                
+                // Create error notification
+                NotificationService::error(
+                    'Code Generation Failed',
+                    $errorMessage,
+                    $this->currentProject->id ?? null,
+                    ['prompt' => $prompt]
+                );
+                
+                // Dispatch event to refresh notifications
+                $this->dispatch('notification-created');
+                
+                $this->error('Failed to generate code: ' . $errorMessage);
+                
+                // Dispatch Livewire event (for Livewire listeners)
+                $this->dispatch('code-generation-failed', [
+                    'message' => $errorMessage
+                ]);
+                
+                // Dispatch browser event for Alpine.js listeners (sibling components)
+                $this->js("window.dispatchEvent(new CustomEvent('code-generation-failed', { detail: " . json_encode([
+                    'message' => $errorMessage
+                ]) . " }))");
             }
             
         } catch (\Exception $e) {
+            $errorMessage = $e->getMessage();
             Log::error('[CODE_GEN] Exception during generation', [
-                'error' => $e->getMessage(),
+                'error' => $errorMessage,
                 'trace' => $e->getTraceAsString()
             ]);
-            $this->error('Error generating code: ' . $e->getMessage());
+            
+            // Create error notification
+            NotificationService::error(
+                'Code Generation Error',
+                $errorMessage,
+                $this->currentProject->id ?? null,
+                ['prompt' => $prompt, 'exception' => get_class($e)]
+            );
+            
+            // Dispatch event to refresh notifications
+            $this->dispatch('notification-created');
+            
+            $this->error('Error generating code: ' . $errorMessage);
+            
+            // Dispatch Livewire event (for Livewire listeners)
+            $this->dispatch('code-generation-failed', [
+                'message' => $errorMessage
+            ]);
+            
+            // Dispatch browser event for Alpine.js listeners (sibling components)
+            $this->js("window.dispatchEvent(new CustomEvent('code-generation-failed', { detail: " . json_encode([
+                'message' => $errorMessage
+            ]) . " }))");
         } finally {
             $this->isGenerating = false;
             Log::info('[CODE_GEN] Generation finished');
@@ -164,15 +244,44 @@ class CodeGenerationEngine extends Component
             if ($success) {
                 $this->previewUrl = $previewUrl;
                 $this->previewReady = true;
+                $this->isGenerating = false; // Ensure generating flag is cleared
                 
                 // Load project files
                 $this->loadProjectFiles();
                 
-                Log::info('[CODE_GEN] Preview ready', ['preview_url' => $this->previewUrl]);
-                $this->success('Preview updated!');
+                // Auto-select the newly generated file if it exists
+                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                if (in_array($generatedFilePath, $this->projectFiles)) {
+                    $this->selectFile($generatedFilePath);
+                    Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
+                }
+                
+                Log::info('[CODE_GEN] Preview ready', [
+                    'preview_url' => $this->previewUrl,
+                    'component_name' => $this->componentName,
+                    'is_generating' => $this->isGenerating,
+                    'preview_ready' => $this->previewReady
+                ]);
+                
+                // Force Livewire to update the view
+                $this->dispatch('$refresh');
+                
+                $this->success('Component generated, validated, and preview ready!');
             } else {
                 Log::error('[CODE_GEN] Code injection failed');
-                $this->error('Failed to update preview');
+                
+                // Create error notification for preview failure
+                NotificationService::error(
+                    'Preview Creation Failed',
+                    'Failed to generate component. The code may have validation errors or the container may need to be restarted.',
+                    $this->currentProject->id ?? null,
+                    ['component_name' => $this->componentName ?? 'Unknown']
+                );
+                
+                // Dispatch event to refresh notifications
+                $this->dispatch('notification-created');
+                
+                $this->error('Failed to generate component. The code may have validation errors or the container may need to be restarted.');
             }
             
         } catch (\Exception $e) {
@@ -308,6 +417,7 @@ class CodeGenerationEngine extends Component
     {
         if (!$this->currentProject || !$this->currentProject->container_id) {
             $this->projectFiles = [];
+            $this->projectFilesTree = [];
             return;
         }
         
@@ -319,11 +429,58 @@ class CodeGenerationEngine extends Component
             // Get files from resources and app/Http
             $this->projectFiles = $dockerService->listProjectFiles($this->currentProject->container_id);
             
+            // Organize files into a tree structure
+            $this->projectFilesTree = $this->organizeFilesIntoTree($this->projectFiles);
+            
             Log::info('[CODE_GEN] Files loaded', ['count' => count($this->projectFiles)]);
         } catch (\Exception $e) {
             Log::error('[CODE_GEN] Failed to load files', ['error' => $e->getMessage()]);
             $this->projectFiles = [];
+            $this->projectFilesTree = [];
         }
+    }
+    
+    /**
+     * Organize files into a tree structure by directory.
+     */
+    private function organizeFilesIntoTree(array $files): array
+    {
+        $tree = [];
+        
+        foreach ($files as $file) {
+            // Remove /var/www/html prefix
+            $relativePath = str_replace('/var/www/html/', '', $file);
+            $parts = explode('/', $relativePath);
+            
+            $current = &$tree;
+            $path = '';
+            
+            // Build nested structure
+            for ($i = 0; $i < count($parts) - 1; $i++) {
+                $part = $parts[$i];
+                $path .= ($path ? '/' : '') . $part;
+                
+                if (!isset($current[$part])) {
+                    $current[$part] = [
+                        'type' => 'folder',
+                        'path' => '/var/www/html/' . $path,
+                        'children' => []
+                    ];
+                }
+                
+                $current = &$current[$part]['children'];
+            }
+            
+            // Add file
+            $filename = end($parts);
+            $current[$filename] = [
+                'type' => 'file',
+                'path' => $file,
+                'name' => $filename
+            ];
+        }
+        
+        return $tree;
     }
     
     public function selectFile(string $filePath)
