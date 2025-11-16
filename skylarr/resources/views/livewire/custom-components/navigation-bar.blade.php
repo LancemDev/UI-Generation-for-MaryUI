@@ -21,14 +21,12 @@
     {{-- Project Selector Dropdown --}}
     @if($selectedProject)
         <div class="relative" x-data="{ open: false }">
-            <button
+            <x-button
                 @click="open = !open"
-                class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary flex items-center gap-2"
-            >
-                <x-icon name="o-folder" class="w-4 h-4" />
-                <span class="hidden sm:inline font-medium">{{ $selectedProject->name }}</span>
-                <x-icon name="o-chevron-down" class="w-3 h-3" />
-            </button>
+                class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary"
+                label="{{ $selectedProject->name }}"
+                icon="o-folder"
+            />
             
             {{-- Dropdown Menu --}}
             <div
@@ -80,13 +78,12 @@
             </div>
         </div>
     @else
-        <button
-            wire:click="openProjectSelection"
-            class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary flex items-center gap-2"
-        >
-            <x-icon name="o-folder-open" class="w-4 h-4" />
-            <span class="hidden sm:inline font-medium">Select Project</span>
-        </button>
+        <x-button 
+            wire:click="openProjectSelection" 
+            icon="o-folder-open" 
+            class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary" 
+            responsive
+        />
     @endif
 
     <x-theme-toggle />
