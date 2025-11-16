@@ -226,12 +226,15 @@ class DockerPreviewService
         
         // Step 7: Check if view is embedded in heredoc/nowdoc (we need to extract it)
         // Match: return <<<'blade' ... blade;
-        if (preg_match("/return\s+<<<['\"]?(\w+)['\"]?\s*\n(.*?)\n\1\s*;/s", $code, $matches)) {
+        // Use a pattern that ensures the delimiter is at the start of a line (not in content)
+        // Pattern: match any character except when it's a newline followed by delimiter and semicolon
+        if (preg_match("/return\s+<<<['\"]?(\w+)['\"]?\s*\n((?:[^\n]|\n(?!\1\s*;))*)\n\1\s*;/s", $code, $matches)) {
             $viewContent = trim($matches[2]);
             $kebabName = $this->toKebabCase($className ?? 'component');
             // Remove the heredoc from the component code and replace with view() call
+            // Use the same improved pattern for replacement
             $code = preg_replace(
-                "/return\s+<<<['\"]?\w+['\"]?\s*\n.*?\n\w+\s*;/s",
+                "/return\s+<<<['\"]?(\w+)['\"]?\s*\n(?:[^\n]|\n(?!\1\s*;))*\n\1\s*;/s",
                 "return view('livewire.{$kebabName}');",
                 $code
             );
@@ -371,8 +374,10 @@ class DockerPreviewService
             // Ensure render() method uses view() instead of heredoc
             if (!preg_match("/return\s+view\(['\"]/", $cleanedCode)) {
                 $kebabViewName = $viewName ? str_replace('livewire.', '', $viewName) : $kebabName;
+                // Use improved heredoc pattern that prevents premature matching
+                // Match: public function render() { ... return <<<'DELIMITER' ... DELIMITER; }
                 $cleanedCode = preg_replace(
-                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?\w+['\"]?.*?;/s",
+                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?(\w+)['\"]?\s*\n(?:[^\n]|\n(?!\1\s*;))*\n\1\s*;/s",
                     "public function render()\n    {\n        return view('livewire.{$kebabViewName}');\n    }",
                     $cleanedCode
                 );
