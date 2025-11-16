@@ -22,7 +22,7 @@ class CodeGenerationEngine extends Component
     public string $componentName = '';
     public bool $isGenerating = false;
     public bool $previewReady = false;
-    public string $activeTab = 'preview';
+    public string $activeTab = 'code';
     public array $projectFiles = [];
     public array $projectFilesTree = [];
     public string $selectedFile = '';
