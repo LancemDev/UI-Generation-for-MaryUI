@@ -122,10 +122,16 @@ class CodeGenerationEngine extends Component
                 // Dispatch event to refresh notifications
                 $this->dispatch('notification-created');
                 
-                // Send message to chat interface
+                // Dispatch as browser event for sibling components (ChatInterface listens via Alpine.js)
                 $this->dispatch('code-generation-complete', [
                     'component_name' => $this->componentName,
                     'message' => 'Code generation completed successfully!'
+                ]);
+                
+                Log::info('[CODE_GEN] Success events dispatched', [
+                    'component_name' => $this->componentName,
+                    'is_generating' => $this->isGenerating,
+                    'preview_ready' => $this->previewReady
                 ]);
                 
                 $this->success('Code generated successfully!');
@@ -146,7 +152,7 @@ class CodeGenerationEngine extends Component
                 
                 $this->error('Failed to generate code: ' . $errorMessage);
                 
-                // Send error message to chat interface
+                // Dispatch as browser event for sibling components
                 $this->dispatch('code-generation-failed', [
                     'message' => $errorMessage
                 ]);
@@ -172,7 +178,7 @@ class CodeGenerationEngine extends Component
             
             $this->error('Error generating code: ' . $errorMessage);
             
-            // Send error message to chat interface
+            // Dispatch as browser event for sibling components
             $this->dispatch('code-generation-failed', [
                 'message' => $errorMessage
             ]);
@@ -222,6 +228,7 @@ class CodeGenerationEngine extends Component
             if ($success) {
                 $this->previewUrl = $previewUrl;
                 $this->previewReady = true;
+                $this->isGenerating = false; // Ensure generating flag is cleared
                 
                 // Load project files
                 $this->loadProjectFiles();
@@ -233,7 +240,16 @@ class CodeGenerationEngine extends Component
                     Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
                 }
                 
-                Log::info('[CODE_GEN] Preview ready', ['preview_url' => $this->previewUrl]);
+                Log::info('[CODE_GEN] Preview ready', [
+                    'preview_url' => $this->previewUrl,
+                    'component_name' => $this->componentName,
+                    'is_generating' => $this->isGenerating,
+                    'preview_ready' => $this->previewReady
+                ]);
+                
+                // Force Livewire to update the view
+                $this->dispatch('$refresh');
+                
                 $this->success('Component generated, validated, and preview ready!');
             } else {
                 Log::error('[CODE_GEN] Code injection failed');

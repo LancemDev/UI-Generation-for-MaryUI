@@ -33,7 +33,7 @@
                         :title="$project->name"
                         :subtitle="$project->description ? \Illuminate\Support\Str::limit($project->description, 40) : null"
                         :icon="$selectedProjectId == $project->id ? 'o-check-circle' : 'o-folder'"
-                        :class="$selectedProjectId == $project->id ? 'text-blue-600 dark:text-blue-400' : ''"
+                        :class="$selectedProjectId == $project->id ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'"
                         wire:click.stop="switchProject({{ $project->id }})"
                     />
                 @endforeach
@@ -66,11 +66,12 @@
             label="Notifications"
         >
             @if($unreadCount > 0)
-                <x-menu-item 
-                    title="Mark all as read" 
-                    icon="o-check-circle"
-                    wire:click.stop="markAllAsRead"
-                />
+            <x-menu-item 
+                title="Mark all as read" 
+                icon="o-check-circle"
+                class="text-gray-700 dark:text-gray-300"
+                wire:click.stop="markAllAsRead"
+            />
                 <x-menu-item separator />
             @endif
             
@@ -91,7 +92,7 @@
                         :title="$notification['title'] ?? 'Notification'"
                         :subtitle="($notification['message'] ?? '') . (isset($notification['created_at']) ? ' • ' . \Carbon\Carbon::parse($notification['created_at'])->diffForHumans() : '')"
                         :icon="$typeIcon"
-                        :class="$isUnread ? 'font-semibold' : ''"
+                        :class="$isUnread ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'"
                         wire:click.stop="markAsRead({{ $notification['id'] }})"
                     />
                 @endforeach
@@ -107,9 +108,9 @@
             <span class="absolute -top-1 -right-1 badge badge-error badge-sm">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>
         @endif
     </div>
-    <x-dropdown class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary" icon="o-user" right label="Profile">r
-        <x-menu-item title="Logout" icon="o-power" class="text-red-500" wire:click.stop="logout" spinner="logout" />
-        <x-menu-item title="Settings" icon="o-cog-6-tooth" class="text-blue-500" wire:click.stop="settings" spinner="settings" />
+    <x-dropdown class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary" icon="o-user" right label="Profile">
+        <x-menu-item title="Logout" icon="o-power" class="text-red-600 dark:text-red-400" wire:click.stop="logout" spinner="logout" />
+        <x-menu-item title="Settings" icon="o-cog-6-tooth" class="text-blue-600 dark:text-blue-400" wire:click.stop="settings" spinner="settings" />
     </x-dropdown>
  </x-slot:actions>
 </x-nav>
