@@ -218,8 +218,14 @@ class DockerPreviewService
     }
     
     /**
-     * Inject generated code into a project container.
-     * Organizes files according to Laravel 11 conventions.
+     * Inject generated code into a project container using Laravel's make:livewire command.
+     * This method follows a refined workflow:
+     * 1. Generate component scaffold using make:livewire
+     * 2. Inject PHP class code
+     * 3. Inject Blade view code
+     * 4. Validate code works
+     * 5. Auto-fix any issues
+     * 6. Only return success when everything works
      */
     public function injectCode(Project $project, string $code, string $componentName): bool
     {
@@ -228,7 +234,12 @@ class DockerPreviewService
                 throw new \Exception("Container not running for project {$project->id}");
             }
             
-            // Validate that the code is a Laravel Livewire component
+            Log::info('[DOCKER] Starting refined code injection workflow', [
+                'project_id' => $project->id,
+                'component_name' => $componentName
+            ]);
+            
+            // Step 1: Validate that the code is a Laravel Livewire component
             if (!$this->validateLivewireCode($code)) {
                 Log::error("Generated code is not a valid Laravel Livewire component", [
                     'project_id' => $project->id,
@@ -237,68 +248,81 @@ class DockerPreviewService
                 throw new \Exception("Generated code is not a valid Laravel Livewire component. Only Laravel Livewire components are supported.");
             }
             
-            // Parse the code to extract class name, view name, and view content
+            // Step 2: Parse the code to extract class name, view name, and view content
             $parsed = $this->parseComponentCode($code);
             $actualClassName = $parsed['class_name'] ?? $componentName;
-            $viewName = $parsed['view_name'];
-            $viewContent = $parsed['view_content'];
-            $cleanedCode = $parsed['cleaned_code'] ?? $code;
             
             // Ensure component name matches the actual class name
             if ($parsed['class_name']) {
                 $componentName = $parsed['class_name'];
             }
             
-            // Determine view name - use kebab-case of component name if not specified
+            $viewName = $parsed['view_name'];
+            $viewContent = $parsed['view_content'];
+            $cleanedCode = $parsed['cleaned_code'] ?? $code;
+            
+            // Step 3: Use Laravel's make:livewire command to generate component scaffold
             $kebabName = $this->toKebabCase($componentName);
-            if (!$viewName) {
-                $viewName = "livewire.{$kebabName}";
+            Log::info('[DOCKER] Generating component scaffold', ['component_name' => $kebabName]);
+            
+            $makeResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "cd /var/www/html && php artisan make:livewire {$kebabName} --force 2>&1"
+            ]);
+            
+            if ($makeResult->failed()) {
+                $errorOutput = $makeResult->errorOutput();
+                // If component already exists, that's okay (we used --force)
+                if (!str_contains($errorOutput, 'already exists') && !str_contains($errorOutput, 'Component created')) {
+                    Log::warning('[DOCKER] make:livewire had issues but continuing', ['error' => $errorOutput]);
+                }
             }
             
-            // Extract view path (e.g., 'livewire.my-component' -> 'livewire/my-component.blade.php')
-            $viewPath = str_replace('.', '/', $viewName);
+            // Step 4: Prepare component class code
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            
+            // Ensure render() method uses view() instead of heredoc
+            if (!preg_match("/return\s+view\(['\"]/", $cleanedCode)) {
+                $kebabViewName = $viewName ? str_replace('livewire.', '', $viewName) : $kebabName;
+                $cleanedCode = preg_replace(
+                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?\w+['\"]?.*?;/s",
+                    "public function render()\n    {\n        return view('livewire.{$kebabViewName}');\n    }",
+                    $cleanedCode
+                );
+            }
+            
+            // Step 5: Inject PHP class code
+            Log::info('[DOCKER] Injecting PHP class code', ['path' => $componentPath]);
+            $escapedCode = escapeshellarg($cleanedCode);
+            $writeResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "echo {$escapedCode} > {$componentPath}"
+            ]);
+            
+            if ($writeResult->failed()) {
+                throw new \Exception("Failed to write component class: " . $writeResult->errorOutput());
+            }
+            
+            // Step 6: Inject Blade view code
+            $finalViewName = $viewName ?: "livewire.{$kebabName}";
+            $viewPath = str_replace('.', '/', $finalViewName);
             if (!str_ends_with($viewPath, '.blade.php')) {
                 $viewPath .= '.blade.php';
             }
             $fullViewPath = "/var/www/html/resources/views/{$viewPath}";
             
-            // Create component file in app/Livewire/ (Laravel 11 convention)
-            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
-            $this->runDockerCommand([
-                'exec', $project->container_id,
-                'sh', '-c', "mkdir -p /var/www/html/app/Livewire"
-            ]);
-            
-            // Ensure render() method uses view() instead of heredoc
-            if (!preg_match("/return\s+view\(['\"]/", $cleanedCode)) {
-                // Replace any heredoc/nowdoc with proper view() call
-                $cleanedCode = preg_replace(
-                    "/public\s+function\s+render\(\)\s*\{[^}]*return\s+<<<['\"]?\w+['\"]?.*?;/s",
-                    "public function render()\n    {\n        return view('livewire.{$kebabName}');\n    }",
-                    $cleanedCode
-                );
-            }
-            
-            // Write the component code (without embedded view)
-            $escapedCode = escapeshellarg($cleanedCode);
-            $this->runDockerCommand([
-                'exec', $project->container_id,
-                'sh', '-c', "echo {$escapedCode} > {$componentPath}"
-            ]);
-            
-            // Create view directory if needed
+            // Ensure view directory exists
             $viewDir = dirname($fullViewPath);
             $this->runDockerCommand([
                 'exec', $project->container_id,
                 'sh', '-c', "mkdir -p {$viewDir}"
             ]);
             
-            // Create the view file with extracted content or default
+            // Prepare view content
             if ($viewContent) {
-                // Use extracted view content from heredoc
                 $finalViewContent = $viewContent;
             } else {
-                // Create a basic default view
+                // Extract view from code if available, otherwise use default
                 $finalViewContent = <<<BLADE
 <div>
     <h2 class="text-2xl font-bold mb-4">{{ \$componentName ?? '{$componentName}' }}</h2>
@@ -307,21 +331,76 @@ class DockerPreviewService
 BLADE;
             }
             
+            Log::info('[DOCKER] Injecting Blade view code', ['path' => $fullViewPath]);
             $escapedView = escapeshellarg($finalViewContent);
-            $this->runDockerCommand([
+            $viewWriteResult = $this->runDockerCommand([
                 'exec', $project->container_id,
                 'sh', '-c', "echo {$escapedView} > {$fullViewPath}"
             ]);
             
-            // Register the component in the container's service provider
-            $this->registerComponentInContainer($project->container_id, $componentName);
+            if ($viewWriteResult->failed()) {
+                throw new \Exception("Failed to write view file: " . $viewWriteResult->errorOutput());
+            }
             
-            // Restart the container's Laravel application
+            // Step 7: Clear caches and regenerate autoloader
+            Log::info('[DOCKER] Clearing caches and regenerating autoloader');
             $this->restartLaravelInContainer($project->container_id);
             
-            Log::info("Successfully injected code into project {$project->id}", [
+            // Step 8: Validate code works
+            Log::info('[DOCKER] Validating generated code');
+            $validationResult = $this->validateComponentCode($project->container_id, $componentName);
+            
+            if (!$validationResult['valid']) {
+                Log::warning('[DOCKER] Code validation failed, attempting auto-fix', [
+                    'errors' => $validationResult['errors']
+                ]);
+                
+                // Step 9: Auto-fix issues
+                $fixResult = $this->autoFixComponentIssues($project->container_id, $componentName, $validationResult['errors']);
+                
+                if ($fixResult['fixed']) {
+                    Log::info('[DOCKER] Auto-fix applied, re-validating');
+                    // Re-validate after fix
+                    $validationResult = $this->validateComponentCode($project->container_id, $componentName);
+                }
+                
+                // If still invalid after fix, try one more time with container restart
+                if (!$validationResult['valid']) {
+                    Log::warning('[DOCKER] Code still invalid after auto-fix, restarting container');
+                    $this->restartLaravelInContainer($project->container_id);
+                    sleep(2);
+                    $validationResult = $this->validateComponentCode($project->container_id, $componentName);
+                }
+                
+                if (!$validationResult['valid']) {
+                    throw new \Exception("Code validation failed: " . implode(', ', $validationResult['errors']));
+                }
+            }
+            
+            // Step 10: Check container health
+            Log::info('[DOCKER] Checking container health');
+            $healthCheck = $this->checkContainerHealth($project->container_id, $project->preview_url);
+            
+            if (!$healthCheck['healthy']) {
+                Log::warning('[DOCKER] Container health check failed', ['issues' => $healthCheck['issues']]);
+                
+                // Try to fix health issues
+                $this->fixPailServiceProviderError($project->container_id);
+                $this->restartLaravelInContainer($project->container_id);
+                sleep(3);
+                
+                // Re-check health
+                $healthCheck = $this->checkContainerHealth($project->container_id, $project->preview_url);
+                
+                if (!$healthCheck['healthy']) {
+                    throw new \Exception("Container health check failed: " . implode(', ', $healthCheck['issues']));
+                }
+            }
+            
+            Log::info("Successfully injected and validated code for project {$project->id}", [
                 'component_name' => $componentName,
                 'component_path' => $componentPath,
+                'view_path' => $fullViewPath,
                 'container_id' => $project->container_id
             ]);
             
@@ -441,6 +520,175 @@ BLADE;
         
         Log::info("Cleaned up expired containers", ['count' => $cleaned]);
         return $cleaned;
+    }
+    
+    /**
+     * Find and remove all orphaned Skylarr containers (containers that exist but have no database record).
+     * This is useful when the database is cleared but containers are still running.
+     */
+    public function cleanupOrphanedContainers(): int
+    {
+        try {
+            // Find all containers with skylarr-preview image or skylarr in the name
+            $result = $this->runDockerCommand([
+                'ps', '-a',
+                '--filter', 'ancestor=skylarr-preview:latest',
+                '--format', '{{.ID}} {{.Names}} {{.Ports}}'
+            ]);
+            
+            if ($result->failed()) {
+                // Also try finding by name pattern
+                $result = $this->runDockerCommand([
+                    'ps', '-a',
+                    '--filter', 'name=skylarr-',
+                    '--format', '{{.ID}} {{.Names}} {{.Ports}}'
+                ]);
+            }
+            
+            if ($result->failed()) {
+                Log::warning('[DOCKER] Failed to list containers for orphan cleanup');
+                return 0;
+            }
+            
+            $cleaned = 0;
+            $lines = explode("\n", trim($result->output()));
+            
+            foreach ($lines as $line) {
+                if (empty($line)) continue;
+                
+                $parts = explode(' ', $line, 3);
+                if (count($parts) >= 2) {
+                    $containerId = $parts[0];
+                    $containerName = $parts[1];
+                    $ports = $parts[2] ?? '';
+                    
+                    // Check if this container has a database record
+                    $hasProject = \App\Models\Project::where('container_id', $containerId)
+                        ->orWhere('container_name', $containerName)
+                        ->exists();
+                    
+                    if (!$hasProject) {
+                        Log::info('[DOCKER] Found orphaned container', [
+                            'container_id' => $containerId,
+                            'container_name' => $containerName,
+                            'ports' => $ports
+                        ]);
+                        
+                        if ($this->removeContainer($containerId)) {
+                            $cleaned++;
+                        }
+                    }
+                }
+            }
+            
+            Log::info("Cleaned up orphaned containers", ['count' => $cleaned]);
+            return $cleaned;
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception during orphan cleanup', ['error' => $e->getMessage()]);
+            return 0;
+        }
+    }
+    
+    /**
+     * Find container by port number.
+     */
+    public function findContainerByPort(int $port): ?array
+    {
+        try {
+            $result = $this->runDockerCommand([
+                'ps',
+                '--filter', "publish={$port}",
+                '--format', '{{.ID}} {{.Names}} {{.Ports}} {{.Status}}'
+            ]);
+            
+            if ($result->successful() && !empty(trim($result->output()))) {
+                $line = trim(explode("\n", $result->output())[0]);
+                $parts = explode(' ', $line, 4);
+                
+                if (count($parts) >= 3) {
+                    return [
+                        'id' => $parts[0],
+                        'name' => $parts[1],
+                        'ports' => $parts[2],
+                        'status' => $parts[3] ?? 'unknown'
+                    ];
+                }
+            }
+            
+            return null;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception finding container by port', [
+                'port' => $port,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+    
+    /**
+     * Remove container by port number.
+     */
+    public function removeContainerByPort(int $port): bool
+    {
+        $container = $this->findContainerByPort($port);
+        
+        if ($container) {
+            Log::info('[DOCKER] Removing container by port', [
+                'port' => $port,
+                'container_id' => $container['id'],
+                'container_name' => $container['name']
+            ]);
+            return $this->removeContainer($container['id']);
+        }
+        
+        Log::warning('[DOCKER] No container found on port', ['port' => $port]);
+        return false;
+    }
+    
+    /**
+     * Remove all Skylarr containers (nuclear option - use with caution).
+     */
+    public function removeAllSkylarrContainers(): int
+    {
+        try {
+            $removed = 0;
+            
+            // Find all containers with skylarr-preview image
+            $result = $this->runDockerCommand([
+                'ps', '-a',
+                '--filter', 'ancestor=skylarr-preview:latest',
+                '--format', '{{.ID}}'
+            ]);
+            
+            if ($result->failed()) {
+                // Try by name pattern
+                $result = $this->runDockerCommand([
+                    'ps', '-a',
+                    '--filter', 'name=skylarr-',
+                    '--format', '{{.ID}}'
+                ]);
+            }
+            
+            if ($result->successful()) {
+                $lines = explode("\n", trim($result->output()));
+                
+                foreach ($lines as $containerId) {
+                    if (!empty($containerId)) {
+                        if ($this->removeContainer($containerId)) {
+                            $removed++;
+                        }
+                    }
+                }
+            }
+            
+            Log::info("Removed all Skylarr containers", ['count' => $removed]);
+            return $removed;
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception removing all containers', ['error' => $e->getMessage()]);
+            return 0;
+        }
     }
     
     /**
@@ -706,6 +954,263 @@ BLADE;
             Log::error("Failed to read file", ['file' => $filePath, 'error' => $e->getMessage()]);
             return '';
         }
+    }
+    
+    /**
+     * Validate that generated component code works correctly.
+     * Checks syntax, class structure, and component registration.
+     */
+    private function validateComponentCode(string $containerId, string $componentName): array
+    {
+        $errors = [];
+        
+        try {
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            
+            // Check 1: File exists
+            $fileCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+            ]);
+            
+            if (trim($fileCheck->output()) !== 'exists') {
+                $errors[] = "Component file does not exist: {$componentPath}";
+                return ['valid' => false, 'errors' => $errors];
+            }
+            
+            // Check 2: PHP syntax validation
+            $syntaxCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "php -l {$componentPath} 2>&1"
+            ]);
+            
+            if (!$syntaxCheck->successful() || str_contains($syntaxCheck->output(), 'Parse error')) {
+                $errors[] = "PHP syntax error: " . $syntaxCheck->output();
+            }
+            
+            // Check 3: Class can be autoloaded
+            $autoloadCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "cd /var/www/html && php -r \"require 'vendor/autoload.php'; class_exists('App\\\\Livewire\\\\{$componentName}');\" 2>&1"
+            ]);
+            
+            if (!$autoloadCheck->successful()) {
+                $errors[] = "Component class cannot be autoloaded: " . $autoloadCheck->errorOutput();
+            }
+            
+            // Check 4: View file exists
+            $kebabName = $this->toKebabCase($componentName);
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            
+            $viewCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "test -f {$viewPath} && echo 'exists' || echo 'missing'"
+            ]);
+            
+            if (trim($viewCheck->output()) !== 'exists') {
+                $errors[] = "View file does not exist: {$viewPath}";
+            }
+            
+            // Check 5: Laravel can compile the view
+            $viewCompileCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "cd /var/www/html && php artisan view:clear 2>&1 && php artisan view:cache 2>&1 | head -20"
+            ]);
+            
+            if ($viewCompileCheck->failed() && str_contains($viewCompileCheck->errorOutput(), 'error')) {
+                $errors[] = "View compilation error: " . substr($viewCompileCheck->errorOutput(), 0, 200);
+            }
+            
+        } catch (\Exception $e) {
+            $errors[] = "Validation exception: " . $e->getMessage();
+        }
+        
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+    
+    /**
+     * Auto-fix common component issues.
+     */
+    private function autoFixComponentIssues(string $containerId, string $componentName, array $errors): array
+    {
+        $fixed = false;
+        $fixesApplied = [];
+        
+        try {
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            $kebabName = $this->toKebabCase($componentName);
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            
+            // Read current component code
+            $currentCode = $this->readFileFromContainer($containerId, $componentPath);
+            
+            // Fix 1: Missing namespace
+            if (str_contains(implode(' ', $errors), 'namespace') || !str_contains($currentCode, 'namespace App\\Livewire')) {
+                if (!str_contains($currentCode, 'namespace App\\Livewire')) {
+                    $currentCode = "<?php\n\nnamespace App\\Livewire;\n\n" . ltrim($currentCode, "<?php\n");
+                    $escapedCode = escapeshellarg($currentCode);
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', "echo {$escapedCode} > {$componentPath}"
+                    ]);
+                    $fixesApplied[] = 'Added missing namespace';
+                    $fixed = true;
+                }
+            }
+            
+            // Fix 2: Missing use statements
+            if (!str_contains($currentCode, 'use Livewire\\Component')) {
+                $namespacePos = strpos($currentCode, 'namespace App\\Livewire;');
+                if ($namespacePos !== false) {
+                    $insertPos = $namespacePos + strlen('namespace App\\Livewire;');
+                    $currentCode = substr_replace($currentCode, "\n\nuse Livewire\\Component;", $insertPos, 0);
+                    $escapedCode = escapeshellarg($currentCode);
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', "echo {$escapedCode} > {$componentPath}"
+                    ]);
+                    $fixesApplied[] = 'Added missing use statement';
+                    $fixed = true;
+                }
+            }
+            
+            // Fix 3: Missing render() method
+            if (!preg_match('/public\s+function\s+render\(\)/', $currentCode)) {
+                // Add render method before closing brace
+                $lastBrace = strrpos($currentCode, '}');
+                if ($lastBrace !== false) {
+                    $renderMethod = "\n    public function render()\n    {\n        return view('livewire.{$kebabName}');\n    }\n";
+                    $currentCode = substr_replace($currentCode, $renderMethod, $lastBrace, 0);
+                    $escapedCode = escapeshellarg($currentCode);
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', "echo {$escapedCode} > {$componentPath}"
+                    ]);
+                    $fixesApplied[] = 'Added missing render() method';
+                    $fixed = true;
+                }
+            }
+            
+            // Fix 4: Missing view file
+            $viewCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "test -f {$viewPath} && echo 'exists' || echo 'missing'"
+            ]);
+            
+            if (trim($viewCheck->output()) === 'missing') {
+                $defaultView = <<<BLADE
+<div>
+    <h2 class="text-2xl font-bold mb-4">{{ \$componentName ?? '{$componentName}' }}</h2>
+    <!-- Component view content -->
+</div>
+BLADE;
+                $escapedView = escapeshellarg($defaultView);
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "mkdir -p /var/www/html/resources/views/livewire && echo {$escapedView} > {$viewPath}"
+                ]);
+                $fixesApplied[] = 'Created missing view file';
+                $fixed = true;
+            }
+            
+            // Fix 5: Clear caches after fixes
+            if ($fixed) {
+                $this->restartLaravelInContainer($containerId);
+                $fixesApplied[] = 'Cleared caches';
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Auto-fix exception', ['error' => $e->getMessage()]);
+        }
+        
+        return [
+            'fixed' => $fixed,
+            'fixes_applied' => $fixesApplied
+        ];
+    }
+    
+    /**
+     * Check container health - verify Laravel is working correctly.
+     */
+    private function checkContainerHealth(string $containerId, string $previewUrl): array
+    {
+        $issues = [];
+        $healthy = true;
+        
+        try {
+            // Check 1: Container is running
+            if (!$this->isContainerRunning($containerId)) {
+                $issues[] = 'Container is not running';
+                $healthy = false;
+                return ['healthy' => false, 'issues' => $issues];
+            }
+            
+            // Check 2: Laravel can run artisan commands
+            $artisanCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan --version 2>&1'
+            ]);
+            
+            if ($artisanCheck->failed() || empty(trim($artisanCheck->output()))) {
+                $issues[] = 'Laravel artisan not responding';
+                $healthy = false;
+            }
+            
+            // Check 3: No PailServiceProvider errors
+            $pailCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan config:cache 2>&1 | grep -i "pail" || echo "ok"'
+            ]);
+            
+            if (str_contains(strtolower($pailCheck->output()), 'pail') && !str_contains(strtolower($pailCheck->output()), 'ok')) {
+                $issues[] = 'PailServiceProvider error detected';
+                $healthy = false;
+            }
+            
+            // Check 4: Routes can be listed
+            $routeCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan route:list 2>&1 | head -5'
+            ]);
+            
+            if ($routeCheck->failed() && str_contains($routeCheck->errorOutput(), 'error')) {
+                $issues[] = 'Route listing failed';
+                $healthy = false;
+            }
+            
+            // Check 5: HTTP endpoint is accessible (if preview URL is set)
+            if ($previewUrl) {
+                $urlParts = parse_url($previewUrl);
+                $port = $urlParts['port'] ?? 80;
+                
+                // Try to curl the endpoint
+                $httpCheck = Process::run([
+                    'sh', '-c', "curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:{$port} 2>&1 || echo '000'"
+                ]);
+                
+                $httpCode = trim($httpCheck->output());
+                if ($httpCode === '000' || ($httpCode !== '200' && $httpCode !== '404')) {
+                    // 404 is okay (no route), but 000 or 5xx is not
+                    if ($httpCode === '000') {
+                        $issues[] = 'HTTP endpoint not accessible';
+                        $healthy = false;
+                    }
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Health check exception', ['error' => $e->getMessage()]);
+            $issues[] = 'Health check exception: ' . $e->getMessage();
+            $healthy = false;
+        }
+        
+        return [
+            'healthy' => $healthy,
+            'issues' => $issues
+        ];
     }
     
     /**

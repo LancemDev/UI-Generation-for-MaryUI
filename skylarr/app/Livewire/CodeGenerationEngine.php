@@ -196,10 +196,10 @@ class CodeGenerationEngine extends Component
                 }
                 
                 Log::info('[CODE_GEN] Preview ready', ['preview_url' => $this->previewUrl]);
-                $this->success('Preview updated!');
+                $this->success('Component generated, validated, and preview ready!');
             } else {
                 Log::error('[CODE_GEN] Code injection failed');
-                $this->error('Failed to update preview');
+                $this->error('Failed to generate component. The code may have validation errors or the container may need to be restarted.');
             }
             
         } catch (\Exception $e) {
