@@ -4,6 +4,7 @@
         :projects="$projects" 
         :selected-project-id="$selectedProjectId"
         :selected-project="$selectedProject"
+        :key="'nav-' . ($selectedProjectId ?? 'none')"
     />
 
     {{-- Project Selection Modal --}}

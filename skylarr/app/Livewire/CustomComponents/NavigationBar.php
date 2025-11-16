@@ -17,9 +17,42 @@ class NavigationBar extends Component
 
     public function mount($projects = null, $selectedProjectId = null, $selectedProject = null)
     {
+        $this->updateProjectData($projects, $selectedProjectId, $selectedProject);
+    }
+
+    /**
+     * Update project data when parent component updates.
+     */
+    public function updateProjectData($projects = null, $selectedProjectId = null, $selectedProject = null)
+    {
         $this->projects = $projects ?? [];
         $this->selectedProjectId = $selectedProjectId;
         $this->selectedProject = $selectedProject;
+    }
+
+    protected $listeners = [
+        'project-updated' => 'refreshProjectData',
+    ];
+
+    /**
+     * Refresh project data when parent component updates.
+     */
+    public function refreshProjectData($data)
+    {
+        $selectedProjectId = $data['selectedProjectId'] ?? null;
+        
+        if ($selectedProjectId) {
+            // Fetch the project from database
+            $selectedProject = Project::where('user_id', Auth::id())
+                ->find($selectedProjectId);
+            
+            // Refresh projects list
+            $projects = Project::where('user_id', Auth::id())
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            
+            $this->updateProjectData($projects, $selectedProjectId, $selectedProject);
+        }
     }
 
     public function switchProject($projectId)
