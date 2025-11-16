@@ -137,7 +137,8 @@ class DockerPreviewService
         }
         
         // Forbidden frameworks/languages
-        $forbidden = [
+        // Literal strings - will be escaped for exact matching
+        $forbiddenLiterals = [
             'import React',
             'from "react"',
             'import Vue',
@@ -148,8 +149,6 @@ class DockerPreviewService
             'class Component extends React',
             'class Component extends Vue',
             'def ',
-            'class.*extends.*React',
-            'class.*extends.*Vue',
             'useState',
             'useEffect',
             '<script>',
@@ -157,9 +156,29 @@ class DockerPreviewService
             'tsx',
         ];
         
-        foreach ($forbidden as $pattern) {
+        // Regex patterns - used directly without escaping
+        $forbiddenRegex = [
+            '/class\s+\w+\s+extends\s+React/i',
+            '/class\s+\w+\s+extends\s+Vue/i',
+            '/class\s+\w+\s+extends\s+Angular/i',
+            '/class\s+\w+\s+extends\s+Svelte/i',
+            '/import\s+.*from\s+["\']react["\']/i',
+            '/import\s+.*from\s+["\']vue["\']/i',
+            '/import\s+.*from\s+["\']angular["\']/i',
+        ];
+        
+        // Check literal strings (exact matches)
+        foreach ($forbiddenLiterals as $pattern) {
             if (preg_match('/' . preg_quote($pattern, '/') . '/i', $code)) {
-                Log::warning('[DOCKER] Code contains forbidden framework pattern', ['pattern' => $pattern]);
+                Log::warning('[DOCKER] Code contains forbidden framework pattern', ['pattern' => $pattern, 'type' => 'literal']);
+                return false;
+            }
+        }
+        
+        // Check regex patterns (pattern matching)
+        foreach ($forbiddenRegex as $pattern) {
+            if (preg_match($pattern, $code)) {
+                Log::warning('[DOCKER] Code contains forbidden framework pattern', ['pattern' => $pattern, 'type' => 'regex']);
                 return false;
             }
         }
