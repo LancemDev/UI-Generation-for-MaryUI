@@ -71,6 +71,7 @@ class CodeGenerator extends Component
             $this->selectedProject = $project;
             $this->selectedProjectId = $project->id;
             $this->projectSelectionModal = false;
+            $this->loadProjects(); // Refresh projects list to update navigation bar
             $this->success("Switched to project: {$project->name}");
         } else {
             $this->error('Project not found');
@@ -84,6 +85,17 @@ class CodeGenerator extends Component
     {
         $this->loadProjects();
         $this->projectSelectionModal = true;
+    }
+
+    protected $listeners = [
+        'project-switched' => 'handleProjectSwitched',
+        'open-create-project-modal' => 'openCreateProjectModal',
+        'open-project-selection' => 'openProjectSelection',
+    ];
+
+    public function handleProjectSwitched($projectId)
+    {
+        $this->switchProject($projectId);
     }
 
     public function createProject()
