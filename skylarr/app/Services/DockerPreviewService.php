@@ -169,6 +169,7 @@ class DockerPreviewService
     
     /**
      * Parse code to extract component class name, view name, and view content.
+     * Handles markdown code blocks and extracts only the PHP code.
      */
     private function parseComponentCode(string $code): array
     {
@@ -176,19 +177,54 @@ class DockerPreviewService
         $viewName = null;
         $viewContent = null;
         
-        // Extract class name
+        // Store original input for Blade extraction
+        $originalInput = $code;
+        
+        // Step 1: Extract PHP code from markdown code blocks if present
+        // Look for ```php or ``` blocks containing PHP code
+        if (preg_match('/```(?:php)?\s*\n(.*?)\n```/s', $code, $matches)) {
+            $code = trim($matches[1]);
+        } elseif (preg_match('/```php\s*(.*?)```/s', $code, $matches)) {
+            $code = trim($matches[1]);
+        } elseif (preg_match('/```\s*(.*?)```/s', $code, $matches)) {
+            // Generic code block - check if it contains PHP
+            $potentialCode = trim($matches[1]);
+            if (str_contains($potentialCode, '<?php') || str_contains($potentialCode, 'namespace App\\Livewire')) {
+                $code = $potentialCode;
+            }
+        }
+        
+        // Step 2: Remove any explanatory text before <?php
+        // Find the first occurrence of <?php and extract everything from there
+        $phpStart = strpos($code, '<?php');
+        if ($phpStart !== false && $phpStart > 0) {
+            $code = substr($code, $phpStart);
+        }
+        
+        // Step 3: Remove any text after the closing brace of the class
+        // Find the last closing brace that matches the class structure
+        if (preg_match('/(.*?class\s+\w+\s+extends\s+Component\s*\{.*?\})\s*$/s', $code, $matches)) {
+            $code = $matches[1];
+        }
+        
+        // Step 4: Clean up the code - remove any remaining markdown or explanatory text
+        $code = preg_replace('/^(.*?)(<\?php)/s', '$2', $code); // Remove everything before <?php
+        $code = preg_replace('/\n\s*```.*$/s', '', $code); // Remove trailing markdown
+        $code = preg_replace('/^.*?<\?php\s*/s', '<?php' . "\n", $code); // Ensure clean start
+        
+        // Step 5: Extract class name
         if (preg_match('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends/', $code, $matches)) {
             $className = $matches[1];
         }
         
-        // Extract view name from render() method
+        // Step 6: Extract view name from render() method
         if (preg_match("/view\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
             $viewName = $matches[1];
         } elseif (preg_match("/return\s+view\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
             $viewName = $matches[1];
         }
         
-        // Check if view is embedded in heredoc/nowdoc (we need to extract it)
+        // Step 7: Check if view is embedded in heredoc/nowdoc (we need to extract it)
         // Match: return <<<'blade' ... blade;
         if (preg_match("/return\s+<<<['\"]?(\w+)['\"]?\s*\n(.*?)\n\1\s*;/s", $code, $matches)) {
             $viewContent = trim($matches[2]);
@@ -201,11 +237,53 @@ class DockerPreviewService
             );
         }
         
+        // Step 8: Extract Blade view from separate code blocks if present
+        // Look for blade code blocks in the original input (before PHP extraction)
+        if (preg_match_all('/```(?:blade)?\s*\n(.*?)\n```/s', $originalInput, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $blockContent = trim($match[1]);
+                // Check if this looks like Blade code (contains <x- or {{) and not PHP
+                if ((str_contains($blockContent, '<x-') || str_contains($blockContent, '{{') || str_contains($blockContent, '@')) 
+                    && !str_contains($blockContent, '<?php') 
+                    && !str_contains($blockContent, 'namespace App\\Livewire')) {
+                    $viewContent = $blockContent;
+                    break;
+                }
+            }
+        }
+        
+        // Also check for Blade code after "And here is" or similar patterns
+        if (empty($viewContent) && preg_match('/(?:And here is|Here is|Blade view|view file).*?```(?:blade)?\s*\n(.*?)```/s', $originalInput, $matches)) {
+            $blockContent = trim($matches[1]);
+            if (str_contains($blockContent, '<x-') || str_contains($blockContent, '{{')) {
+                $viewContent = $blockContent;
+            }
+        }
+        
+        // Step 9: Final cleanup - ensure code is valid PHP
+        $code = trim($code);
+        if (!str_starts_with($code, '<?php')) {
+            $code = '<?php' . "\n\n" . $code;
+        }
+        
+        // Ensure proper namespace and use statements
+        if (!str_contains($code, 'namespace App\\Livewire')) {
+            if (preg_match('/<\?php\s*(.*)/s', $code, $matches)) {
+                $code = "<?php\n\nnamespace App\\Livewire;\n\n" . $matches[1];
+            }
+        }
+        
+        if (!str_contains($code, 'use Livewire\\Component')) {
+            if (preg_match('/(namespace App\\Livewire;)(.*?)(class\s+\w+)/s', $code, $matches)) {
+                $code = str_replace($matches[0], $matches[1] . "\n\nuse Livewire\\Component;\n\n" . $matches[3], $code);
+            }
+        }
+        
         return [
             'class_name' => $className,
             'view_name' => $viewName,
             'view_content' => $viewContent,
-            'cleaned_code' => $code, // Code with heredoc removed
+            'cleaned_code' => $code,
         ];
     }
     
@@ -249,6 +327,7 @@ class DockerPreviewService
             }
             
             // Step 2: Parse the code to extract class name, view name, and view content
+            Log::info('[DOCKER] Parsing component code', ['code_length' => strlen($code), 'code_preview' => substr($code, 0, 200)]);
             $parsed = $this->parseComponentCode($code);
             $actualClassName = $parsed['class_name'] ?? $componentName;
             
@@ -260,6 +339,14 @@ class DockerPreviewService
             $viewName = $parsed['view_name'];
             $viewContent = $parsed['view_content'];
             $cleanedCode = $parsed['cleaned_code'] ?? $code;
+            
+            Log::info('[DOCKER] Code parsed', [
+                'class_name' => $componentName,
+                'view_name' => $viewName,
+                'has_view_content' => !empty($viewContent),
+                'cleaned_code_length' => strlen($cleanedCode),
+                'cleaned_code_preview' => substr($cleanedCode, 0, 200)
+            ]);
             
             // Step 3: Use Laravel's make:livewire command to generate component scaffold
             $kebabName = $this->toKebabCase($componentName);
