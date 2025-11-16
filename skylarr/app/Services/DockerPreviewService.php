@@ -62,6 +62,9 @@ class DockerPreviewService
             // Wait for container to be ready
             $this->waitForContainerReady($containerId);
             
+            // Fix any PailServiceProvider issues in the new container
+            $this->fixPailServiceProviderError($containerId);
+            
             Log::info("Successfully created container for project {$project->id}", [
                 'container_id' => $containerId,
                 'preview_url' => $previewUrl
@@ -88,6 +91,8 @@ class DockerPreviewService
         // Check if project already has an active container
         if ($project->container_id && $project->isActive()) {
             if ($this->isContainerRunning($project->container_id)) {
+                // Fix PailServiceProvider error if it exists in the running container
+                $this->fixPailServiceProviderError($project->container_id);
                 $project->touchLastAccessed();
                 return $project->preview_url;
             }
@@ -554,11 +559,55 @@ BLADE;
      */
     private function restartLaravelInContainer(string $containerId): void
     {
-        // Clear caches and restart
+        // Clear all caches to prevent PailServiceProvider errors
         $this->runDockerCommand([
             'exec', $containerId,
-            'sh', '-c', 'cd /var/www/html && php artisan config:clear && php artisan route:clear'
+            'sh', '-c', 'cd /var/www/html && 
+                rm -rf bootstrap/cache/*.php 2>/dev/null || true &&
+                rm -rf storage/framework/cache/* 2>/dev/null || true &&
+                php artisan config:clear 2>/dev/null || true &&
+                php artisan cache:clear 2>/dev/null || true &&
+                php artisan route:clear 2>/dev/null || true &&
+                php artisan view:clear 2>/dev/null || true &&
+                composer dump-autoload --no-dev --optimize 2>/dev/null || true'
         ]);
+    }
+    
+    /**
+     * Fix PailServiceProvider error in existing container.
+     */
+    public function fixPailServiceProviderError(string $containerId): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                return false;
+            }
+            
+            Log::info('[DOCKER] Fixing PailServiceProvider error in container', ['container_id' => $containerId]);
+            
+            // Clear all caches and regenerate autoloader
+            $this->restartLaravelInContainer($containerId);
+            
+            // Also check and remove Pail from bootstrap cache if it exists
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && 
+                    find bootstrap/cache -name "*.php" -type f -exec grep -l "PailServiceProvider" {} \; | xargs rm -f 2>/dev/null || true &&
+                    # Remove PailServiceProvider from bootstrap/providers.php if it exists
+                    if [ -f bootstrap/providers.php ]; then
+                        sed -i "/PailServiceProvider/d" bootstrap/providers.php 2>/dev/null || true
+                    fi'
+            ]);
+            
+            Log::info('[DOCKER] PailServiceProvider fix applied', ['container_id' => $containerId]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Failed to fix PailServiceProvider error', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
     
     /**
