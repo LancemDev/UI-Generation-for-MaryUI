@@ -13,6 +13,8 @@ class CodeGenerator extends Component
     
     public bool $projectSelectionModal = true;
     public bool $createNewProjectModal = false;
+    public bool $generationWarningModal = false;
+    public ?int $pendingProjectSwitchId = null;
     public string $projectName = '';
     public string $projectDescription = '';
     public $projects;
@@ -64,6 +66,22 @@ class CodeGenerator extends Component
      */
     public function switchProject($projectId)
     {
+        // Check if current project has generation in progress
+        if ($this->selectedProject && $this->selectedProject->isGenerating()) {
+            // Store the target project ID and show warning
+            $this->pendingProjectSwitchId = $projectId;
+            $this->generationWarningModal = true;
+            return;
+        }
+        
+        $this->performProjectSwitch($projectId);
+    }
+
+    /**
+     * Perform the actual project switch.
+     */
+    private function performProjectSwitch($projectId)
+    {
         $project = Project::where('user_id', Auth::id())
             ->find($projectId);
         
@@ -71,6 +89,8 @@ class CodeGenerator extends Component
             $this->selectedProject = $project;
             $this->selectedProjectId = $project->id;
             $this->projectSelectionModal = false;
+            $this->generationWarningModal = false;
+            $this->pendingProjectSwitchId = null;
             $this->loadProjects(); // Refresh projects list to update navigation bar
             
             // Dispatch event to update navigation bar
@@ -82,6 +102,25 @@ class CodeGenerator extends Component
         } else {
             $this->error('Project not found');
         }
+    }
+
+    /**
+     * Confirm project switch despite ongoing generation.
+     */
+    public function confirmProjectSwitch()
+    {
+        if ($this->pendingProjectSwitchId) {
+            $this->performProjectSwitch($this->pendingProjectSwitchId);
+        }
+    }
+
+    /**
+     * Cancel project switch.
+     */
+    public function cancelProjectSwitch()
+    {
+        $this->generationWarningModal = false;
+        $this->pendingProjectSwitchId = null;
     }
     
     /**

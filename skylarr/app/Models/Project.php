@@ -80,4 +80,78 @@ class Project extends Model
 
         return null;
     }
+
+    /**
+     * Check if code generation is in progress.
+     */
+    public function isGenerating(): bool
+    {
+        $metadata = $this->metadata ?? [];
+        return ($metadata['generation']['is_generating'] ?? false) === true;
+    }
+
+    /**
+     * Get generation state from metadata.
+     */
+    public function getGenerationState(): array
+    {
+        $metadata = $this->metadata ?? [];
+        return $metadata['generation'] ?? [
+            'is_generating' => false,
+            'prompt' => null,
+            'started_at' => null,
+            'generated_code' => null,
+            'component_name' => null,
+            'preview_url' => null,
+        ];
+    }
+
+    /**
+     * Set generation state in metadata.
+     */
+    public function setGenerationState(array $state): void
+    {
+        $metadata = $this->metadata ?? [];
+        $metadata['generation'] = array_merge($metadata['generation'] ?? [], $state);
+        $this->update(['metadata' => $metadata]);
+    }
+
+    /**
+     * Start generation tracking.
+     */
+    public function startGeneration(string $prompt): void
+    {
+        $this->setGenerationState([
+            'is_generating' => true,
+            'prompt' => $prompt,
+            'started_at' => now()->toIso8601String(),
+            'generated_code' => null,
+            'component_name' => null,
+            'preview_url' => null,
+        ]);
+    }
+
+    /**
+     * Complete generation tracking.
+     */
+    public function completeGeneration(string $componentName, ?string $generatedCode = null, ?string $previewUrl = null): void
+    {
+        $this->setGenerationState([
+            'is_generating' => false,
+            'component_name' => $componentName,
+            'generated_code' => $generatedCode,
+            'preview_url' => $previewUrl,
+            'completed_at' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Clear generation state.
+     */
+    public function clearGenerationState(): void
+    {
+        $metadata = $this->metadata ?? [];
+        unset($metadata['generation']);
+        $this->update(['metadata' => $metadata]);
+    }
 }

@@ -62,6 +62,9 @@ class DockerPreviewService
             // Wait for container to be ready
             $this->waitForContainerReady($containerId);
             
+            // Ensure APP_KEY is set in the container
+            $this->ensureAppKeyExists($containerId);
+            
             // Fix any PailServiceProvider issues in the new container
             $this->fixPailServiceProviderError($containerId);
             
@@ -91,6 +94,8 @@ class DockerPreviewService
         // Check if project already has an active container
         if ($project->container_id && $project->isActive()) {
             if ($this->isContainerRunning($project->container_id)) {
+                // Ensure APP_KEY is set
+                $this->ensureAppKeyExists($project->container_id);
                 // Fix PailServiceProvider error if it exists in the running container
                 $this->fixPailServiceProviderError($project->container_id);
                 $project->touchLastAccessed();
@@ -957,8 +962,85 @@ BLADE;
     }
     
     /**
-     * Fix PailServiceProvider error in existing container.
+     * Ensure APP_KEY exists in the container's .env file.
      */
+    public function ensureAppKeyExists(string $containerId): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                return false;
+            }
+
+            // Check if APP_KEY is set and valid
+            $checkResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "grep -q '^APP_KEY=base64:' /var/www/html/.env 2>/dev/null && echo 'exists' || echo 'missing'"
+            ]);
+
+            if (trim($checkResult->output()) === 'exists') {
+                Log::debug('[DOCKER] APP_KEY already exists in container', ['container_id' => $containerId]);
+                return true;
+            }
+
+            Log::info('[DOCKER] APP_KEY missing, generating in container', ['container_id' => $containerId]);
+
+            // Generate APP_KEY using artisan
+            $generateResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan key:generate --force 2>&1'
+            ]);
+
+            if ($generateResult->successful()) {
+                Log::info('[DOCKER] APP_KEY generated successfully', ['container_id' => $containerId]);
+                // Clear config cache to pick up new key
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', 'cd /var/www/html && php artisan config:clear 2>/dev/null || true'
+                ]);
+                return true;
+            }
+
+            // Fallback: manually generate and set APP_KEY
+            Log::warning('[DOCKER] artisan key:generate failed, using manual generation', [
+                'container_id' => $containerId,
+                'error' => $generateResult->errorOutput()
+            ]);
+
+            $keyResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "php -r \"echo 'base64:' . base64_encode(random_bytes(32));\""
+            ]);
+
+            if ($keyResult->successful()) {
+                $key = trim($keyResult->output());
+                $setResult = $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "cd /var/www/html && if grep -q '^APP_KEY=' .env; then sed -i 's|^APP_KEY=.*|APP_KEY={$key}|' .env; else echo 'APP_KEY={$key}' >> .env; fi"
+                ]);
+
+                if ($setResult->successful()) {
+                    Log::info('[DOCKER] APP_KEY set manually', ['container_id' => $containerId]);
+                    // Clear config cache to pick up new key
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', 'cd /var/www/html && php artisan config:clear 2>/dev/null || true'
+                    ]);
+                    return true;
+                }
+            }
+
+            Log::error('[DOCKER] Failed to set APP_KEY in container', ['container_id' => $containerId]);
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception ensuring APP_KEY exists', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
     public function fixPailServiceProviderError(string $containerId): bool
     {
         try {

@@ -119,23 +119,41 @@ class ChatInterface extends Component
             'thread_id' => $this->threadId
         ]);
 
+        // Clear message field immediately for better UX
+        $this->message = '';
+        
+        // Add user message to UI immediately (optimistic update)
+        $tempUserMsgId = 'temp-' . time();
+        $this->messages[] = [
+            'id' => $tempUserMsgId,
+            'role' => 'user',
+            'content' => $content,
+            'status' => 'sent',
+            'created_at' => now()->toDateTimeString(),
+        ];
+        
+        // Force immediate UI update
+        $this->dispatch('chat-scrolled');
+        
+        // Set streaming flag
         $this->isStreaming = true;
 
-        // Persist user message
+        // Persist user message to database (non-blocking for UI)
         $userMsg = ChatMessage::create([
             'chat_thread_id' => $this->threadId,
             'role' => 'user',
             'content' => $content,
             'status' => 'sent',
         ]);
-        $this->messages[] = [
-            'id' => $userMsg->id,
-            'role' => 'user',
-            'content' => $content,
-            'status' => 'sent',
-            'created_at' => $userMsg->created_at?->toDateTimeString(),
-        ];
-        $this->message = '';
+        
+        // Update the temporary message with real ID
+        foreach ($this->messages as $key => $msg) {
+            if ($msg['id'] === $tempUserMsgId) {
+                $this->messages[$key]['id'] = $userMsg->id;
+                $this->messages[$key]['created_at'] = $userMsg->created_at?->toDateTimeString();
+                break;
+            }
+        }
 
         // Create placeholder assistant message
         $assistantMsg = ChatMessage::create([
@@ -152,6 +170,9 @@ class ChatInterface extends Component
             'status' => 'streaming',
             'created_at' => $assistantMsg->created_at?->toDateTimeString(),
         ];
+        
+        // Force another UI update to show the placeholder
+        $this->dispatch('chat-scrolled');
 
         // Build message array for gateway
         $history = array_map(fn ($m) => [
@@ -249,14 +270,20 @@ class ChatInterface extends Component
         'code-generation-failed' => 'addCodeGenerationErrorMessage',
     ];
 
-    public function addCodeGenerationMessage($data)
+    public function addCodeGenerationMessage($data = null)
     {
         if (!$this->threadId || !$this->projectId) {
             return;
         }
 
-        $message = $data['message'] ?? 'Code generation completed successfully!';
-        $componentName = $data['component_name'] ?? 'component';
+        // Handle both array and object data, or default values
+        if (is_array($data)) {
+            $message = $data['message'] ?? 'Code generation completed successfully!';
+            $componentName = $data['component_name'] ?? 'component';
+        } else {
+            $message = 'Code generation completed successfully!';
+            $componentName = 'component';
+        }
 
         $fullMessage = "✅ Code generation complete! I've created the `{$componentName}` component. You can view it in the Code tab and see the live preview in the Preview tab.";
 
@@ -279,13 +306,18 @@ class ChatInterface extends Component
         $this->dispatch('chat-scrolled');
     }
 
-    public function addCodeGenerationErrorMessage($data)
+    public function addCodeGenerationErrorMessage($data = null)
     {
         if (!$this->threadId || !$this->projectId) {
             return;
         }
 
-        $errorMessage = $data['message'] ?? 'Code generation failed. Please try again.';
+        // Handle both array and object data, or default values
+        if (is_array($data)) {
+            $errorMessage = $data['message'] ?? 'Code generation failed. Please try again.';
+        } else {
+            $errorMessage = 'Code generation failed. Please try again.';
+        }
 
         $fullMessage = "❌ Sorry, I encountered an error while generating the code: {$errorMessage}";
 
