@@ -50,6 +50,57 @@
     {{-- Message Input Area - Always Visible at Bottom --}}
     <div class="border-t border-gray-200 bg-white" style="flex-shrink: 0;">
         <div class="p-4">
+            {{-- Component Selection --}}
+            @if(count($this->components) > 0)
+                <div class="mb-2 flex items-center gap-2">
+                    <button 
+                        type="button"
+                        wire:click="toggleComponentSelect"
+                        class="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1"
+                    >
+                        <x-icon name="o-code-bracket" class="w-3 h-3" />
+                        @if($selectedComponentName)
+                            <span>Modify: {{ $selectedComponentName }}</span>
+                        @else
+                            <span>Create New Component</span>
+                        @endif
+                        <x-icon name="o-chevron-down" class="w-3 h-3" />
+                    </button>
+                    @if($selectedComponentName)
+                        <button 
+                            type="button"
+                            wire:click="selectComponent(null)"
+                            class="text-xs px-2 py-1 rounded text-red-600 hover:bg-red-50"
+                        >
+                            <x-icon name="o-x-mark" class="w-3 h-3" />
+                        </button>
+                    @endif
+                </div>
+                @if($showComponentSelect)
+                    <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 max-h-32 overflow-y-auto">
+                        <div class="space-y-1">
+                            <button 
+                                type="button"
+                                wire:click="selectComponent(null)"
+                                class="w-full text-left px-2 py-1 text-xs rounded hover:bg-white {{ !$selectedComponentName ? 'bg-blue-100 font-medium' : '' }}"
+                            >
+                                + Create New Component
+                            </button>
+                            @foreach($this->components as $component)
+                                <button 
+                                    type="button"
+                                    wire:click="selectComponent('{{ $component['name'] }}')"
+                                    class="w-full text-left px-2 py-1 text-xs rounded hover:bg-white {{ $selectedComponentName === $component['name'] ? 'bg-blue-100 font-medium' : '' }}"
+                                >
+                                    <x-icon name="o-pencil" class="w-3 h-3 inline mr-1" />
+                                    {{ $component['name'] }} ({{ $component['route'] }})
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            @endif
+            
             <div class="flex gap-2 items-end">
                 <div class="flex-1">
                     <textarea 

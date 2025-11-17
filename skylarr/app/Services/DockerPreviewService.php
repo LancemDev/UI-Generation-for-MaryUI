@@ -569,9 +569,56 @@ class DockerPreviewService
                 'cleaned_code_preview' => substr($cleanedCode, 0, 200)
             ]);
             
-            // Step 3: Use Laravel's make:livewire command to generate component scaffold
+            // Step 3: Check if component already exists and create backup
             $kebabName = $this->toKebabCase($componentName);
-            Log::info('[DOCKER] Generating component scaffold', ['component_name' => $kebabName]);
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            $componentExists = false;
+            
+            // Check if component file exists
+            $checkResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+            ]);
+            
+            if (trim($checkResult->output()) === 'exists') {
+                $componentExists = true;
+                Log::info('[DOCKER] Component already exists, creating backup', ['component' => $componentName]);
+                
+                // Create backup directory if it doesn't exist
+                $backupDir = "/var/www/html/storage/app/component-backups";
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "mkdir -p {$backupDir}"
+                ]);
+                
+                // Backup component file
+                $backupPath = "{$backupDir}/{$componentName}-" . date('Y-m-d_His') . '.php';
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "cp {$componentPath} {$backupPath}"
+                ]);
+                
+                // Backup view file if it exists
+                $viewCheck = $this->runDockerCommand([
+                    'exec', $project->container_id,
+                    'sh', '-c', "test -f {$viewPath} && echo 'exists' || echo 'missing'"
+                ]);
+                
+                if (trim($viewCheck->output()) === 'exists') {
+                    $viewBackupPath = "{$backupDir}/{$kebabName}-" . date('Y-m-d_His') . '.blade.php';
+                    $this->runDockerCommand([
+                        'exec', $project->container_id,
+                        'sh', '-c', "cp {$viewPath} {$viewBackupPath}"
+                    ]);
+                }
+            }
+            
+            // Step 4: Use Laravel's make:livewire command to generate component scaffold
+            Log::info('[DOCKER] Generating component scaffold', [
+                'component_name' => $kebabName,
+                'exists' => $componentExists
+            ]);
             
             $makeResult = $this->runDockerCommand([
                 'exec', $project->container_id,
@@ -586,8 +633,7 @@ class DockerPreviewService
                 }
             }
             
-            // Step 4: Prepare component class code
-            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            // Step 5: Prepare component class code
             
             // Ensure render() method uses view() instead of heredoc
             if (!preg_match("/return\s+view\(['\"]/", $cleanedCode)) {
@@ -602,8 +648,11 @@ class DockerPreviewService
                 );
             }
             
-            // Step 5: Inject PHP class code
-            Log::info('[DOCKER] Injecting PHP class code', ['path' => $componentPath]);
+            // Step 6: Inject PHP class code
+            Log::info('[DOCKER] Injecting PHP class code', [
+                'path' => $componentPath,
+                'is_update' => $componentExists
+            ]);
             $escapedCode = escapeshellarg($cleanedCode);
             $writeResult = $this->runDockerCommand([
                 'exec', $project->container_id,
@@ -614,7 +663,7 @@ class DockerPreviewService
                 throw new \Exception("Failed to write component class: " . $writeResult->errorOutput());
             }
             
-            // Step 6: Inject Blade view code
+            // Step 7: Inject Blade view code
             $finalViewName = $viewName ?: "livewire.{$kebabName}";
             $viewPath = str_replace('.', '/', $finalViewName);
             if (!str_ends_with($viewPath, '.blade.php')) {
@@ -718,17 +767,28 @@ BLADE;
             $routeAdded = $this->addComponentRoute($project->container_id, $componentName, $isFirstComponent);
             
             if ($routeAdded) {
-                // Track component and route in project metadata
+                // Track component and route in project metadata (with code and view for versioning)
                 $kebabName = $this->toKebabCase($componentName);
                 // Use root route for first component, otherwise use component name
                 $route = $isFirstComponent ? '/' : "/{$kebabName}";
                 $routeName = $isFirstComponent ? 'home' : $kebabName;
-                $project->addComponent($componentName, $route, $routeName);
+                
+                // Check if component already exists
+                $componentExists = $project->hasComponent($componentName);
+                
+                $project->addComponent(
+                    $componentName, 
+                    $route, 
+                    $routeName,
+                    $cleanedCode, // Store code for versioning
+                    $finalViewContent // Store view for versioning
+                );
                 
                 Log::info('[DOCKER] Route added and tracked', [
                     'component' => $componentName,
                     'route' => $route,
-                    'is_first' => $isFirstComponent
+                    'is_first' => $isFirstComponent,
+                    'is_update' => $componentExists
                 ]);
             }
             

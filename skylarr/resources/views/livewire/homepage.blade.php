@@ -16,9 +16,17 @@
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
                     <a href="{{ route('password.request') }}" class="flex items-right text-sm text-gray-400 hover:text-indigo-500">Forgot password?</a>
                     <div class="mt-3 flex flex-col gap-2">
-                        <a href="{{ route('oauth.redirect', 'google') }}" class="w-full">
-                            <x-button class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10">
-                                <span class="inline-flex items-center gap-2">
+                        <a 
+                            href="{{ route('oauth.redirect', 'google') }}" 
+                            class="w-full"
+                            x-data="{ loading: false }"
+                            x-on:click="loading = true"
+                        >
+                            <x-button 
+                                class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
+                                :disabled="loading"
+                            >
+                                <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 48 48" class="shrink-0">
                                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.72 1.22 9.22 3.6l6.9-6.9C35.9 2.2 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.04 6.24C12.46 13.58 17.73 9.5 24 9.5z"/>
                                         <path fill="#4285F4" d="M46.5 24c0-1.64-.15-3.2-.44-4.7H24v9.1h12.7c-.55 2.96-2.24 5.47-4.76 7.16l7.28 5.65C43.7 36.92 46.5 30.92 46.5 24z"/>
@@ -28,15 +36,37 @@
                                     </svg>
                                     <span>Continue with Google</span>
                                 </span>
+                                <span class="inline-flex items-center gap-2" x-show="loading" x-cloak>
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Connecting...</span>
+                                </span>
                             </x-button>
                         </a>
-                        <a href="{{ route('oauth.redirect', 'github') }}" class="w-full">
-                            <x-button class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10">
-                                <span class="inline-flex items-center gap-2">
+                        <a 
+                            href="{{ route('oauth.redirect', 'github') }}" 
+                            class="w-full"
+                            x-data="{ loading: false }"
+                            x-on:click="loading = true"
+                        >
+                            <x-button 
+                                class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
+                                :disabled="loading"
+                            >
+                                <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="shrink-0">
                                         <path d="M12 .5C5.73.5.9 5.33.9 11.6c0 4.87 3.16 9 7.55 10.45.55.1.75-.25.75-.55v-2c-3.07.67-3.72-1.32-3.72-1.32-.5-1.22-1.23-1.55-1.23-1.55-1-.67.08-.66.08-.66 1.1.08 1.67 1.15 1.67 1.15.98 1.66 2.58 1.18 3.22.9.1-.72.38-1.2.7-1.47-2.45-.28-5.02-1.22-5.02-5.45 0-1.2.43-2.17 1.14-2.94-.12-.28-.5-1.43.1-2.98 0 0 .95-.3 3.1 1.12.9-.25 1.86-.37 2.82-.38.96 0 1.92.13 2.82.38 2.15-1.42 3.1-1.12 3.1-1.12.6 1.55.22 2.7.1 2.98.72.77 1.14 1.74 1.14 2.94 0 4.24-2.58 5.17-5.04 5.44.4.35.76 1.05.76 2.13v3.16c0 .3.2.66.76.55 4.38-1.45 7.54-5.58 7.54-10.45C23.1 5.33 18.27.5 12 .5Z"/>
                                     </svg>
                                     <span>Continue with GitHub</span>
+                                </span>
+                                <span class="inline-flex items-center gap-2" x-show="loading" x-cloak>
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Connecting...</span>
                                 </span>
                             </x-button>
                         </a>
@@ -55,9 +85,17 @@
                     <x-input wire:model="email" label="Email" inline icon="o-envelope" />
                     <x-input wire:model="password" type="password" label="Password" inline icon="o-lock-closed" />
                     <div class="mt-3 flex flex-col gap-2">
-                        <a href="{{ route('oauth.redirect', 'google') }}" class="w-full">
-                            <x-button class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10">
-                                <span class="inline-flex items-center gap-2">
+                        <a 
+                            href="{{ route('oauth.redirect', 'google') }}" 
+                            class="w-full"
+                            x-data="{ loading: false }"
+                            x-on:click="loading = true"
+                        >
+                            <x-button 
+                                class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
+                                :disabled="loading"
+                            >
+                                <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 48 48" class="shrink-0">
                                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.72 1.22 9.22 3.6l6.9-6.9C35.9 2.2 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.04 6.24C12.46 13.58 17.73 9.5 24 9.5z"/>
                                         <path fill="#4285F4" d="M46.5 24c0-1.64-.15-3.2-.44-4.7H24v9.1h12.7c-.55 2.96-2.24 5.47-4.76 7.16l7.28 5.65C43.7 36.92 46.5 30.92 46.5 24z"/>
@@ -67,15 +105,37 @@
                                     </svg>
                                     <span>Continue with Google</span>
                                 </span>
+                                <span class="inline-flex items-center gap-2" x-show="loading" x-cloak>
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Connecting...</span>
+                                </span>
                             </x-button>
                         </a>
-                        <a href="{{ route('oauth.redirect', 'github') }}" class="w-full">
-                            <x-button class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10">
-                                <span class="inline-flex items-center gap-2">
+                        <a 
+                            href="{{ route('oauth.redirect', 'github') }}" 
+                            class="w-full"
+                            x-data="{ loading: false }"
+                            x-on:click="loading = true"
+                        >
+                            <x-button 
+                                class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
+                                :disabled="loading"
+                            >
+                                <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="shrink-0">
                                         <path d="M12 .5C5.73.5.9 5.33.9 11.6c0 4.87 3.16 9 7.55 10.45.55.1.75-.25.75-.55v-2c-3.07.67-3.72-1.32-3.72-1.32-.5-1.22-1.23-1.55-1.23-1.55-1-.67.08-.66.08-.66 1.1.08 1.67 1.15 1.67 1.15.98 1.66 2.58 1.18 3.22.9.1-.72.38-1.2.7-1.47-2.45-.28-5.02-1.22-5.02-5.45 0-1.2.43-2.17 1.14-2.94-.12-.28-.5-1.43.1-2.98 0 0 .95-.3 3.1 1.12.9-.25 1.86-.37 2.82-.38.96 0 1.92.13 2.82.38 2.15-1.42 3.1-1.12 3.1-1.12.6 1.55.22 2.7.1 2.98.72.77 1.14 1.74 1.14 2.94 0 4.24-2.58 5.17-5.04 5.44.4.35.76 1.05.76 2.13v3.16c0 .3.2.66.76.55 4.38-1.45 7.54-5.58 7.54-10.45C23.1 5.33 18.27.5 12 .5Z"/>
                                     </svg>
                                     <span>Continue with GitHub</span>
+                                </span>
+                                <span class="inline-flex items-center gap-2" x-show="loading" x-cloak>
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Connecting...</span>
                                 </span>
                             </x-button>
                         </a>

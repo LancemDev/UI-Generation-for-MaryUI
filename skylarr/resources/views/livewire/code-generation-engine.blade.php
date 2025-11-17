@@ -237,4 +237,24 @@
         }
     </style>
     
+    {{-- Overwrite Confirmation Modal --}}
+    <x-modal wire:model="showOverwriteConfirmModal" title="Overwrite Existing Component?">
+        <div class="space-y-4">
+            <p class="text-gray-700">
+                The component <strong>{{ $pendingComponentName }}</strong> already exists. 
+                Overwriting will replace the current code and create a backup version.
+            </p>
+            <p class="text-sm text-gray-500">
+                Previous versions will be saved in the component's version history (up to 10 versions).
+            </p>
+            <div class="flex justify-end gap-2 pt-4">
+                <x-button wire:click="cancelOverwrite" class="btn-ghost">Cancel</x-button>
+                <x-button wire:click="confirmOverwrite" class="btn-warning">
+                    <x-icon name="o-exclamation-triangle" class="w-4 h-4 mr-2" />
+                    Overwrite Component
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+    
 </div>
