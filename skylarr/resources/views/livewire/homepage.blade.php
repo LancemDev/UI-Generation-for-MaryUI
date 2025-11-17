@@ -20,11 +20,11 @@
                             href="{{ route('oauth.redirect', 'google') }}" 
                             class="w-full"
                             x-data="{ loading: false }"
-                            x-on:click="loading = true"
+                            @click="loading = true"
                         >
                             <x-button 
                                 class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
-                                :disabled="loading"
+                                x-bind:disabled="loading"
                             >
                                 <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 48 48" class="shrink-0">
@@ -49,11 +49,11 @@
                             href="{{ route('oauth.redirect', 'github') }}" 
                             class="w-full"
                             x-data="{ loading: false }"
-                            x-on:click="loading = true"
+                            @click="loading = true"
                         >
                             <x-button 
                                 class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
-                                :disabled="loading"
+                                x-bind:disabled="loading"
                             >
                                 <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="shrink-0">
@@ -89,11 +89,11 @@
                             href="{{ route('oauth.redirect', 'google') }}" 
                             class="w-full"
                             x-data="{ loading: false }"
-                            x-on:click="loading = true"
+                            @click="loading = true"
                         >
                             <x-button 
                                 class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
-                                :disabled="loading"
+                                x-bind:disabled="loading"
                             >
                                 <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 48 48" class="shrink-0">
@@ -118,11 +118,11 @@
                             href="{{ route('oauth.redirect', 'github') }}" 
                             class="w-full"
                             x-data="{ loading: false }"
-                            x-on:click="loading = true"
+                            @click="loading = true"
                         >
                             <x-button 
                                 class="w-full btn-ghost border-secondary text-secondary hover:bg-secondary/10"
-                                :disabled="loading"
+                                x-bind:disabled="loading"
                             >
                                 <span class="inline-flex items-center gap-2" x-show="!loading">
                                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="shrink-0">

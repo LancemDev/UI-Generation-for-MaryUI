@@ -1,6 +1,4 @@
-<div class="h-full flex flex-col" x-data="" @generate-code.window="
-    @this.handleGenerateCodeRequest($event.detail);
-">
+<div class="h-full flex flex-col">
     {{-- Header with Toggle --}}
     <div class="p-4 border-b border-secondary-200">
         <div class="flex items-center justify-between">

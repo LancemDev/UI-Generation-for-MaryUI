@@ -495,10 +495,21 @@ class DockerPreviewService
                 return false;
             }
             
-            // Clear route cache
+            // Clear all Laravel caches to ensure routes are fresh
             $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', 'cd /var/www/html && php artisan route:clear 2>/dev/null || true'
+                'sh', '-c', 'cd /var/www/html && 
+                    php artisan route:clear 2>/dev/null || true &&
+                    php artisan config:clear 2>/dev/null || true &&
+                    php artisan cache:clear 2>/dev/null || true &&
+                    php artisan view:clear 2>/dev/null || true &&
+                    php artisan optimize:clear 2>/dev/null || true'
+            ]);
+            
+            // Reload PHP-FPM to clear opcache and pick up new routes
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'pkill -USR2 php-fpm 2>/dev/null || service php8.4-fpm reload 2>/dev/null || true'
             ]);
             
             Log::info('[DOCKER] Route added successfully', [

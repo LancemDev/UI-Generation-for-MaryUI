@@ -260,6 +260,28 @@ class CodeGenerationEngine extends Component
                     'message' => 'Code generation completed successfully!'
                 ]) . " }))");
                 
+                // Load project files to show the new component
+                $this->loadProjectFiles();
+                
+                // Auto-select the generated file
+                if ($this->componentName) {
+                    $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                    if (in_array($generatedFilePath, $this->projectFiles)) {
+                        $this->selectFile($generatedFilePath);
+                    }
+                }
+                
+                // Update selected route
+                $routes = $this->currentProject->getRoutes();
+                foreach ($routes as $route) {
+                    if ($route['component'] === $this->componentName) {
+                        $this->selectedRoute = $route['url'];
+                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
+                        $this->previewUrl = $baseUrl . $route['url'];
+                        break;
+                    }
+                }
+                
                 Log::info('[CODE_GEN] Success events dispatched', [
                     'component_name' => $this->componentName,
                     'is_generating' => $this->isGenerating,
