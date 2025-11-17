@@ -13,34 +13,47 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Check if preview-reference directory exists
+if [ ! -d "../preview-reference" ]; then
+    echo "❌ preview-reference directory not found!"
+    echo "Please create the preview-reference directory with a clean Laravel app."
+    exit 1
+fi
+
 # Create preview-base directory if it doesn't exist
 if [ ! -d "preview-base" ]; then
     echo "📁 Creating preview-base directory..."
     mkdir -p preview-base
 fi
 
-# Copy necessary Laravel files to preview-base
-echo "📋 Copying Laravel files to preview-base..."
+# Copy necessary Laravel files from preview-reference to preview-base
+echo "📋 Copying Laravel files from preview-reference to preview-base..."
+
+# Change to preview-reference directory
+cd ../preview-reference
 
 # Essential Laravel directories and files
-cp -r app preview-base/
-cp -r bootstrap preview-base/
-cp -r config preview-base/
-cp -r database preview-base/
-cp -r public preview-base/
-cp -r resources preview-base/
-cp -r routes preview-base/
-cp -r storage preview-base/
-cp -r vendor preview-base/
+cp -r app ../skylarr/preview-base/
+cp -r bootstrap ../skylarr/preview-base/
+cp -r config ../skylarr/preview-base/
+cp -r database ../skylarr/preview-base/
+cp -r public ../skylarr/preview-base/
+cp -r resources ../skylarr/preview-base/
+cp -r routes ../skylarr/preview-base/
+cp -r storage ../skylarr/preview-base/
+cp -r vendor ../skylarr/preview-base/
 
 # Essential files
-cp artisan preview-base/
-cp composer.json preview-base/
-cp composer.lock preview-base/
-cp package.json preview-base/
-cp bun.lockb preview-base/ 2>/dev/null || true  # Bun lockfile (optional)
-cp vite.config.js preview-base/
-cp .env.example preview-base/
+cp artisan ../skylarr/preview-base/
+cp composer.json ../skylarr/preview-base/
+cp composer.lock ../skylarr/preview-base/
+cp package.json ../skylarr/preview-base/
+cp bun.lockb ../skylarr/preview-base/ 2>/dev/null || true  # Bun lockfile (optional)
+cp vite.config.js ../skylarr/preview-base/
+cp .env.example ../skylarr/preview-base/ 2>/dev/null || true
+
+# Return to skylarr directory
+cd ../skylarr
 
 # Create a minimal .env for preview
 cat > preview-base/.env << EOF

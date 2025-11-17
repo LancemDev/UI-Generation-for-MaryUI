@@ -27,6 +27,7 @@ class CodeGenerationEngine extends Component
     public array $projectFilesTree = [];
     public string $selectedFile = '';
     public string $selectedFilePath = '';
+    public string $selectedRoute = '';
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -42,6 +43,79 @@ class CodeGenerationEngine extends Component
         if ($this->projectId) {
             $this->loadProject();
             $this->initializePreview();
+            $this->restoreGenerationState();
+        }
+    }
+
+    /**
+     * Restore generation state from database if generation was in progress or completed.
+     */
+    private function restoreGenerationState(): void
+    {
+        if (!$this->currentProject) {
+            return;
+        }
+
+        $state = $this->currentProject->getGenerationState();
+        
+        // Check if there's any generation state (in-progress or completed)
+        $hasGenerationState = ($state['is_generating'] ?? false) || 
+                              !empty($state['completed_at']) || 
+                              !empty($state['generated_code']);
+        
+        if ($hasGenerationState) {
+            // Restore state from database
+            $this->generatedCode = $state['generated_code'] ?? '';
+            $this->componentName = $state['component_name'] ?? '';
+            $this->previewUrl = $state['preview_url'] ?? '';
+            
+            // Check if generation completed
+            if (!empty($state['completed_at']) && !empty($state['generated_code'])) {
+                $this->isGenerating = false;
+                $this->previewReady = !empty($this->previewUrl);
+                $this->activeTab = 'preview'; // Show preview tab by default for completed generation
+                
+                // Load project files if preview is ready
+                        if ($this->previewReady) {
+                            $this->loadProjectFiles();
+                            
+                            // Auto-select the generated file if it exists
+                            if ($this->componentName) {
+                                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                                if (in_array($generatedFilePath, $this->projectFiles)) {
+                                    $this->selectFile($generatedFilePath);
+                                }
+                            }
+                            
+                            // Set default route to the generated component
+                            $routes = $this->currentProject->getRoutes();
+                            foreach ($routes as $route) {
+                                if ($route['component'] === $this->componentName) {
+                                    $this->selectedRoute = $route['url'];
+                                    $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
+                                    $this->previewUrl = $baseUrl . $route['url'];
+                                    break;
+                                }
+                            }
+                        }
+                
+                Log::info('[CODE_GEN] Restored completed generation state', [
+                    'project_id' => $this->currentProject->id,
+                    'component_name' => $this->componentName,
+                    'preview_ready' => $this->previewReady,
+                    'preview_url' => $this->previewUrl
+                ]);
+            } elseif ($state['is_generating'] ?? false) {
+                // Generation was in progress - show loading state
+                $this->isGenerating = true;
+                $this->previewReady = false;
+                $this->dispatch('showCodeCubeLoader');
+                
+                Log::info('[CODE_GEN] Restored in-progress generation state', [
+                    'project_id' => $this->currentProject->id,
+                    'prompt' => $state['prompt'] ?? 'unknown'
+                ]);
+            }
         }
     }
     
@@ -50,6 +124,7 @@ class CodeGenerationEngine extends Component
         $this->projectId = $projectData['id'];
         $this->loadProject();
         $this->initializePreview();
+        $this->restoreGenerationState();
     }
     
     private function loadProject()
@@ -79,6 +154,10 @@ class CodeGenerationEngine extends Component
         
         $this->isGenerating = true;
         $this->previewReady = false;
+        
+        // Clear any previous generation state and start new generation
+        $this->currentProject->clearGenerationState();
+        $this->currentProject->startGeneration($prompt);
         
         // Show the code cube loader
         $this->dispatch('showCodeCubeLoader');
@@ -110,6 +189,13 @@ class CodeGenerationEngine extends Component
                 // Create preview
                 Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
+                
+                // Save completed generation state to database
+                $this->currentProject->completeGeneration(
+                    $this->componentName,
+                    $this->generatedCode,
+                    $this->previewUrl
+                );
                 
                 // Create success notification
                 NotificationService::success(
@@ -200,6 +286,12 @@ class CodeGenerationEngine extends Component
             ]) . " }))");
         } finally {
             $this->isGenerating = false;
+            
+            // Clear generation state if it failed (success case already handled above)
+            if (!$this->previewReady && $this->currentProject) {
+                $this->currentProject->clearGenerationState();
+            }
+            
             Log::info('[CODE_GEN] Generation finished');
             // Hide the code cube loader
             $this->dispatch('hideCodeCubeLoader');
@@ -241,13 +333,21 @@ class CodeGenerationEngine extends Component
             
             Log::info('[CODE_GEN] Code injection result', ['success' => $success]);
             
-            if ($success) {
-                $this->previewUrl = $previewUrl;
-                $this->previewReady = true;
-                $this->isGenerating = false; // Ensure generating flag is cleared
-                
-                // Load project files
-                $this->loadProjectFiles();
+                    if ($success) {
+                        $this->previewUrl = $previewUrl;
+                        $this->previewReady = true;
+                        $this->isGenerating = false; // Ensure generating flag is cleared
+
+                        // Update generation state with preview URL
+                        if ($this->currentProject) {
+                            $this->currentProject->setGenerationState([
+                                'preview_url' => $previewUrl,
+                                'preview_ready' => true,
+                            ]);
+                        }
+
+                        // Load project files
+                        $this->loadProjectFiles();
                 
                 // Auto-select the newly generated file if it exists
                 $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";

@@ -62,6 +62,9 @@ class DockerPreviewService
             // Wait for container to be ready
             $this->waitForContainerReady($containerId);
             
+            // Ensure APP_KEY is set in the container
+            $this->ensureAppKeyExists($containerId);
+            
             // Fix any PailServiceProvider issues in the new container
             $this->fixPailServiceProviderError($containerId);
             
@@ -91,6 +94,8 @@ class DockerPreviewService
         // Check if project already has an active container
         if ($project->container_id && $project->isActive()) {
             if ($this->isContainerRunning($project->container_id)) {
+                // Ensure APP_KEY is set
+                $this->ensureAppKeyExists($project->container_id);
                 // Fix PailServiceProvider error if it exists in the running container
                 $this->fixPailServiceProviderError($project->container_id);
                 $project->touchLastAccessed();
@@ -198,6 +203,13 @@ class DockerPreviewService
         
         // Store original input for Blade extraction
         $originalInput = $code;
+        
+        // Step 0: Extract Blade view from new format (===BLADE_VIEW=== ... ===END_BLADE===)
+        if (preg_match('/===BLADE_VIEW===\s*\n(.*?)\n===END_BLADE===/s', $code, $matches)) {
+            $viewContent = trim($matches[1]);
+            // Remove the Blade section from code to get clean PHP
+            $code = preg_replace('/\s*===BLADE_VIEW===\s*\n.*?\n===END_BLADE===\s*/s', '', $code);
+        }
         
         // Step 1: Extract PHP code from markdown code blocks if present
         // Look for ```php or ``` blocks containing PHP code
@@ -338,6 +350,170 @@ class DockerPreviewService
     private function toKebabCase(string $string): string
     {
         return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
+    }
+
+    /**
+     * Add a route for a Livewire component in the container's web.php.
+     * If isFirstComponent is true, uses root route '/' instead of '/component-name'.
+     */
+    private function addComponentRoute(string $containerId, string $componentName, bool $isFirstComponent = false): bool
+    {
+        try {
+            $kebabName = $this->toKebabCase($componentName);
+            
+            // Use root route for first component, otherwise use component name
+            if ($isFirstComponent) {
+                $routePath = '/';
+                $routeName = 'home';
+            } else {
+                $routePath = "/{$kebabName}";
+                $routeName = $kebabName;
+            }
+            
+            // Read current web.php
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cat /var/www/html/routes/web.php'
+            ]);
+            
+            if ($readResult->failed()) {
+                Log::error('[DOCKER] Failed to read web.php', [
+                    'container_id' => $containerId,
+                    'error' => $readResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            $webPhpContent = $readResult->output();
+            
+            // Check if route already exists
+            // For root route, check for Route::get('/', or Route::get("/",
+            // For other routes, check for exact path match
+            $routeExists = false;
+            if ($routePath === '/') {
+                $routeExists = preg_match("/Route::get\s*\(\s*['\"]\/['\"]\s*,/", $webPhpContent);
+            } else {
+                $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
+                               str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
+            }
+            
+            if ($routeExists) {
+                Log::info('[DOCKER] Route already exists', [
+                    'route' => $routePath,
+                    'component' => $componentName
+                ]);
+                return true;
+            }
+            
+            // Check if use statement exists
+            $useStatement = "use App\\Livewire\\{$componentName};";
+            $hasUseStatement = str_contains($webPhpContent, $useStatement);
+            
+            // Prepare route line
+            $routeLine = "Route::get('{$routePath}', {$componentName}::class)->name('{$routeName}');";
+            
+            // Build new content
+            $newContent = $webPhpContent;
+            
+            // Add use statement if not present
+            if (!$hasUseStatement) {
+                // Find the last use statement or Route facade
+                if (preg_match('/(use\s+[^;]+;[\s\n]*)+/', $webPhpContent, $matches)) {
+                    $lastUsePos = strrpos($webPhpContent, $matches[0]) + strlen($matches[0]);
+                    $newContent = substr_replace($webPhpContent, "\n{$useStatement}\n", $lastUsePos, 0);
+                } else {
+                    // No use statements, add after opening PHP tag
+                    $phpTagPos = strpos($webPhpContent, '<?php');
+                    if ($phpTagPos !== false) {
+                        $insertPos = $phpTagPos + 5;
+                        $newContent = substr_replace($webPhpContent, "\n\n{$useStatement}\n", $insertPos, 0);
+                    }
+                }
+            }
+            
+            // Add route - replace welcome route if it's the first component, otherwise add after
+            if ($isFirstComponent) {
+                // Replace any existing root route with our component
+                if (preg_match("/Route::get\('\/',\s*[^;]+;/", $newContent)) {
+                    $newContent = preg_replace(
+                        "/Route::get\('\/',\s*[^;]+;/",
+                        $routeLine,
+                        $newContent
+                    );
+                } elseif (preg_match('/Route::get\("\/",\s*[^;]+;/', $newContent)) {
+                    $newContent = preg_replace(
+                        '/Route::get\("\/",\s*[^;]+;/',
+                        $routeLine,
+                        $newContent
+                    );
+                } else {
+                    // No root route exists, add it at the beginning of routes
+                    if (preg_match('/Route::/', $newContent)) {
+                        // Find first Route:: and add before it
+                        $firstRoutePos = strpos($newContent, 'Route::');
+                        $newContent = substr_replace($newContent, "{$routeLine}\n", $firstRoutePos, 0);
+                    } else {
+                        // No routes at all, add at end
+                        $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+                    }
+                }
+            } elseif (str_contains($newContent, "Route::get('/',") || str_contains($newContent, 'Route::get("/",')) {
+                // Add after the welcome route (or root route)
+                $welcomeRoutePos = strpos($newContent, "Route::get('/");
+                if ($welcomeRoutePos === false) {
+                    $welcomeRoutePos = strpos($newContent, 'Route::get("/');
+                }
+                if ($welcomeRoutePos !== false) {
+                    $nextLinePos = strpos($newContent, "\n", $welcomeRoutePos);
+                    if ($nextLinePos !== false) {
+                        $newContent = substr_replace($newContent, "\n{$routeLine}", $nextLinePos, 0);
+                    } else {
+                        $newContent .= "\n{$routeLine}";
+                    }
+                } else {
+                    $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+                }
+            } else {
+                // Add at the end before closing
+                $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+            }
+            
+            // Write updated web.php
+            $escapedContent = escapeshellarg($newContent);
+            $writeResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "echo {$escapedContent} > /var/www/html/routes/web.php"
+            ]);
+            
+            if ($writeResult->failed()) {
+                Log::error('[DOCKER] Failed to write web.php', [
+                    'container_id' => $containerId,
+                    'error' => $writeResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            // Clear route cache
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan route:clear 2>/dev/null || true'
+            ]);
+            
+            Log::info('[DOCKER] Route added successfully', [
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception adding route', [
+                'container_id' => $containerId,
+                'component' => $componentName,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
     
     /**
@@ -530,6 +706,30 @@ BLADE;
                 if (!$healthCheck['healthy']) {
                     throw new \Exception("Container health check failed: " . implode(', ', $healthCheck['issues']));
                 }
+            }
+            
+            // Step 11: Generate route for the component
+            Log::info('[DOCKER] Generating route for component', ['component_name' => $componentName]);
+            
+            // Check if this is the first component - if so, use root route
+            $existingComponents = $project->getComponents();
+            $isFirstComponent = empty($existingComponents);
+            
+            $routeAdded = $this->addComponentRoute($project->container_id, $componentName, $isFirstComponent);
+            
+            if ($routeAdded) {
+                // Track component and route in project metadata
+                $kebabName = $this->toKebabCase($componentName);
+                // Use root route for first component, otherwise use component name
+                $route = $isFirstComponent ? '/' : "/{$kebabName}";
+                $routeName = $isFirstComponent ? 'home' : $kebabName;
+                $project->addComponent($componentName, $route, $routeName);
+                
+                Log::info('[DOCKER] Route added and tracked', [
+                    'component' => $componentName,
+                    'route' => $route,
+                    'is_first' => $isFirstComponent
+                ]);
             }
             
             Log::info("Successfully injected and validated code for project {$project->id}", [
@@ -957,8 +1157,85 @@ BLADE;
     }
     
     /**
-     * Fix PailServiceProvider error in existing container.
+     * Ensure APP_KEY exists in the container's .env file.
      */
+    public function ensureAppKeyExists(string $containerId): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                return false;
+            }
+
+            // Check if APP_KEY is set and valid
+            $checkResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "grep -q '^APP_KEY=base64:' /var/www/html/.env 2>/dev/null && echo 'exists' || echo 'missing'"
+            ]);
+
+            if (trim($checkResult->output()) === 'exists') {
+                Log::debug('[DOCKER] APP_KEY already exists in container', ['container_id' => $containerId]);
+                return true;
+            }
+
+            Log::info('[DOCKER] APP_KEY missing, generating in container', ['container_id' => $containerId]);
+
+            // Generate APP_KEY using artisan
+            $generateResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan key:generate --force 2>&1'
+            ]);
+
+            if ($generateResult->successful()) {
+                Log::info('[DOCKER] APP_KEY generated successfully', ['container_id' => $containerId]);
+                // Clear config cache to pick up new key
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', 'cd /var/www/html && php artisan config:clear 2>/dev/null || true'
+                ]);
+                return true;
+            }
+
+            // Fallback: manually generate and set APP_KEY
+            Log::warning('[DOCKER] artisan key:generate failed, using manual generation', [
+                'container_id' => $containerId,
+                'error' => $generateResult->errorOutput()
+            ]);
+
+            $keyResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "php -r \"echo 'base64:' . base64_encode(random_bytes(32));\""
+            ]);
+
+            if ($keyResult->successful()) {
+                $key = trim($keyResult->output());
+                $setResult = $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "cd /var/www/html && if grep -q '^APP_KEY=' .env; then sed -i 's|^APP_KEY=.*|APP_KEY={$key}|' .env; else echo 'APP_KEY={$key}' >> .env; fi"
+                ]);
+
+                if ($setResult->successful()) {
+                    Log::info('[DOCKER] APP_KEY set manually', ['container_id' => $containerId]);
+                    // Clear config cache to pick up new key
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', 'cd /var/www/html && php artisan config:clear 2>/dev/null || true'
+                    ]);
+                    return true;
+                }
+            }
+
+            Log::error('[DOCKER] Failed to set APP_KEY in container', ['container_id' => $containerId]);
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception ensuring APP_KEY exists', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
     public function fixPailServiceProviderError(string $containerId): bool
     {
         try {

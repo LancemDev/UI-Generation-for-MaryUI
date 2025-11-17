@@ -62,6 +62,46 @@
         </x-form>
     </x-modal>
 
+    {{-- Generation Warning Modal --}}
+    <x-modal wire:model="generationWarningModal">
+        <x-header title="Code Generation in Progress" subtitle="Switching projects may interrupt generation" />
+
+        <div class="space-y-4">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                    <x-icon name="o-exclamation-triangle" class="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p class="font-medium text-yellow-900 mb-2">Generation is currently in progress</p>
+                        <p class="text-sm text-yellow-800">
+                            The current project is generating code. If you switch projects now:
+                        </p>
+                        <ul class="text-sm text-yellow-800 mt-2 list-disc list-inside space-y-1">
+                            <li>The generation will continue in the background</li>
+                            <li>You'll receive a notification when it completes</li>
+                            <li>You can switch back to view the results</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <x-button 
+                    wire:click="confirmProjectSwitch" 
+                    label="Switch Anyway" 
+                    icon="o-arrow-right" 
+                    class="btn-warning flex-1"
+                    spinner="confirmProjectSwitch"
+                />
+                <x-button 
+                    wire:click="cancelProjectSwitch" 
+                    label="Cancel" 
+                    icon="o-x-mark" 
+                    class="btn-ghost flex-1"
+                />
+            </div>
+        </div>
+    </x-modal>
+
     {{-- Main Split Layout with Resizable Panels --}}
     <div class="flex-1 flex flex-col overflow-hidden" id="main-container">
         {{-- Main Content Area --}}

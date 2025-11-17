@@ -61,11 +61,11 @@ class AiGateway
         ]);
         
         try {
-            $response = Http::timeout(30)->post(rtrim($baseUrl, '/') . '/generate/code', [
+            $response = Http::timeout(60)->post(rtrim($baseUrl, '/') . '/generate/code', [
                 'prompt' => $prompt,
                 'model' => config('services.openai.model', 'gpt-4'),
                 'temperature' => 0.1,
-                'max_tokens' => 2048,
+                'max_tokens' => 4096, // Increased for complete code with views
             ]);
 
             Log::info('[AI_GATEWAY] HTTP request completed', [
