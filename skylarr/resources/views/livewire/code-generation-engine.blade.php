@@ -108,10 +108,13 @@
                                             document.getElementById('preview-iframe').src = newUrl;
                                         "
                                         class="text-xs bg-white px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">Home (/)</option>
                                         @foreach($routes as $route)
                                             <option value="{{ $route['url'] }}" {{ $selectedRoute === $route['url'] ? 'selected' : '' }}>
-                                                {{ $route['url'] }} - {{ $route['component'] }}
+                                                @if($route['url'] === '/')
+                                                    Home (/) - {{ $route['component'] }}
+                                                @else
+                                                    {{ $route['url'] }} - {{ $route['component'] }}
+                                                @endif
                                             </option>
                                         @endforeach
                                     </select>

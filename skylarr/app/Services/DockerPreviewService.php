@@ -354,13 +354,21 @@ class DockerPreviewService
 
     /**
      * Add a route for a Livewire component in the container's web.php.
+     * If isFirstComponent is true, uses root route '/' instead of '/component-name'.
      */
-    private function addComponentRoute(string $containerId, string $componentName): bool
+    private function addComponentRoute(string $containerId, string $componentName, bool $isFirstComponent = false): bool
     {
         try {
             $kebabName = $this->toKebabCase($componentName);
-            $routePath = "/{$kebabName}";
-            $routeName = $kebabName;
+            
+            // Use root route for first component, otherwise use component name
+            if ($isFirstComponent) {
+                $routePath = '/';
+                $routeName = 'home';
+            } else {
+                $routePath = "/{$kebabName}";
+                $routeName = $kebabName;
+            }
             
             // Read current web.php
             $readResult = $this->runDockerCommand([
@@ -379,8 +387,17 @@ class DockerPreviewService
             $webPhpContent = $readResult->output();
             
             // Check if route already exists
-            if (str_contains($webPhpContent, "Route::get('{$routePath}'") || 
-                str_contains($webPhpContent, "Route::get(\"{$routePath}\"")) {
+            // For root route, check for Route::get('/', or Route::get("/",
+            // For other routes, check for exact path match
+            $routeExists = false;
+            if ($routePath === '/') {
+                $routeExists = preg_match("/Route::get\s*\(\s*['\"]\/['\"]\s*,/", $webPhpContent);
+            } else {
+                $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
+                               str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
+            }
+            
+            if ($routeExists) {
                 Log::info('[DOCKER] Route already exists', [
                     'route' => $routePath,
                     'component' => $componentName
@@ -414,15 +431,47 @@ class DockerPreviewService
                 }
             }
             
-            // Add route before the last line or at the end
-            if (str_contains($newContent, "Route::get('/',")) {
-                // Add after the welcome route
-                $welcomeRoutePos = strpos($newContent, "Route::get('/',");
-                $nextLinePos = strpos($newContent, "\n", $welcomeRoutePos);
-                if ($nextLinePos !== false) {
-                    $newContent = substr_replace($newContent, "\n{$routeLine}", $nextLinePos, 0);
+            // Add route - replace welcome route if it's the first component, otherwise add after
+            if ($isFirstComponent) {
+                // Replace any existing root route with our component
+                if (preg_match("/Route::get\('\/',\s*[^;]+;/", $newContent)) {
+                    $newContent = preg_replace(
+                        "/Route::get\('\/',\s*[^;]+;/",
+                        $routeLine,
+                        $newContent
+                    );
+                } elseif (preg_match('/Route::get\("\/",\s*[^;]+;/', $newContent)) {
+                    $newContent = preg_replace(
+                        '/Route::get\("\/",\s*[^;]+;/',
+                        $routeLine,
+                        $newContent
+                    );
                 } else {
-                    $newContent .= "\n{$routeLine}";
+                    // No root route exists, add it at the beginning of routes
+                    if (preg_match('/Route::/', $newContent)) {
+                        // Find first Route:: and add before it
+                        $firstRoutePos = strpos($newContent, 'Route::');
+                        $newContent = substr_replace($newContent, "{$routeLine}\n", $firstRoutePos, 0);
+                    } else {
+                        // No routes at all, add at end
+                        $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+                    }
+                }
+            } elseif (str_contains($newContent, "Route::get('/',") || str_contains($newContent, 'Route::get("/",')) {
+                // Add after the welcome route (or root route)
+                $welcomeRoutePos = strpos($newContent, "Route::get('/");
+                if ($welcomeRoutePos === false) {
+                    $welcomeRoutePos = strpos($newContent, 'Route::get("/');
+                }
+                if ($welcomeRoutePos !== false) {
+                    $nextLinePos = strpos($newContent, "\n", $welcomeRoutePos);
+                    if ($nextLinePos !== false) {
+                        $newContent = substr_replace($newContent, "\n{$routeLine}", $nextLinePos, 0);
+                    } else {
+                        $newContent .= "\n{$routeLine}";
+                    }
+                } else {
+                    $newContent = rtrim($newContent) . "\n{$routeLine}\n";
                 }
             } else {
                 // Add at the end before closing
@@ -661,17 +710,25 @@ BLADE;
             
             // Step 11: Generate route for the component
             Log::info('[DOCKER] Generating route for component', ['component_name' => $componentName]);
-            $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
+            
+            // Check if this is the first component - if so, use root route
+            $existingComponents = $project->getComponents();
+            $isFirstComponent = empty($existingComponents);
+            
+            $routeAdded = $this->addComponentRoute($project->container_id, $componentName, $isFirstComponent);
             
             if ($routeAdded) {
                 // Track component and route in project metadata
                 $kebabName = $this->toKebabCase($componentName);
-                $route = "/{$kebabName}";
-                $project->addComponent($componentName, $route, $kebabName);
+                // Use root route for first component, otherwise use component name
+                $route = $isFirstComponent ? '/' : "/{$kebabName}";
+                $routeName = $isFirstComponent ? 'home' : $kebabName;
+                $project->addComponent($componentName, $route, $routeName);
                 
                 Log::info('[DOCKER] Route added and tracked', [
                     'component' => $componentName,
-                    'route' => $route
+                    'route' => $route,
+                    'is_first' => $isFirstComponent
                 ]);
             }
             
