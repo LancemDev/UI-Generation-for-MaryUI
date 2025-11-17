@@ -297,25 +297,32 @@ class DockerPreviewService
         }
         
         // Step 8: Extract Blade view from separate code blocks if present
-        // Look for blade code blocks in the original input (before PHP extraction)
-        if (preg_match_all('/```(?:blade)?\s*\n(.*?)\n```/s', $originalInput, $matches, PREG_SET_ORDER)) {
+        // Look for blade/html code blocks in the original input (before PHP extraction)
+        // Match ```html, ```blade, or just ``` followed by Blade/HTML content
+        if (preg_match_all('/```(?:html|blade)?\s*\n(.*?)\n```/s', $originalInput, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $blockContent = trim($match[1]);
                 // Check if this looks like Blade code (contains <x- or {{) and not PHP
                 if ((str_contains($blockContent, '<x-') || str_contains($blockContent, '{{') || str_contains($blockContent, '@')) 
                     && !str_contains($blockContent, '<?php') 
                     && !str_contains($blockContent, 'namespace App\\Livewire')) {
-                    $viewContent = $blockContent;
+                    // Strip any remaining markdown markers that might be in the content
+                    $blockContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $blockContent);
+                    $blockContent = preg_replace('/\n?```\s*$/m', '', $blockContent);
+                    $viewContent = trim($blockContent);
                     break;
                 }
             }
         }
         
         // Also check for Blade code after "And here is" or similar patterns
-        if (empty($viewContent) && preg_match('/(?:And here is|Here is|Blade view|view file).*?```(?:blade)?\s*\n(.*?)```/s', $originalInput, $matches)) {
+        if (empty($viewContent) && preg_match('/(?:And here is|Here is|Blade view|view file).*?```(?:html|blade)?\s*\n(.*?)```/s', $originalInput, $matches)) {
             $blockContent = trim($matches[1]);
             if (str_contains($blockContent, '<x-') || str_contains($blockContent, '{{')) {
-                $viewContent = $blockContent;
+                // Strip any remaining markdown markers
+                $blockContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $blockContent);
+                $blockContent = preg_replace('/\n?```\s*$/m', '', $blockContent);
+                $viewContent = trim($blockContent);
             }
         }
         
@@ -694,6 +701,12 @@ class DockerPreviewService
             // Prepare view content
             if ($viewContent) {
                 $finalViewContent = $viewContent;
+                
+                // Strip markdown code block markers if present
+                // Remove ```html, ```blade, ```, and any leading/trailing whitespace
+                $finalViewContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $finalViewContent);
+                $finalViewContent = preg_replace('/\n?```\s*$/m', '', $finalViewContent);
+                $finalViewContent = trim($finalViewContent);
             } else {
                 // Extract view from code if available, otherwise use default
                 $finalViewContent = <<<BLADE
