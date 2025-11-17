@@ -40,8 +40,8 @@
     <div class="flex-1 flex" style="min-height: 0; height: 100%;">
         {{-- Code Tab --}}
         @if($activeTab === 'code')
-            <div class="flex-1 flex p-4 gap-4" style="min-height: 0;">
-                <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto">
+            <div class="flex-1 flex p-4 gap-4" style="min-height: 0; overflow: hidden;">
+                <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto" style="min-height: 0;">
                     <h4 class="font-semibold text-sm mb-2">Project Files</h4>
                     @if(count($projectFilesTree) > 0)
                         <div class="space-y-0.5">
@@ -59,17 +59,17 @@
                     @endif
                 </div>
                 
-                <div class="flex-1 overflow-auto">
+                <div class="flex-1 flex flex-col code-viewer-container">
                     @if($generatedCode)
-                        <div class="h-full bg-gray-900 rounded-lg p-4 overflow-auto">
-                            <div class="mb-2 text-xs text-gray-400">
+                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4">
+                            <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10">
                                 @if($selectedFilePath)
                                     <span>File: {{ basename($selectedFilePath) }}</span>
                                 @elseif($componentName)
                                     <span>Generated: {{ $componentName }}</span>
                                 @endif
                             </div>
-                            <pre class="text-sm text-green-400 font-mono whitespace-pre-wrap break-words">{{ $generatedCode }}</pre>
+                            <pre class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
                         </div>
                     @else
                         <div class="h-full flex items-center justify-center text-gray-400">
@@ -90,9 +90,38 @@
                 <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;">
                     {{-- Preview Controls Bar --}}
                     <div class="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <span class="text-xs text-gray-600">Preview URL:</span>
-                            <code class="text-xs bg-white px-2 py-1 rounded border">{{ $previewUrl }}</code>
+                        <div class="flex items-center gap-3 flex-1">
+                            @php
+                                $routes = $currentProject ? $currentProject->getRoutes() : [];
+                                $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
+                            @endphp
+                            
+                            @if(count($routes) > 0)
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-600">Route:</span>
+                                    <select 
+                                        wire:model.live="selectedRoute"
+                                        x-data="{ baseUrl: '{{ $baseUrl }}' }"
+                                        x-on:change="
+                                            const newUrl = baseUrl + $event.target.value;
+                                            $wire.set('previewUrl', newUrl);
+                                            document.getElementById('preview-iframe').src = newUrl;
+                                        "
+                                        class="text-xs bg-white px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Home (/)</option>
+                                        @foreach($routes as $route)
+                                            <option value="{{ $route['url'] }}" {{ $selectedRoute === $route['url'] ? 'selected' : '' }}>
+                                                {{ $route['url'] }} - {{ $route['component'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @else
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-600">Preview URL:</span>
+                                    <code class="text-xs bg-white px-2 py-1 rounded border">{{ $previewUrl }}</code>
+                                </div>
+                            @endif
                         </div>
                         <a 
                             href="{{ $previewUrl }}" 
@@ -102,27 +131,6 @@
                             <x-icon name="o-arrow-top-right-on-square" class="w-4 h-4" />
                             Open in New Window
                         </a>
-                    </div>
-                    
-                    {{-- Iframe Error Banner (shown if blocked) --}}
-                    <div id="iframe-error-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-3">
-                        <div class="flex items-start gap-3">
-                            <x-icon name="o-exclamation-triangle" class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-yellow-800 mb-1">Preview blocked by browser security settings</p>
-                                <p class="text-xs text-yellow-700 mb-2">
-                                    Zen browser is blocking localhost iframes. To fix this:
-                                </p>
-                                <ol class="text-xs text-yellow-700 list-decimal list-inside space-y-1 mb-2">
-                                    <li>Open Zen browser settings: <code class="bg-yellow-100 px-1 rounded">zen://settings/security</code></li>
-                                    <li>Find "X-Frame-Options" or "Frame Options" settings</li>
-                                    <li>Add <code class="bg-yellow-100 px-1 rounded">localhost</code> to allowed origins, or disable blocking for localhost</li>
-                                </ol>
-                                <p class="text-xs text-yellow-700">
-                                    Alternatively, click "Open in New Window" above to view the preview.
-                                </p>
-                            </div>
-                        </div>
                     </div>
                     
                     <div class="flex-1 bg-white overflow-hidden relative" style="min-height: 0; height: 100%;">
@@ -136,35 +144,6 @@
                         </iframe>
                     </div>
                 </div>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const iframe = document.getElementById('preview-iframe');
-                        const errorBanner = document.getElementById('iframe-error-banner');
-                        
-                        if (iframe && errorBanner) {
-                            // Check if iframe loads successfully
-                            iframe.onload = function() {
-                                try {
-                                    // Try to access iframe content (will fail if blocked)
-                                    iframe.contentWindow.document;
-                                    errorBanner.classList.add('hidden');
-                                } catch (e) {
-                                    // Iframe is blocked by browser
-                                    errorBanner.classList.remove('hidden');
-                                }
-                            };
-                            
-                            // Fallback: show error banner after timeout if iframe doesn't load
-                            setTimeout(function() {
-                                try {
-                                    iframe.contentWindow.document;
-                                } catch (e) {
-                                    errorBanner.classList.remove('hidden');
-                                }
-                            }, 2000);
-                        }
-                    });
-                </script>
             @elseif($isGenerating)
                 <div class="flex-1 flex items-center justify-center" style="min-height: 0;">
                     <div class="text-center">
@@ -228,6 +207,31 @@
     
     <style>
         [x-cloak] { display: none !important; }
+        
+        /* Ensure code viewer is scrollable */
+        .code-viewer-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .code-viewer-scrollable {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .code-viewer-scrollable pre {
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
     </style>
     
 </div>

@@ -27,6 +27,7 @@ class CodeGenerationEngine extends Component
     public array $projectFilesTree = [];
     public string $selectedFile = '';
     public string $selectedFilePath = '';
+    public string $selectedRoute = '';
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -75,17 +76,28 @@ class CodeGenerationEngine extends Component
                 $this->activeTab = 'preview'; // Show preview tab by default for completed generation
                 
                 // Load project files if preview is ready
-                if ($this->previewReady) {
-                    $this->loadProjectFiles();
-                    
-                    // Auto-select the generated file if it exists
-                    if ($this->componentName) {
-                        $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
-                        if (in_array($generatedFilePath, $this->projectFiles)) {
-                            $this->selectFile($generatedFilePath);
+                        if ($this->previewReady) {
+                            $this->loadProjectFiles();
+                            
+                            // Auto-select the generated file if it exists
+                            if ($this->componentName) {
+                                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                                if (in_array($generatedFilePath, $this->projectFiles)) {
+                                    $this->selectFile($generatedFilePath);
+                                }
+                            }
+                            
+                            // Set default route to the generated component
+                            $routes = $this->currentProject->getRoutes();
+                            foreach ($routes as $route) {
+                                if ($route['component'] === $this->componentName) {
+                                    $this->selectedRoute = $route['url'];
+                                    $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
+                                    $this->previewUrl = $baseUrl . $route['url'];
+                                    break;
+                                }
+                            }
                         }
-                    }
-                }
                 
                 Log::info('[CODE_GEN] Restored completed generation state', [
                     'project_id' => $this->currentProject->id,

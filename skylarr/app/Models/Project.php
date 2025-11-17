@@ -154,4 +154,51 @@ class Project extends Model
         unset($metadata['generation']);
         $this->update(['metadata' => $metadata]);
     }
+
+    /**
+     * Get all generated components and their routes.
+     */
+    public function getComponents(): array
+    {
+        $metadata = $this->metadata ?? [];
+        return $metadata['components'] ?? [];
+    }
+
+    /**
+     * Add a component and its route.
+     */
+    public function addComponent(string $componentName, string $route, string $routeName = null): void
+    {
+        $metadata = $this->metadata ?? [];
+        $components = $metadata['components'] ?? [];
+        
+        $kebabName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $componentName));
+        $routeName = $routeName ?? $kebabName;
+        
+        $components[] = [
+            'name' => $componentName,
+            'kebab_name' => $kebabName,
+            'route' => $route,
+            'route_name' => $routeName,
+            'created_at' => now()->toIso8601String(),
+        ];
+        
+        $metadata['components'] = $components;
+        $this->update(['metadata' => $metadata]);
+    }
+
+    /**
+     * Get routes for all components.
+     */
+    public function getRoutes(): array
+    {
+        $components = $this->getComponents();
+        return array_map(function ($component) {
+            return [
+                'name' => $component['route_name'] ?? $component['kebab_name'],
+                'url' => $component['route'],
+                'component' => $component['name'],
+            ];
+        }, $components);
+    }
 }

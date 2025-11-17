@@ -204,6 +204,13 @@ class DockerPreviewService
         // Store original input for Blade extraction
         $originalInput = $code;
         
+        // Step 0: Extract Blade view from new format (===BLADE_VIEW=== ... ===END_BLADE===)
+        if (preg_match('/===BLADE_VIEW===\s*\n(.*?)\n===END_BLADE===/s', $code, $matches)) {
+            $viewContent = trim($matches[1]);
+            // Remove the Blade section from code to get clean PHP
+            $code = preg_replace('/\s*===BLADE_VIEW===\s*\n.*?\n===END_BLADE===\s*/s', '', $code);
+        }
+        
         // Step 1: Extract PHP code from markdown code blocks if present
         // Look for ```php or ``` blocks containing PHP code
         if (preg_match('/```(?:php)?\s*\n(.*?)\n```/s', $code, $matches)) {
@@ -343,6 +350,121 @@ class DockerPreviewService
     private function toKebabCase(string $string): string
     {
         return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
+    }
+
+    /**
+     * Add a route for a Livewire component in the container's web.php.
+     */
+    private function addComponentRoute(string $containerId, string $componentName): bool
+    {
+        try {
+            $kebabName = $this->toKebabCase($componentName);
+            $routePath = "/{$kebabName}";
+            $routeName = $kebabName;
+            
+            // Read current web.php
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cat /var/www/html/routes/web.php'
+            ]);
+            
+            if ($readResult->failed()) {
+                Log::error('[DOCKER] Failed to read web.php', [
+                    'container_id' => $containerId,
+                    'error' => $readResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            $webPhpContent = $readResult->output();
+            
+            // Check if route already exists
+            if (str_contains($webPhpContent, "Route::get('{$routePath}'") || 
+                str_contains($webPhpContent, "Route::get(\"{$routePath}\"")) {
+                Log::info('[DOCKER] Route already exists', [
+                    'route' => $routePath,
+                    'component' => $componentName
+                ]);
+                return true;
+            }
+            
+            // Check if use statement exists
+            $useStatement = "use App\\Livewire\\{$componentName};";
+            $hasUseStatement = str_contains($webPhpContent, $useStatement);
+            
+            // Prepare route line
+            $routeLine = "Route::get('{$routePath}', {$componentName}::class)->name('{$routeName}');";
+            
+            // Build new content
+            $newContent = $webPhpContent;
+            
+            // Add use statement if not present
+            if (!$hasUseStatement) {
+                // Find the last use statement or Route facade
+                if (preg_match('/(use\s+[^;]+;[\s\n]*)+/', $webPhpContent, $matches)) {
+                    $lastUsePos = strrpos($webPhpContent, $matches[0]) + strlen($matches[0]);
+                    $newContent = substr_replace($webPhpContent, "\n{$useStatement}\n", $lastUsePos, 0);
+                } else {
+                    // No use statements, add after opening PHP tag
+                    $phpTagPos = strpos($webPhpContent, '<?php');
+                    if ($phpTagPos !== false) {
+                        $insertPos = $phpTagPos + 5;
+                        $newContent = substr_replace($webPhpContent, "\n\n{$useStatement}\n", $insertPos, 0);
+                    }
+                }
+            }
+            
+            // Add route before the last line or at the end
+            if (str_contains($newContent, "Route::get('/',")) {
+                // Add after the welcome route
+                $welcomeRoutePos = strpos($newContent, "Route::get('/',");
+                $nextLinePos = strpos($newContent, "\n", $welcomeRoutePos);
+                if ($nextLinePos !== false) {
+                    $newContent = substr_replace($newContent, "\n{$routeLine}", $nextLinePos, 0);
+                } else {
+                    $newContent .= "\n{$routeLine}";
+                }
+            } else {
+                // Add at the end before closing
+                $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+            }
+            
+            // Write updated web.php
+            $escapedContent = escapeshellarg($newContent);
+            $writeResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "echo {$escapedContent} > /var/www/html/routes/web.php"
+            ]);
+            
+            if ($writeResult->failed()) {
+                Log::error('[DOCKER] Failed to write web.php', [
+                    'container_id' => $containerId,
+                    'error' => $writeResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            // Clear route cache
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan route:clear 2>/dev/null || true'
+            ]);
+            
+            Log::info('[DOCKER] Route added successfully', [
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception adding route', [
+                'container_id' => $containerId,
+                'component' => $componentName,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
     
     /**
@@ -535,6 +657,22 @@ BLADE;
                 if (!$healthCheck['healthy']) {
                     throw new \Exception("Container health check failed: " . implode(', ', $healthCheck['issues']));
                 }
+            }
+            
+            // Step 11: Generate route for the component
+            Log::info('[DOCKER] Generating route for component', ['component_name' => $componentName]);
+            $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
+            
+            if ($routeAdded) {
+                // Track component and route in project metadata
+                $kebabName = $this->toKebabCase($componentName);
+                $route = "/{$kebabName}";
+                $project->addComponent($componentName, $route, $kebabName);
+                
+                Log::info('[DOCKER] Route added and tracked', [
+                    'component' => $componentName,
+                    'route' => $route
+                ]);
             }
             
             Log::info("Successfully injected and validated code for project {$project->id}", [

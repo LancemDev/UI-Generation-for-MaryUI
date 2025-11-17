@@ -265,10 +265,11 @@ class ChatInterface extends Component
         Log::info('[CHAT] No code generation trigger found');
     }
 
-    protected $listeners = [
-        'code-generation-complete' => 'addCodeGenerationMessage',
-        'code-generation-failed' => 'addCodeGenerationErrorMessage',
-    ];
+    // Removed Livewire listeners - we use browser events via Alpine.js to avoid duplicates
+    // protected $listeners = [
+    //     'code-generation-complete' => 'addCodeGenerationMessage',
+    //     'code-generation-failed' => 'addCodeGenerationErrorMessage',
+    // ];
 
     public function addCodeGenerationMessage($data = null)
     {
@@ -286,6 +287,33 @@ class ChatInterface extends Component
         }
 
         $fullMessage = "✅ Code generation complete! I've created the `{$componentName}` component. You can view it in the Code tab and see the live preview in the Preview tab.";
+
+        // Check if this exact message was already added recently (within last 10 seconds) to prevent duplicates
+        $recentMessage = collect($this->messages)
+            ->where('role', 'assistant')
+            ->where('content', $fullMessage)
+            ->filter(function ($msg) {
+                if (!isset($msg['created_at'])) {
+                    return false;
+                }
+                try {
+                    $createdAt = is_string($msg['created_at']) 
+                        ? \Carbon\Carbon::parse($msg['created_at']) 
+                        : $msg['created_at'];
+                    return $createdAt->isAfter(now()->subSeconds(10));
+                } catch (\Exception $e) {
+                    return false;
+                }
+            })
+            ->first();
+
+        if ($recentMessage) {
+            Log::info('[CHAT] Duplicate code generation message detected, skipping', [
+                'component_name' => $componentName,
+                'thread_id' => $this->threadId
+            ]);
+            return;
+        }
 
         // Create assistant message
         $assistantMsg = ChatMessage::create([
@@ -320,6 +348,32 @@ class ChatInterface extends Component
         }
 
         $fullMessage = "❌ Sorry, I encountered an error while generating the code: {$errorMessage}";
+
+        // Check if this exact error message was already added recently (within last 10 seconds) to prevent duplicates
+        $recentMessage = collect($this->messages)
+            ->where('role', 'assistant')
+            ->where('content', $fullMessage)
+            ->filter(function ($msg) {
+                if (!isset($msg['created_at'])) {
+                    return false;
+                }
+                try {
+                    $createdAt = is_string($msg['created_at']) 
+                        ? \Carbon\Carbon::parse($msg['created_at']) 
+                        : $msg['created_at'];
+                    return $createdAt->isAfter(now()->subSeconds(10));
+                } catch (\Exception $e) {
+                    return false;
+                }
+            })
+            ->first();
+
+        if ($recentMessage) {
+            Log::info('[CHAT] Duplicate code generation error message detected, skipping', [
+                'thread_id' => $this->threadId
+            ]);
+            return;
+        }
 
         // Create assistant message
         $assistantMsg = ChatMessage::create([
