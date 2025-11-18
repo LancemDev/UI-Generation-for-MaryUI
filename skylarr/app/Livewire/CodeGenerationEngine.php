@@ -28,6 +28,10 @@ class CodeGenerationEngine extends Component
     public string $selectedFile = '';
     public string $selectedFilePath = '';
     public string $selectedRoute = '';
+    public bool $showComponentSelectModal = false;
+    public bool $showOverwriteConfirmModal = false;
+    public ?string $pendingComponentName = null;
+    public string $pendingPrompt = '';
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -139,7 +143,7 @@ class CodeGenerationEngine extends Component
         }
     }
     
-    public function generateCode(string $prompt)
+    public function generateCode(string $prompt, ?string $targetComponentName = null)
     {
         if (!$this->currentProject) {
             Log::error('[CODE_GEN] No project selected');
@@ -147,9 +151,44 @@ class CodeGenerationEngine extends Component
             return;
         }
         
+        // If target component name is provided, check if it exists
+        if ($targetComponentName) {
+            $existingComponent = $this->currentProject->getComponent($targetComponentName);
+            if ($existingComponent) {
+                // Component exists - show confirmation
+                $this->pendingComponentName = $targetComponentName;
+                $this->pendingPrompt = $prompt;
+                $this->showOverwriteConfirmModal = true;
+                return;
+            }
+        }
+        
+        $this->doGenerateCode($prompt, $targetComponentName);
+    }
+    
+    public function confirmOverwrite(): void
+    {
+        if ($this->pendingComponentName && $this->pendingPrompt) {
+            $this->showOverwriteConfirmModal = false;
+            $this->doGenerateCode($this->pendingPrompt, $this->pendingComponentName);
+            $this->pendingComponentName = null;
+            $this->pendingPrompt = '';
+        }
+    }
+    
+    public function cancelOverwrite(): void
+    {
+        $this->showOverwriteConfirmModal = false;
+        $this->pendingComponentName = null;
+        $this->pendingPrompt = '';
+    }
+    
+    private function doGenerateCode(string $prompt, ?string $targetComponentName = null): void
+    {
         Log::info('[CODE_GEN] Starting generation', [
             'project_id' => $this->currentProject->id,
-            'prompt' => $prompt
+            'prompt' => $prompt,
+            'target_component' => $targetComponentName
         ]);
         
         $this->isGenerating = true;
@@ -176,7 +215,8 @@ class CodeGenerationEngine extends Component
             
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
-                $this->componentName = $response['component_name'] ?? 'GeneratedComponent';
+                // Use target component name if provided, otherwise use AI-generated name
+                $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
                 
                 Log::info('[CODE_GEN] Code generated successfully', [
                     'component_name' => $this->componentName,
@@ -219,6 +259,28 @@ class CodeGenerationEngine extends Component
                     'component_name' => $this->componentName,
                     'message' => 'Code generation completed successfully!'
                 ]) . " }))");
+                
+                // Load project files to show the new component
+                $this->loadProjectFiles();
+                
+                // Auto-select the generated file
+                if ($this->componentName) {
+                    $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                    if (in_array($generatedFilePath, $this->projectFiles)) {
+                        $this->selectFile($generatedFilePath);
+                    }
+                }
+                
+                // Update selected route
+                $routes = $this->currentProject->getRoutes();
+                foreach ($routes as $route) {
+                    if ($route['component'] === $this->componentName) {
+                        $this->selectedRoute = $route['url'];
+                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
+                        $this->previewUrl = $baseUrl . $route['url'];
+                        break;
+                    }
+                }
                 
                 Log::info('[CODE_GEN] Success events dispatched', [
                     'component_name' => $this->componentName,
@@ -438,15 +500,18 @@ class CodeGenerationEngine extends Component
         
         // Handle different event data formats
         $prompt = '';
+        $targetComponentName = null;
         
         if (is_array($data)) {
-            // Direct array format: ['prompt' => '...']
+            // Direct array format: ['prompt' => '...', 'component_name' => '...']
             if (isset($data['prompt'])) {
                 $prompt = $data['prompt'];
+                $targetComponentName = $data['component_name'] ?? null;
             }
             // Nested array format: [['prompt' => '...']]
             elseif (isset($data[0]) && is_array($data[0]) && isset($data[0]['prompt'])) {
                 $prompt = $data[0]['prompt'];
+                $targetComponentName = $data[0]['component_name'] ?? null;
             }
             // Single element array: ['prompt']
             elseif (count($data) === 1 && is_string($data[0])) {
@@ -457,8 +522,11 @@ class CodeGenerationEngine extends Component
         }
         
         if ($prompt) {
-            Log::info('[CODE_GEN] Starting code generation', ['prompt' => $prompt]);
-            $this->generateCode($prompt);
+            Log::info('[CODE_GEN] Starting code generation', [
+                'prompt' => $prompt,
+                'target_component' => $targetComponentName
+            ]);
+            $this->generateCode($prompt, $targetComponentName);
         } else {
             Log::warning('[CODE_GEN] No prompt provided in event data', ['data_type' => gettype($data), 'data' => $data]);
         }
@@ -599,6 +667,14 @@ class CodeGenerationEngine extends Component
             Log::error('[CODE_GEN] Failed to read file', ['error' => $e->getMessage()]);
             $this->error('Failed to load file: ' . $e->getMessage());
         }
+    }
+    
+    public function getComponentsProperty(): array
+    {
+        if (!$this->currentProject) {
+            return [];
+        }
+        return $this->currentProject->getComponents();
     }
     
     public function render()

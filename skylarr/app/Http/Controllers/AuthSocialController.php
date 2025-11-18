@@ -18,7 +18,12 @@ class AuthSocialController extends Controller
 
     public function callback(string $provider)
     {
-        $oauthUser = Socialite::driver($provider)->user();
+        try {
+            $oauthUser = Socialite::driver($provider)->user();
+        } catch (\Laravel\Socialite\Two\InvalidStateException $e) {
+            // Session state mismatch - redirect back to login
+            return redirect()->route('welcome')->with('error', 'Authentication failed. Please try again.');
+        }
 
         $user = User::firstOrCreate(
             ['email' => $oauthUser->email],

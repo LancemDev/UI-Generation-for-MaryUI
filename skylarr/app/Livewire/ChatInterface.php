@@ -19,6 +19,8 @@ class ChatInterface extends Component
     public ?int $projectId = null;
     public array $messages = [];
     public bool $isStreaming = false;
+    public ?string $selectedComponentName = null;
+    public bool $showComponentSelect = false;
 
     public function mount(?int $threadId = null, ?int $projectId = null): void
     {
@@ -252,17 +254,46 @@ class ChatInterface extends Component
             if (str_contains($lowerMessage, $keyword)) {
                 Log::info('[CHAT] Dispatching generate-code event', [
                     'trigger_keyword' => $keyword,
-                    'prompt' => $userMessage
+                    'prompt' => $userMessage,
+                    'selected_component' => $this->selectedComponentName
                 ]);
                 
                 $this->dispatch('generate-code', [
-                    'prompt' => $userMessage
+                    'prompt' => $userMessage,
+                    'component_name' => $this->selectedComponentName
                 ]);
                 return;
             }
         }
         
         Log::info('[CHAT] No code generation trigger found');
+    }
+    
+    public function getComponentsProperty(): array
+    {
+        if (!$this->projectId) {
+            return [];
+        }
+        
+        $project = \App\Models\Project::where('user_id', Auth::id())
+            ->find($this->projectId);
+            
+        if (!$project) {
+            return [];
+        }
+        
+        return $project->getComponents();
+    }
+    
+    public function toggleComponentSelect(): void
+    {
+        $this->showComponentSelect = !$this->showComponentSelect;
+    }
+    
+    public function selectComponent(?string $componentName): void
+    {
+        $this->selectedComponentName = $componentName;
+        $this->showComponentSelect = false;
     }
 
     // Removed Livewire listeners - we use browser events via Alpine.js to avoid duplicates

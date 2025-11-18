@@ -165,9 +165,10 @@ class Project extends Model
     }
 
     /**
-     * Add a component and its route.
+     * Add or update a component and its route.
+     * If component exists, updates it instead of creating duplicate.
      */
-    public function addComponent(string $componentName, string $route, string $routeName = null): void
+    public function addComponent(string $componentName, string $route, string $routeName = null, ?string $code = null, ?string $viewContent = null): void
     {
         $metadata = $this->metadata ?? [];
         $components = $metadata['components'] ?? [];
@@ -175,16 +176,82 @@ class Project extends Model
         $kebabName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $componentName));
         $routeName = $routeName ?? $kebabName;
         
-        $components[] = [
-            'name' => $componentName,
-            'kebab_name' => $kebabName,
-            'route' => $route,
-            'route_name' => $routeName,
-            'created_at' => now()->toIso8601String(),
-        ];
+        // Check if component already exists
+        $existingIndex = null;
+        foreach ($components as $index => $component) {
+            if ($component['name'] === $componentName) {
+                $existingIndex = $index;
+                break;
+            }
+        }
+        
+        if ($existingIndex !== null) {
+            // Update existing component - preserve created_at and version history
+            $existing = $components[$existingIndex];
+            
+            // Create version history entry from current state
+            $versions = $existing['versions'] ?? [];
+            if (!empty($existing['code']) || !empty($existing['view_content'])) {
+                $versions[] = [
+                    'code' => $existing['code'] ?? null,
+                    'view_content' => $existing['view_content'] ?? null,
+                    'updated_at' => $existing['updated_at'] ?? $existing['created_at'] ?? now()->toIso8601String(),
+                ];
+            }
+            // Keep only last 10 versions
+            $versions = array_slice($versions, -10);
+            
+            // Update the component
+            $components[$existingIndex] = array_merge($existing, [
+                'name' => $componentName,
+                'kebab_name' => $kebabName,
+                'route' => $route,
+                'route_name' => $routeName,
+                'updated_at' => now()->toIso8601String(),
+                'versions' => $versions,
+                'code' => $code ?? $existing['code'] ?? null,
+                'view_content' => $viewContent ?? $existing['view_content'] ?? null,
+            ]);
+        } else {
+            // New component
+            $componentData = [
+                'name' => $componentName,
+                'kebab_name' => $kebabName,
+                'route' => $route,
+                'route_name' => $routeName,
+                'created_at' => now()->toIso8601String(),
+                'updated_at' => now()->toIso8601String(),
+                'versions' => [],
+                'code' => $code,
+                'view_content' => $viewContent,
+            ];
+            $components[] = $componentData;
+        }
         
         $metadata['components'] = $components;
         $this->update(['metadata' => $metadata]);
+    }
+
+    /**
+     * Get a specific component by name.
+     */
+    public function getComponent(string $componentName): ?array
+    {
+        $components = $this->getComponents();
+        foreach ($components as $component) {
+            if ($component['name'] === $componentName) {
+                return $component;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if a component exists.
+     */
+    public function hasComponent(string $componentName): bool
+    {
+        return $this->getComponent($componentName) !== null;
     }
 
     /**
