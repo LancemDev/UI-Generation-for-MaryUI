@@ -400,13 +400,15 @@ class PreviewController extends Controller
             foreach ($response->headers() as $key => $values) {
                 $lowerKey = strtolower($key);
                 // Forward most headers, but skip some
-                if (!in_array($lowerKey, ['transfer-encoding', 'connection', 'content-encoding'])) {
+                // Also remove X-Frame-Options from original response (we'll set our own)
+                if (!in_array($lowerKey, ['transfer-encoding', 'connection', 'content-encoding', 'x-frame-options'])) {
                     $responseHeaders[$key] = $values[0] ?? '';
                 }
             }
 
-            // Add CORS headers to allow iframe embedding
-            $responseHeaders['X-Frame-Options'] = 'ALLOWALL';
+            // Add CSP header to allow iframe embedding from any origin
+            // Note: We don't set X-Frame-Options because it doesn't support "allow all"
+            // Content-Security-Policy: frame-ancestors * is the modern way to allow all origins
             $responseHeaders['Content-Security-Policy'] = "frame-ancestors *;";
 
             // Create response with proper content type
