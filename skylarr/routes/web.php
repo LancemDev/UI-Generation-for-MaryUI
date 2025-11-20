@@ -34,6 +34,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', CodeGenerator::class)->name('dashboard');
     Route::get('/settings', Settings::class)->name('settings');
     
+    // Preview proxy route - must be before API routes to avoid conflicts
+    // This allows iframes to work by serving preview content from the same origin
+    Route::any('/preview/{projectId}/{path?}', [PreviewController::class, 'proxy'])
+        ->where('path', '.*')
+        ->name('preview.proxy');
+    
     // API Routes for Preview and Project Management
     Route::prefix('api')->group(function () {
         // Project management

@@ -125,8 +125,10 @@ class CodeGenerationEngine extends Component
                             foreach ($routes as $route) {
                                 if ($route['component'] === $this->componentName) {
                                     $this->selectedRoute = $route['url'];
-                                    $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
-                                    $this->previewUrl = $baseUrl . $route['url'];
+                                    // Update preview URL to use proxy format
+                                    $baseUrl = request()->getSchemeAndHttpHost();
+                                    $routePath = ltrim($route['url'], '/');
+                                    $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
                                     break;
                                 }
                             }
@@ -321,8 +323,10 @@ class CodeGenerationEngine extends Component
                     foreach ($routes as $route) {
                         if ($route['component'] === $this->componentName) {
                             $this->selectedRoute = $route['url'];
-                            $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
-                            $this->previewUrl = $baseUrl . $route['url'];
+                            // Update preview URL to use proxy format
+                            $baseUrl = request()->getSchemeAndHttpHost();
+                            $routePath = ltrim($route['url'], '/');
+                            $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
                             break;
                         }
                     }
@@ -462,9 +466,11 @@ class CodeGenerationEngine extends Component
                             }
                         }
                         
-                        // Build full preview URL with route path
-                        $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
-                        $this->previewUrl = $baseUrl . $componentRoute;
+                        // Build proxy URL (same origin, so iframes work)
+                        // Format: /preview/{projectId}/{route}
+                        $baseUrl = request()->getSchemeAndHttpHost();
+                        $routePath = ltrim($componentRoute, '/'); // Remove leading slash for proxy path
+                        $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
                         $this->selectedRoute = $componentRoute;
                         $this->previewReady = true;
                         $this->isGenerating = false; // Ensure generating flag is cleared

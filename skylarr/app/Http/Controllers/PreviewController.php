@@ -6,8 +6,11 @@ use App\Models\Project;
 use App\Services\DockerPreviewService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class PreviewController extends Controller
 {
@@ -304,6 +307,126 @@ class PreviewController extends Controller
                 'success' => false,
                 'message' => 'Failed to remove containers: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Proxy requests to Docker container preview.
+     * This allows iframes to work by serving content from the same origin.
+     * 
+     * Route: /preview/{projectId}/{path?}
+     * Example: /preview/1/register-form -> proxies to http://127.0.0.1:8002/register-form
+     */
+    public function proxy(Request $request, int $projectId, string $path = ''): Response
+    {
+        try {
+            // Verify user owns the project
+            $project = Project::where('user_id', Auth::id())
+                             ->findOrFail($projectId);
+
+            // Check if container is running
+            if (!$project->container_id || !$this->dockerService->isContainerRunning($project->container_id)) {
+                abort(503, 'Preview container is not running');
+            }
+
+            // Get container port
+            if (!$project->port) {
+                abort(503, 'Container port not available');
+            }
+
+            // Build target URL (use 127.0.0.1 to avoid DNS issues)
+            $targetUrl = "http://127.0.0.1:{$project->port}";
+            
+            // Add path if provided (ensure leading slash)
+            if ($path) {
+                $targetUrl .= '/' . ltrim($path, '/');
+            }
+            
+            // Add query string if present
+            if ($request->getQueryString()) {
+                $targetUrl .= '?' . $request->getQueryString();
+            }
+
+            Log::info('[PROXY] Proxying request', [
+                'project_id' => $projectId,
+                'path' => $path,
+                'target_url' => $targetUrl,
+                'method' => $request->method()
+            ]);
+
+            // Prepare headers to forward (exclude some that shouldn't be forwarded)
+            $headers = [];
+            foreach ($request->headers->all() as $key => $values) {
+                $lowerKey = strtolower($key);
+                // Skip headers that shouldn't be forwarded
+                if (!in_array($lowerKey, ['host', 'connection', 'content-length', 'transfer-encoding', 'expect'])) {
+                    $headers[$key] = $values[0] ?? '';
+                }
+            }
+
+            // Build HTTP client request
+            $httpClient = Http::timeout(30)->withHeaders($headers);
+            
+            // Handle request body based on method
+            $method = strtoupper($request->method());
+            $body = $request->getContent();
+            
+            // Make the request to the container
+            if ($method === 'GET') {
+                $response = $httpClient->get($targetUrl);
+            } elseif ($method === 'POST') {
+                $response = $httpClient->withBody($body, $request->header('Content-Type', 'application/x-www-form-urlencoded'))
+                    ->post($targetUrl);
+            } elseif ($method === 'PUT') {
+                $response = $httpClient->withBody($body, $request->header('Content-Type', 'application/x-www-form-urlencoded'))
+                    ->put($targetUrl);
+            } elseif ($method === 'PATCH') {
+                $response = $httpClient->withBody($body, $request->header('Content-Type', 'application/x-www-form-urlencoded'))
+                    ->patch($targetUrl);
+            } elseif ($method === 'DELETE') {
+                $response = $httpClient->delete($targetUrl);
+            } else {
+                // Fallback for other methods
+                $response = $httpClient->withBody($body, $request->header('Content-Type', 'application/x-www-form-urlencoded'))
+                    ->send($method, $targetUrl);
+            }
+
+            // Get response content
+            $content = $response->body();
+            $statusCode = $response->status();
+
+            // Get response headers (exclude some that shouldn't be forwarded)
+            $responseHeaders = [];
+            foreach ($response->headers() as $key => $values) {
+                $lowerKey = strtolower($key);
+                // Forward most headers, but skip some
+                if (!in_array($lowerKey, ['transfer-encoding', 'connection', 'content-encoding'])) {
+                    $responseHeaders[$key] = $values[0] ?? '';
+                }
+            }
+
+            // Add CORS headers to allow iframe embedding
+            $responseHeaders['X-Frame-Options'] = 'ALLOWALL';
+            $responseHeaders['Content-Security-Policy'] = "frame-ancestors *;";
+
+            // Create response with proper content type
+            $contentType = $response->header('Content-Type') ?: 'text/html; charset=utf-8';
+            
+            return response($content, $statusCode)
+                ->withHeaders($responseHeaders)
+                ->header('Content-Type', $contentType);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            abort(404, 'Project not found');
+        } catch (\Exception $e) {
+            Log::error('[PROXY] Proxy error', [
+                'project_id' => $projectId,
+                'path' => $path,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            abort(502, 'Failed to proxy request: ' . $e->getMessage());
         }
     }
 }

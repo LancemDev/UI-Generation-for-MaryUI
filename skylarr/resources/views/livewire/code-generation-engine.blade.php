@@ -6,18 +6,18 @@
     @endif
 >
     {{-- Header with Toggle --}}
-    <div class="p-4 border-b border-secondary-200">
+    <div class="px-4 py-2 border-b border-secondary-200">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Code & Preview</h3>
+                <h3 class="text-xs font-medium text-gray-900 dark:text-gray-100">Code & Preview</h3>
                 @if($componentName)
-                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                    <span class="px-1.5 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                         {{ $componentName }}
                     </span>
                 @endif
                 @if($isGenerating)
-                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 animate-pulse flex items-center gap-2">
-                        <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <span class="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 animate-pulse flex items-center gap-1.5">
+                        <svg class="animate-spin h-2.5 w-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -27,17 +27,17 @@
             </div>
             
             {{-- Toggle Buttons --}}
-            <div class="flex items-center bg-secondary-100 rounded-lg p-1">
+            <div class="flex items-center bg-secondary-100 rounded-lg p-0.5">
                 <button 
                     wire:click="$set('activeTab', 'code')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
-                    <x-icon name="o-code-bracket" class="w-4 h-4 mr-1" />
+                    class="px-2 py-1 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
+                    <x-icon name="o-code-bracket" class="w-3 h-3 mr-1" />
                     Code
                 </button>
                 <button 
                     wire:click="$set('activeTab', 'preview')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
-                    <x-icon name="o-eye" class="w-4 h-4 mr-1" />
+                    class="px-2 py-1 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
+                    <x-icon name="o-eye" class="w-3 h-3 mr-1" />
                     Preview
                 </button>
             </div>
@@ -111,17 +111,18 @@
                         <div class="flex items-center gap-3 flex-1">
                             @php
                                 $routes = $currentProject ? $currentProject->getRoutes() : [];
-                                $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
+                                $proxyBaseUrl = request()->getSchemeAndHttpHost() . '/preview/' . ($currentProject ? $currentProject->id : '');
                             @endphp
                             
                             @if(count($routes) > 0)
                                 <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-600">Route:</span>
+                                    <span class="text-xs text-gray-600 dark:text-gray-400">Route:</span>
                                     <select 
                                         wire:model.live="selectedRoute"
-                                        x-data="{ baseUrl: '{{ $baseUrl }}' }"
+                                        x-data="{ baseUrl: '{{ $proxyBaseUrl }}' }"
                                         x-on:change="
-                                            const newUrl = baseUrl + $event.target.value;
+                                            const routePath = $event.target.value === '/' ? '' : $event.target.value.replace(/^\//, '');
+                                            const newUrl = baseUrl + (routePath ? '/' + routePath : '');
                                             $wire.set('previewUrl', newUrl);
                                             document.getElementById('preview-iframe').src = newUrl;
                                         "

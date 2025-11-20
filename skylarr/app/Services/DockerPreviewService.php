@@ -47,9 +47,11 @@ class DockerPreviewService
             }
             
             $containerId = trim($result->output());
-            // Use 127.0.0.1 for preview URL
-            $previewHost = env('PREVIEW_HOST', '127.0.0.1');
-            $previewUrl = "http://{$previewHost}:{$port}";
+            
+            // Generate proxy URL instead of direct container URL
+            // This allows iframes to work by serving content from the same origin
+            $baseUrl = request()->getSchemeAndHttpHost();
+            $previewUrl = "{$baseUrl}/preview/{$project->id}";
             
             // Update project with container info
             $project->update([
