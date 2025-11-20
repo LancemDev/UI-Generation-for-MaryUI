@@ -428,7 +428,9 @@ class DockerPreviewService
             // For other routes, check for exact path match
             $routeExists = false;
             if ($routePath === '/') {
-                $routeExists = preg_match("/Route::get\s*\(\s*['\"]\/['\"]\s*,/", $webPhpContent);
+                // Match only properly paired quotes: Route::get('/', or Route::get("/",
+                $routeExists = preg_match("/Route::get\s*\(\s*'\/'\s*,/", $webPhpContent) ||
+                               preg_match('/Route::get\s*\(\s*"\/"\s*,/', $webPhpContent);
             } else {
                 $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
                                str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
@@ -471,18 +473,18 @@ class DockerPreviewService
             // Add route - replace welcome route if it's the first component, otherwise add after
             if ($isFirstComponent) {
                 // Replace any existing root route (including Welcome::class) with our component
-                // Match: Route::get('/', Welcome::class); or Route::get('/', ...);
-                if (preg_match("/Route::get\s*\(\s*['\"]\/['\"],\s*[^;]+;/", $newContent)) {
-                    // Replace the entire root route line
+                // Match only properly paired quotes: Route::get('/', ...) or Route::get("/", ...)
+                if (preg_match("/Route::get\s*\(\s*'\/',\s*[^;]+;/", $newContent)) {
+                    // Replace the entire root route line with single quotes
                     $newContent = preg_replace(
-                        "/Route::get\s*\(\s*['\"]\/['\"],\s*[^;]+;/",
+                        "/Route::get\s*\(\s*'\/',\s*[^;]+;/",
                         $routeLine,
                         $newContent
                     );
-                } elseif (preg_match('/Route::get\s*\(\s*["\']\/["\'],\s*[^;]+;/', $newContent)) {
-                    // Handle double quotes
+                } elseif (preg_match('/Route::get\s*\(\s*"\/",\s*[^;]+;/', $newContent)) {
+                    // Replace the entire root route line with double quotes
                     $newContent = preg_replace(
-                        '/Route::get\s*\(\s*["\']\/["\'],\s*[^;]+;/',
+                        '/Route::get\s*\(\s*"\/",\s*[^;]+;/',
                         $routeLine,
                         $newContent
                     );
