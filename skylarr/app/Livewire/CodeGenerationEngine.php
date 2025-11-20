@@ -36,7 +36,8 @@ class CodeGenerationEngine extends Component
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
         'generate-code' => 'handleGenerateCodeRequest',
-        'projectChanged' => 'handleProjectChanged'
+        'projectChanged' => 'handleProjectChanged',
+        'project-updated' => 'handleProjectUpdated'
     ];
     
     public function mount(?int $projectId = null)
@@ -49,6 +50,34 @@ class CodeGenerationEngine extends Component
             $this->initializePreview();
             $this->restoreGenerationState();
         }
+    }
+    
+    public function updatedProjectId()
+    {
+        // When projectId changes, reload everything
+        if ($this->projectId) {
+            $this->resetComponentState();
+            $this->loadProject();
+            $this->initializePreview();
+            $this->restoreGenerationState();
+        }
+    }
+    
+    private function resetComponentState()
+    {
+        // Reset all component state when switching projects
+        $this->generatedCode = '';
+        $this->componentName = '';
+        $this->previewUrl = '';
+        $this->isGenerating = false;
+        $this->previewReady = false;
+        $this->activeTab = 'preview';
+        $this->projectFiles = [];
+        $this->projectFilesTree = [];
+        $this->selectedFile = '';
+        $this->selectedFilePath = '';
+        $this->selectedRoute = '';
+        $this->currentProject = null;
     }
 
     /**
@@ -96,8 +125,10 @@ class CodeGenerationEngine extends Component
                             foreach ($routes as $route) {
                                 if ($route['component'] === $this->componentName) {
                                     $this->selectedRoute = $route['url'];
-                                    $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
-                                    $this->previewUrl = $baseUrl . $route['url'];
+                                    // Update preview URL to use proxy format
+                                    $baseUrl = request()->getSchemeAndHttpHost();
+                                    $routePath = ltrim($route['url'], '/');
+                                    $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
                                     break;
                                 }
                             }
@@ -125,10 +156,35 @@ class CodeGenerationEngine extends Component
     
     public function handleProjectChanged($projectData)
     {
-        $this->projectId = $projectData['id'];
-        $this->loadProject();
-        $this->initializePreview();
-        $this->restoreGenerationState();
+        $newProjectId = is_array($projectData) ? ($projectData['id'] ?? $projectData['selectedProjectId'] ?? null) : $projectData;
+        
+        if ($newProjectId && $newProjectId != $this->projectId) {
+            $this->projectId = $newProjectId;
+            $this->resetComponentState();
+            $this->loadProject();
+            $this->initializePreview();
+            $this->restoreGenerationState();
+        }
+    }
+    
+    public function handleProjectUpdated($data)
+    {
+        // Handle project-updated event from CodeGenerator
+        $newProjectId = is_array($data) ? ($data['selectedProjectId'] ?? $data['id'] ?? null) : $data;
+        
+        if ($newProjectId && $newProjectId != $this->projectId) {
+            $oldProjectId = $this->projectId;
+            $this->projectId = $newProjectId;
+            $this->resetComponentState();
+            $this->loadProject();
+            $this->initializePreview();
+            $this->restoreGenerationState();
+            
+            Log::info('[CODE_GEN] Project updated', [
+                'old_project_id' => $oldProjectId,
+                'new_project_id' => $newProjectId
+            ]);
+        }
     }
     
     private function loadProject()
@@ -215,20 +271,136 @@ class CodeGenerationEngine extends Component
             
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
-                // Use target component name if provided, otherwise use AI-generated name
-                $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
                 
-                Log::info('[CODE_GEN] Code generated successfully', [
-                    'component_name' => $this->componentName,
-                    'code_length' => strlen($this->generatedCode)
-                ]);
+                // Check if this is a multi-component response
+                $dockerService = app(DockerPreviewService::class);
+                $multipleComponents = $dockerService->parseMultipleComponents($this->generatedCode);
                 
-                // Switch to code tab to show the generated code
-                $this->activeTab = 'preview';
-                
-                // Create preview
-                Log::info('[CODE_GEN] Starting preview creation');
-                $this->createPreview();
+                if (!empty($multipleComponents)) {
+                    // Handle multiple components
+                    Log::info('[CODE_GEN] Multiple components detected', [
+                        'count' => count($multipleComponents),
+                        'components' => array_column($multipleComponents, 'class_name')
+                    ]);
+                    
+                    // Ensure container exists
+                    $dockerService->getOrCreateProjectContainer($this->currentProject);
+                    
+                    // Inject all components
+                    $successfulComponents = $dockerService->injectMultipleComponents($this->currentProject, $this->generatedCode);
+                    
+                    if (!empty($successfulComponents)) {
+                        // Use first component as primary
+                        $this->componentName = $successfulComponents[0];
+                        
+                        // Get the first component's code for display
+                        $firstComponent = $multipleComponents[0];
+                        $this->generatedCode = $firstComponent['code'] ?? $this->generatedCode;
+                        
+                        // Get preview URL and set route
+                        $previewUrl = $dockerService->getOrCreateProjectContainer($this->currentProject);
+                        $baseUrl = request()->getSchemeAndHttpHost();
+                        
+                        // Get route for first component
+                        $routes = $this->currentProject->getRoutes();
+                        $componentRoute = '/';
+                        foreach ($routes as $route) {
+                            if ($route['component'] === $this->componentName) {
+                                $componentRoute = $route['url'];
+                                break;
+                            }
+                        }
+                        
+                        $routePath = ltrim($componentRoute, '/');
+                        $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
+                        $this->selectedRoute = $componentRoute;
+                        $this->previewReady = true;
+                        $this->isGenerating = false;
+                        $this->activeTab = 'preview';
+                        
+                        // Load project files
+                        $this->loadProjectFiles();
+                        
+                        // Auto-select the first generated file
+                        $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                        if (in_array($generatedFilePath, $this->projectFiles)) {
+                            $this->selectFile($generatedFilePath);
+                        } else {
+                            // Try to read directly
+                            try {
+                                $fileContent = $dockerService->readFileFromContainer(
+                                    $this->currentProject->container_id,
+                                    $generatedFilePath
+                                );
+                                if (!empty($fileContent)) {
+                                    $this->generatedCode = $fileContent;
+                                    $this->selectedFilePath = $generatedFilePath;
+                                }
+                            } catch (\Exception $e) {
+                                Log::warning('[CODE_GEN] Could not load file directly', ['error' => $e->getMessage()]);
+                            }
+                        }
+                        
+                        // Save completed generation state
+                        $this->currentProject->completeGeneration(
+                            $this->componentName,
+                            $this->generatedCode,
+                            $this->previewUrl
+                        );
+                        
+                        // Create success notification for all components (only once)
+                        NotificationService::success(
+                            'Components Generated',
+                            "Successfully generated " . count($successfulComponents) . " components: " . implode(', ', $successfulComponents),
+                            $this->currentProject->id,
+                            ['components' => $successfulComponents]
+                        );
+                        
+                        $this->dispatch('notification-created');
+                        $this->success('Successfully generated ' . count($successfulComponents) . ' connected components!');
+                        
+                        Log::info('[CODE_GEN] Multiple components generation complete', [
+                            'components' => $successfulComponents,
+                            'preview_url' => $this->previewUrl
+                        ]);
+                        
+                        return;
+                    } else {
+                        // Injection failed - show error and stop
+                        Log::error('[CODE_GEN] Multi-component injection failed', [
+                            'components' => array_column($multipleComponents, 'class_name'),
+                            'project_id' => $this->currentProject->id,
+                            'container_id' => $this->currentProject->container_id
+                        ]);
+                        
+                        // Set component name from first component for display
+                        $this->componentName = $multipleComponents[0]['class_name'] ?? 'GeneratedComponent';
+                        $this->isGenerating = false;
+                        
+                        // Try to show the generated code even if injection failed
+                        if (!empty($multipleComponents[0]['code'])) {
+                            $this->generatedCode = $multipleComponents[0]['code'];
+                        }
+                        
+                        $this->error('Failed to inject components. Container may not be running. Please check the logs.');
+                        return;
+                    }
+                } else {
+                    // Single component - use existing logic
+                    $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
+                    
+                    Log::info('[CODE_GEN] Code generated successfully', [
+                        'component_name' => $this->componentName,
+                        'code_length' => strlen($this->generatedCode)
+                    ]);
+                    
+                    // Switch to code tab to show the generated code
+                    $this->activeTab = 'preview';
+                    
+                    // Create preview
+                    Log::info('[CODE_GEN] Starting preview creation');
+                    $this->createPreview();
+                }
                 
                 // Save completed generation state to database
                 $this->currentProject->completeGeneration(
@@ -254,38 +426,36 @@ class CodeGenerationEngine extends Component
                     'message' => 'Code generation completed successfully!'
                 ]);
                 
-                // Dispatch browser event for Alpine.js listeners (sibling components)
-                $this->js("window.dispatchEvent(new CustomEvent('code-generation-complete', { detail: " . json_encode([
-                    'component_name' => $this->componentName,
-                    'message' => 'Code generation completed successfully!'
-                ]) . " }))");
+                // Note: loadProjectFiles() and selectFile() are already called in createPreview()
+                // But we need to ensure the route is updated correctly
+                if ($this->previewUrl && $this->componentName) {
+                    $routes = $this->currentProject->getRoutes();
+                    foreach ($routes as $route) {
+                        if ($route['component'] === $this->componentName) {
+                            $this->selectedRoute = $route['url'];
+                            // Update preview URL to use proxy format
+                            $baseUrl = request()->getSchemeAndHttpHost();
+                            $routePath = ltrim($route['url'], '/');
+                            $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
+                            break;
+                        }
+                    }
+                }
                 
-                // Load project files to show the new component
-                $this->loadProjectFiles();
-                
-                // Auto-select the generated file
-                if ($this->componentName) {
+                // Ensure generatedCode is loaded from the file if not already set
+                if (empty($this->generatedCode) && $this->componentName && $this->currentProject && $this->currentProject->container_id) {
                     $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
                     if (in_array($generatedFilePath, $this->projectFiles)) {
                         $this->selectFile($generatedFilePath);
                     }
                 }
                 
-                // Update selected route
-                $routes = $this->currentProject->getRoutes();
-                foreach ($routes as $route) {
-                    if ($route['component'] === $this->componentName) {
-                        $this->selectedRoute = $route['url'];
-                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
-                        $this->previewUrl = $baseUrl . $route['url'];
-                        break;
-                    }
-                }
-                
                 Log::info('[CODE_GEN] Success events dispatched', [
                     'component_name' => $this->componentName,
                     'is_generating' => $this->isGenerating,
-                    'preview_ready' => $this->previewReady
+                    'preview_ready' => $this->previewReady,
+                    'has_generated_code' => !empty($this->generatedCode),
+                    'preview_url' => $this->previewUrl
                 ]);
                 
                 $this->success('Code generated successfully!');
@@ -396,14 +566,29 @@ class CodeGenerationEngine extends Component
             Log::info('[CODE_GEN] Code injection result', ['success' => $success]);
             
                     if ($success) {
-                        $this->previewUrl = $previewUrl;
+                        // Get the route for this component from project metadata
+                        $routes = $this->currentProject->getRoutes();
+                        $componentRoute = '/';
+                        foreach ($routes as $route) {
+                            if ($route['component'] === $this->componentName) {
+                                $componentRoute = $route['url'];
+                                break;
+                            }
+                        }
+                        
+                        // Build proxy URL (same origin, so iframes work)
+                        // Format: /preview/{projectId}/{route}
+                        $baseUrl = request()->getSchemeAndHttpHost();
+                        $routePath = ltrim($componentRoute, '/'); // Remove leading slash for proxy path
+                        $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
+                        $this->selectedRoute = $componentRoute;
                         $this->previewReady = true;
                         $this->isGenerating = false; // Ensure generating flag is cleared
 
                         // Update generation state with preview URL
                         if ($this->currentProject) {
                             $this->currentProject->setGenerationState([
-                                'preview_url' => $previewUrl,
+                                'preview_url' => $this->previewUrl,
                                 'preview_ready' => true,
                             ]);
                         }
@@ -416,17 +601,43 @@ class CodeGenerationEngine extends Component
                 if (in_array($generatedFilePath, $this->projectFiles)) {
                     $this->selectFile($generatedFilePath);
                     Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
+                } else {
+                    // If file not in projectFiles yet, try to read it directly
+                    // This can happen if loadProjectFiles() hasn't picked it up yet
+                    try {
+                        $dockerService = app(DockerPreviewService::class);
+                        $fileContent = $dockerService->readFileFromContainer(
+                            $this->currentProject->container_id,
+                            $generatedFilePath
+                        );
+                        if (!empty($fileContent)) {
+                            $this->generatedCode = $fileContent;
+                            $this->selectedFilePath = $generatedFilePath;
+                            Log::info('[CODE_GEN] Loaded file directly', ['file' => $generatedFilePath]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('[CODE_GEN] Could not load file directly', ['error' => $e->getMessage()]);
+                    }
                 }
                 
                 Log::info('[CODE_GEN] Preview ready', [
                     'preview_url' => $this->previewUrl,
+                    'component_route' => $componentRoute,
                     'component_name' => $this->componentName,
                     'is_generating' => $this->isGenerating,
-                    'preview_ready' => $this->previewReady
+                    'preview_ready' => $this->previewReady,
+                    'has_generated_code' => !empty($this->generatedCode),
+                    'selected_file' => $this->selectedFilePath
                 ]);
                 
-                // Force Livewire to update the view
-                $this->dispatch('$refresh');
+                // Auto-switch to preview tab when ready
+                $this->activeTab = 'preview';
+                
+                // Dispatch event to update UI
+                $this->dispatch('code-generation-complete', [
+                    'component_name' => $this->componentName,
+                    'preview_url' => $this->previewUrl
+                ]);
                 
                 $this->success('Component generated, validated, and preview ready!');
             } else {
@@ -675,6 +886,36 @@ class CodeGenerationEngine extends Component
             return [];
         }
         return $this->currentProject->getComponents();
+    }
+    
+    /**
+     * Check generation status - called by wire:poll during generation
+     */
+    public function checkGenerationStatus()
+    {
+        // Only check if we're in generating state
+        if (!$this->isGenerating || !$this->currentProject) {
+            return;
+        }
+        
+        // Check if generation has completed in the database
+        $state = $this->currentProject->getGenerationState();
+        
+        // If generation completed but we haven't updated UI yet
+        if (!empty($state['completed_at']) && !empty($state['generated_code']) && !$this->previewReady) {
+            Log::info('[CODE_GEN] Generation completed, updating UI', [
+                'project_id' => $this->currentProject->id,
+                'component_name' => $state['component_name'] ?? null
+            ]);
+            
+            // Restore the completed state
+            $this->restoreGenerationState();
+            
+            // Ensure preview is shown
+            if ($this->previewReady) {
+                $this->activeTab = 'preview';
+            }
+        }
     }
     
     public function render()

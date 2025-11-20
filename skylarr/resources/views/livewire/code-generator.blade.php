@@ -53,7 +53,7 @@
 
     <x-modal wire:model="createNewProjectModal">
         <x-form wire:submit="createProject">
-            <x-input label="Name of Project" placeholder="test101" wire:model="projectName" />
+            <x-input label="Name of Project" placeholder="Login Form" wire:model="projectName" />
             <x-textarea label="Project Description(optional)" placeholder="my portfolio site" wire:model="projectDescription" />
 
             <x-slot:actions>

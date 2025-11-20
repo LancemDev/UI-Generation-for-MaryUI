@@ -47,9 +47,11 @@ class DockerPreviewService
             }
             
             $containerId = trim($result->output());
-            // Use preview.local instead of localhost to avoid browser security restrictions
-            $previewHost = env('PREVIEW_HOST', 'preview.local');
-            $previewUrl = "http://{$previewHost}:{$port}";
+            
+            // Generate proxy URL instead of direct container URL
+            // This allows iframes to work by serving content from the same origin
+            $baseUrl = request()->getSchemeAndHttpHost();
+            $previewUrl = "{$baseUrl}/preview/{$project->id}";
             
             // Update project with container info
             $project->update([
@@ -191,6 +193,32 @@ class DockerPreviewService
         }
         
         return true;
+    }
+    
+    /**
+     * Parse multiple components from a response that contains multiple components.
+     * Format: ===COMPONENT_1=== ... ===END_COMPONENT_1=== ===COMPONENT_2=== ... ===END_COMPONENT_2===
+     */
+    public function parseMultipleComponents(string $code): array
+    {
+        $components = [];
+        
+        // Match all component blocks: ===COMPONENT_N=== ... ===END_COMPONENT_N===
+        if (preg_match_all('/===COMPONENT_(\d+)===(.*?)===END_COMPONENT_\1===/s', $code, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $componentNumber = $match[1];
+                $componentCode = $match[2];
+                
+                // Parse this component using the existing parseComponentCode method
+                $parsed = $this->parseComponentCode($componentCode);
+                
+                if ($parsed['class_name']) {
+                    $components[] = $parsed;
+                }
+            }
+        }
+        
+        return $components;
     }
     
     /**
@@ -400,7 +428,9 @@ class DockerPreviewService
             // For other routes, check for exact path match
             $routeExists = false;
             if ($routePath === '/') {
-                $routeExists = preg_match("/Route::get\s*\(\s*['\"]\/['\"]\s*,/", $webPhpContent);
+                // Match only properly paired quotes: Route::get('/', or Route::get("/",
+                $routeExists = preg_match("/Route::get\s*\(\s*'\/'\s*,/", $webPhpContent) ||
+                               preg_match('/Route::get\s*\(\s*"\/"\s*,/', $webPhpContent);
             } else {
                 $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
                                str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
@@ -442,16 +472,19 @@ class DockerPreviewService
             
             // Add route - replace welcome route if it's the first component, otherwise add after
             if ($isFirstComponent) {
-                // Replace any existing root route with our component
-                if (preg_match("/Route::get\('\/',\s*[^;]+;/", $newContent)) {
+                // Replace any existing root route (including Welcome::class) with our component
+                // Match only properly paired quotes: Route::get('/', ...) or Route::get("/", ...)
+                if (preg_match("/Route::get\s*\(\s*'\/',\s*[^;]+;/", $newContent)) {
+                    // Replace the entire root route line with single quotes
                     $newContent = preg_replace(
-                        "/Route::get\('\/',\s*[^;]+;/",
+                        "/Route::get\s*\(\s*'\/',\s*[^;]+;/",
                         $routeLine,
                         $newContent
                     );
-                } elseif (preg_match('/Route::get\("\/",\s*[^;]+;/', $newContent)) {
+                } elseif (preg_match('/Route::get\s*\(\s*"\/",\s*[^;]+;/', $newContent)) {
+                    // Replace the entire root route line with double quotes
                     $newContent = preg_replace(
-                        '/Route::get\("\/",\s*[^;]+;/',
+                        '/Route::get\s*\(\s*"\/",\s*[^;]+;/',
                         $routeLine,
                         $newContent
                     );
@@ -534,6 +567,49 @@ class DockerPreviewService
             ]);
             return false;
         }
+    }
+    
+    /**
+     * Inject multiple components into a project container.
+     * Returns array of component names that were successfully injected.
+     */
+    public function injectMultipleComponents(Project $project, string $code): array
+    {
+        $components = $this->parseMultipleComponents($code);
+        $successfulComponents = [];
+        
+        if (empty($components)) {
+            Log::warning('[DOCKER] No components found in multi-component response');
+            return [];
+        }
+        
+        // Ensure container exists before injecting
+        $this->getOrCreateProjectContainer($project);
+        
+        Log::info('[DOCKER] Injecting multiple components', [
+            'count' => count($components),
+            'component_names' => array_column($components, 'class_name')
+        ]);
+        
+        foreach ($components as $index => $component) {
+            $componentName = $component['class_name'];
+            $componentCode = $component['code'] ?? '';
+            $viewContent = $component['view_content'] ?? '';
+            
+            // Combine code and view for injection
+            $fullCode = $componentCode;
+            if ($viewContent) {
+                $fullCode .= "\n\n===BLADE_VIEW===\n{$viewContent}\n===END_BLADE===";
+            }
+            
+            if ($this->injectCode($project, $fullCode, $componentName)) {
+                $successfulComponents[] = $componentName;
+            } else {
+                Log::error('[DOCKER] Failed to inject component', ['component_name' => $componentName]);
+            }
+        }
+        
+        return $successfulComponents;
     }
     
     /**
@@ -816,13 +892,15 @@ BLADE;
                     'is_first' => $isFirstComponent,
                     'is_update' => $componentExists
                 ]);
+                
             }
             
             Log::info("Successfully injected and validated code for project {$project->id}", [
                 'component_name' => $componentName,
                 'component_path' => $componentPath,
                 'view_path' => $fullViewPath,
-                'container_id' => $project->container_id
+                'container_id' => $project->container_id,
+                'route' => $route ?? null
             ]);
             
             return true;
@@ -1686,7 +1764,7 @@ BLADE;
                 
                 // Try to curl the endpoint (use 127.0.0.1 for localhost domains to avoid DNS issues)
                 $host = $urlParts['host'] ?? 'localhost';
-                $curlHost = ($host === 'localhost' || $host === 'preview.local') ? '127.0.0.1' : $host;
+                $curlHost = ($host === 'localhost' || $host === 'preview.local' || $host === '127.0.0.1') ? '127.0.0.1' : $host;
                 $httpCheck = Process::run([
                     'sh', '-c', "curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H 'Host: {$host}' http://{$curlHost}:{$port} 2>&1 || echo '000'"
                 ]);

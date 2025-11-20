@@ -2,8 +2,6 @@
     class="h-full flex flex-col bg-white" 
     style="height: 100%; display: flex; flex-direction: column;"
     x-data=""
-    @code-generation-complete.window="$wire.addCodeGenerationMessage($event.detail)"
-    @code-generation-failed.window="$wire.addCodeGenerationErrorMessage($event.detail)"
 >
     {{-- Chat Messages Area - Scrollable --}}
     <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4" style="min-height: 0; flex: 1 1 auto;">

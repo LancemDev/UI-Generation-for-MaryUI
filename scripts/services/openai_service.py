@@ -73,18 +73,21 @@ def generate_code(
 ) -> tuple[str, str]:
     """
     Generate complete, production-ready Livewire component code with full Blade views.
+    Supports both single and multiple connected components.
     
     Returns both PHP class code and Blade view code in a structured format.
 
     Args:
         prompt: Natural language description of the code to generate.
+               Can request multiple components (e.g., "create register, login, and dashboard pages")
         model: Optional model override. Defaults to env OPENAI_MODEL or "gpt-4o-mini".
         temperature: Sampling temperature for creativity.
-        max_tokens: Maximum tokens in the completion (increased for complete code).
+        max_tokens: Maximum tokens in the completion (increased for multiple components).
 
     Returns:
         Tuple of (combined_code_string, component_name) where combined_code_string contains
-        both PHP class and Blade view separated by markers.
+        both PHP class and Blade view separated by markers. For multiple components, 
+        component_name will be the first component name, and the code will contain all components.
     """
     from .gnn_service import get_gnn_service
     
@@ -113,8 +116,9 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
 7. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
 8. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
 9. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
+10. **MULTIPLE COMPONENTS** - If the user requests multiple components (e.g., "register, login, and dashboard"), generate ALL components in one response. Connect them with navigation links (use wire:navigate or href to link between components). For example, a register form should link to login, login should redirect to dashboard after success.
 
-OUTPUT FORMAT - You MUST return code in this exact format:
+OUTPUT FORMAT - For SINGLE component, use this format:
 
 ===PHP===
 <?php
@@ -168,6 +172,128 @@ class ComponentName extends Component
     </div>
 </div>
 ===END===
+
+OUTPUT FORMAT - For MULTIPLE COMPONENTS, use this format (repeat for each component):
+
+===COMPONENT_1===
+===PHP===
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class RegisterForm extends Component
+{{
+    use Toast;
+    
+    public $name = '';
+    public $email = '';
+    public $password = '';
+    
+    public function submit()
+    {{
+        $this->validate([
+            'name' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:8',
+        ]);
+        
+        // After registration, redirect to login
+        $this->success('Registration successful! Please login.');
+        return $this->redirect('/login', navigate: true);
+    }}
+    
+    public function render()
+    {{
+        return view('livewire.register-form');
+    }}
+}}
+===BLADE===
+<div class="min-h-screen bg-gray-50 py-12 px-4">
+    <div class="max-w-md mx-auto">
+        <x-card class="shadow-xl">
+            <x-slot:header>
+                <h2 class="text-3xl font-bold">Register</h2>
+            </x-slot:header>
+            
+            <x-form wire:submit="submit" class="space-y-6">
+                <x-input label="Name" wire:model="name" class="input-bordered" />
+                <x-input label="Email" type="email" wire:model="email" class="input-bordered" />
+                <x-input label="Password" type="password" wire:model="password" class="input-bordered" />
+                
+                <x-slot:actions>
+                    <x-button type="submit" class="btn-primary" spinner="submit">Register</x-button>
+                    <x-link href="/login" class="btn-ghost">Already have an account? Login</x-link>
+                </x-slot:actions>
+            </x-form>
+        </x-card>
+    </div>
+</div>
+===END_COMPONENT_1===
+
+===COMPONENT_2===
+===PHP===
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class LoginForm extends Component
+{{
+    use Toast;
+    
+    public $email = '';
+    public $password = '';
+    
+    public function submit()
+    {{
+        $this->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+        
+        // After login, redirect to dashboard
+        $this->success('Login successful!');
+        return $this->redirect('/dashboard', navigate: true);
+    }}
+    
+    public function render()
+    {{
+        return view('livewire.login-form');
+    }}
+}}
+===BLADE===
+<div class="min-h-screen bg-gray-50 py-12 px-4">
+    <div class="max-w-md mx-auto">
+        <x-card class="shadow-xl">
+            <x-slot:header>
+                <h2 class="text-3xl font-bold">Login</h2>
+            </x-slot:header>
+            
+            <x-form wire:submit="submit" class="space-y-6">
+                <x-input label="Email" type="email" wire:model="email" class="input-bordered" />
+                <x-input label="Password" type="password" wire:model="password" class="input-bordered" />
+                
+                <x-slot:actions>
+                    <x-button type="submit" class="btn-primary" spinner="submit">Login</x-button>
+                    <x-link href="/register" class="btn-ghost">Don't have an account? Register</x-link>
+                </x-slot:actions>
+            </x-form>
+        </x-card>
+    </div>
+</div>
+===END_COMPONENT_2===
+
+===COMPONENT_3===
+... (continue for each component)
+===END_COMPONENT_3===
+
+IMPORTANT FOR MULTIPLE COMPONENTS:
+- Generate ALL requested components in one response
+- Connect components with navigation links using wire:navigate or href
+- Use consistent styling across all components
+- Ensure logical flow (e.g., register -> login -> dashboard)
+- Each component should be complete and functional
 
 EXAMPLES OF HOLISTIC, PRODUCTION-READY BLADE VIEWS:
 

@@ -42,7 +42,7 @@
                 title="Create New Project" 
                 icon="o-plus" 
                 class="text-blue-600 dark:text-blue-400"
-                wire:click.stop="openCreateProjectModal"
+                wire:click="openCreateProjectModal"
             />
         </x-dropdown>
     @else
