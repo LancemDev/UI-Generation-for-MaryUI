@@ -1,16 +1,26 @@
-<div class="h-full flex flex-col">
+<div class="h-full flex flex-col" 
+    @if($isGenerating) 
+        wire:poll.2s="checkGenerationStatus" 
+    @else
+        wire:poll.10s="checkGenerationStatus"
+    @endif
+>
     {{-- Header with Toggle --}}
     <div class="p-4 border-b border-secondary-200">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <h3 class="text-sm font-medium text-gray-900">Code & Preview</h3>
+                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Code & Preview</h3>
                 @if($componentName)
-                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                         {{ $componentName }}
                     </span>
                 @endif
                 @if($isGenerating)
-                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 animate-pulse">
+                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 animate-pulse flex items-center gap-2">
+                        <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
                         Generating...
                     </span>
                 @endif
@@ -38,48 +48,58 @@
     <div class="flex-1 flex" style="min-height: 0; height: 100%;">
         {{-- Code Tab --}}
         @if($activeTab === 'code')
-            <div class="flex-1 flex p-4 gap-4" style="min-height: 0; overflow: hidden;">
-                <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto" style="min-height: 0;">
-                    <h4 class="font-semibold text-sm mb-2">Project Files</h4>
-                    @if(count($projectFilesTree) > 0)
-                        <div class="space-y-0.5">
-                            @foreach($projectFilesTree as $key => $item)
-                                @include('livewire.partials.file-tree-item', [
-                                    'item' => $item,
-                                    'key' => $key,
-                                    'level' => 0,
-                                    'selectedFilePath' => $selectedFilePath
-                                ])
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-xs text-gray-400">No files found</p>
-                    @endif
+            @if($isGenerating)
+                <div class="flex-1 flex items-center justify-center" style="min-height: 0;">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Generating code...</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">This may take a few moments</p>
+                    </div>
                 </div>
-                
-                <div class="flex-1 flex flex-col code-viewer-container">
-                    @if($generatedCode)
-                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4">
-                            <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10">
-                                @if($selectedFilePath)
-                                    <span>File: {{ basename($selectedFilePath) }}</span>
-                                @elseif($componentName)
-                                    <span>Generated: {{ $componentName }}</span>
-                                @endif
+            @else
+                <div class="flex-1 flex p-4 gap-4" style="min-height: 0; overflow: hidden;">
+                    <div class="w-1/3 border-r border-gray-200 dark:border-gray-700 pr-4 overflow-y-auto" style="min-height: 0;">
+                        <h4 class="font-semibold text-sm mb-2 dark:text-gray-200">Project Files</h4>
+                        @if(count($projectFilesTree) > 0)
+                            <div class="space-y-0.5">
+                                @foreach($projectFilesTree as $key => $item)
+                                    @include('livewire.partials.file-tree-item', [
+                                        'item' => $item,
+                                        'key' => $key,
+                                        'level' => 0,
+                                        'selectedFilePath' => $selectedFilePath
+                                    ])
+                                @endforeach
                             </div>
-                            <pre class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
-                        </div>
-                    @else
-                        <div class="h-full flex items-center justify-center text-gray-400">
-                            <div class="text-center">
-                                <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <p class="text-sm">Generated code will appear here</p>
-                                <p class="text-xs mt-2 opacity-75">Start a conversation to generate Livewire components</p>
+                        @else
+                            <p class="text-xs text-gray-400 dark:text-gray-500">No files found</p>
+                        @endif
+                    </div>
+                    
+                    <div class="flex-1 flex flex-col code-viewer-container">
+                        @if($generatedCode)
+                            <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4">
+                                <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10">
+                                    @if($selectedFilePath)
+                                        <span>File: {{ basename($selectedFilePath) }}</span>
+                                    @elseif($componentName)
+                                        <span>Generated: {{ $componentName }}</span>
+                                    @endif
+                                </div>
+                                <pre class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
                             </div>
-                        </div>
-                    @endif
+                        @else
+                            <div class="h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+                                <div class="text-center">
+                                    <x-icon name="o-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                    <p class="text-sm">Generated code will appear here</p>
+                                    <p class="text-xs mt-2 opacity-75">Start a conversation to generate Livewire components</p>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
                 </div>
-            </div>
+            @endif
         @endif
 
         {{-- Preview Tab --}}

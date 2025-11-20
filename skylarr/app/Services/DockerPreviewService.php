@@ -442,16 +442,19 @@ class DockerPreviewService
             
             // Add route - replace welcome route if it's the first component, otherwise add after
             if ($isFirstComponent) {
-                // Replace any existing root route with our component
-                if (preg_match("/Route::get\('\/',\s*[^;]+;/", $newContent)) {
+                // Replace any existing root route (including Welcome::class) with our component
+                // Match: Route::get('/', Welcome::class); or Route::get('/', ...);
+                if (preg_match("/Route::get\s*\(\s*['\"]\/['\"],\s*[^;]+;/", $newContent)) {
+                    // Replace the entire root route line
                     $newContent = preg_replace(
-                        "/Route::get\('\/',\s*[^;]+;/",
+                        "/Route::get\s*\(\s*['\"]\/['\"],\s*[^;]+;/",
                         $routeLine,
                         $newContent
                     );
-                } elseif (preg_match('/Route::get\("\/",\s*[^;]+;/', $newContent)) {
+                } elseif (preg_match('/Route::get\s*\(\s*["\']\/["\'],\s*[^;]+;/', $newContent)) {
+                    // Handle double quotes
                     $newContent = preg_replace(
-                        '/Route::get\("\/",\s*[^;]+;/',
+                        '/Route::get\s*\(\s*["\']\/["\'],\s*[^;]+;/',
                         $routeLine,
                         $newContent
                     );
@@ -816,13 +819,15 @@ BLADE;
                     'is_first' => $isFirstComponent,
                     'is_update' => $componentExists
                 ]);
+                
             }
             
             Log::info("Successfully injected and validated code for project {$project->id}", [
                 'component_name' => $componentName,
                 'component_path' => $componentPath,
                 'view_path' => $fullViewPath,
-                'container_id' => $project->container_id
+                'container_id' => $project->container_id,
+                'route' => $route ?? null
             ]);
             
             return true;
