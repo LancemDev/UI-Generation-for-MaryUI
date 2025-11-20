@@ -47,8 +47,8 @@ class DockerPreviewService
             }
             
             $containerId = trim($result->output());
-            // Use preview.local instead of localhost to avoid browser security restrictions
-            $previewHost = env('PREVIEW_HOST', 'preview.local');
+            // Use 127.0.0.1 for preview URL
+            $previewHost = env('PREVIEW_HOST', '127.0.0.1');
             $previewUrl = "http://{$previewHost}:{$port}";
             
             // Update project with container info
@@ -1691,7 +1691,7 @@ BLADE;
                 
                 // Try to curl the endpoint (use 127.0.0.1 for localhost domains to avoid DNS issues)
                 $host = $urlParts['host'] ?? 'localhost';
-                $curlHost = ($host === 'localhost' || $host === 'preview.local') ? '127.0.0.1' : $host;
+                $curlHost = ($host === 'localhost' || $host === 'preview.local' || $host === '127.0.0.1') ? '127.0.0.1' : $host;
                 $httpCheck = Process::run([
                     'sh', '-c', "curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H 'Host: {$host}' http://{$curlHost}:{$port} 2>&1 || echo '000'"
                 ]);
