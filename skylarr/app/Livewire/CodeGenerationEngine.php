@@ -271,20 +271,136 @@ class CodeGenerationEngine extends Component
             
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
-                // Use target component name if provided, otherwise use AI-generated name
-                $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
                 
-                Log::info('[CODE_GEN] Code generated successfully', [
-                    'component_name' => $this->componentName,
-                    'code_length' => strlen($this->generatedCode)
-                ]);
+                // Check if this is a multi-component response
+                $dockerService = app(DockerPreviewService::class);
+                $multipleComponents = $dockerService->parseMultipleComponents($this->generatedCode);
                 
-                // Switch to code tab to show the generated code
-                $this->activeTab = 'preview';
-                
-                // Create preview
-                Log::info('[CODE_GEN] Starting preview creation');
-                $this->createPreview();
+                if (!empty($multipleComponents)) {
+                    // Handle multiple components
+                    Log::info('[CODE_GEN] Multiple components detected', [
+                        'count' => count($multipleComponents),
+                        'components' => array_column($multipleComponents, 'class_name')
+                    ]);
+                    
+                    // Ensure container exists
+                    $dockerService->getOrCreateProjectContainer($this->currentProject);
+                    
+                    // Inject all components
+                    $successfulComponents = $dockerService->injectMultipleComponents($this->currentProject, $this->generatedCode);
+                    
+                    if (!empty($successfulComponents)) {
+                        // Use first component as primary
+                        $this->componentName = $successfulComponents[0];
+                        
+                        // Get the first component's code for display
+                        $firstComponent = $multipleComponents[0];
+                        $this->generatedCode = $firstComponent['code'] ?? $this->generatedCode;
+                        
+                        // Get preview URL and set route
+                        $previewUrl = $dockerService->getOrCreateProjectContainer($this->currentProject);
+                        $baseUrl = request()->getSchemeAndHttpHost();
+                        
+                        // Get route for first component
+                        $routes = $this->currentProject->getRoutes();
+                        $componentRoute = '/';
+                        foreach ($routes as $route) {
+                            if ($route['component'] === $this->componentName) {
+                                $componentRoute = $route['url'];
+                                break;
+                            }
+                        }
+                        
+                        $routePath = ltrim($componentRoute, '/');
+                        $this->previewUrl = "{$baseUrl}/preview/{$this->currentProject->id}" . ($routePath ? "/{$routePath}" : '');
+                        $this->selectedRoute = $componentRoute;
+                        $this->previewReady = true;
+                        $this->isGenerating = false;
+                        $this->activeTab = 'preview';
+                        
+                        // Load project files
+                        $this->loadProjectFiles();
+                        
+                        // Auto-select the first generated file
+                        $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                        if (in_array($generatedFilePath, $this->projectFiles)) {
+                            $this->selectFile($generatedFilePath);
+                        } else {
+                            // Try to read directly
+                            try {
+                                $fileContent = $dockerService->readFileFromContainer(
+                                    $this->currentProject->container_id,
+                                    $generatedFilePath
+                                );
+                                if (!empty($fileContent)) {
+                                    $this->generatedCode = $fileContent;
+                                    $this->selectedFilePath = $generatedFilePath;
+                                }
+                            } catch (\Exception $e) {
+                                Log::warning('[CODE_GEN] Could not load file directly', ['error' => $e->getMessage()]);
+                            }
+                        }
+                        
+                        // Save completed generation state
+                        $this->currentProject->completeGeneration(
+                            $this->componentName,
+                            $this->generatedCode,
+                            $this->previewUrl
+                        );
+                        
+                        // Create success notification for all components (only once)
+                        NotificationService::success(
+                            'Components Generated',
+                            "Successfully generated " . count($successfulComponents) . " components: " . implode(', ', $successfulComponents),
+                            $this->currentProject->id,
+                            ['components' => $successfulComponents]
+                        );
+                        
+                        $this->dispatch('notification-created');
+                        $this->success('Successfully generated ' . count($successfulComponents) . ' connected components!');
+                        
+                        Log::info('[CODE_GEN] Multiple components generation complete', [
+                            'components' => $successfulComponents,
+                            'preview_url' => $this->previewUrl
+                        ]);
+                        
+                        return;
+                    } else {
+                        // Injection failed - show error and stop
+                        Log::error('[CODE_GEN] Multi-component injection failed', [
+                            'components' => array_column($multipleComponents, 'class_name'),
+                            'project_id' => $this->currentProject->id,
+                            'container_id' => $this->currentProject->container_id
+                        ]);
+                        
+                        // Set component name from first component for display
+                        $this->componentName = $multipleComponents[0]['class_name'] ?? 'GeneratedComponent';
+                        $this->isGenerating = false;
+                        
+                        // Try to show the generated code even if injection failed
+                        if (!empty($multipleComponents[0]['code'])) {
+                            $this->generatedCode = $multipleComponents[0]['code'];
+                        }
+                        
+                        $this->error('Failed to inject components. Container may not be running. Please check the logs.');
+                        return;
+                    }
+                } else {
+                    // Single component - use existing logic
+                    $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
+                    
+                    Log::info('[CODE_GEN] Code generated successfully', [
+                        'component_name' => $this->componentName,
+                        'code_length' => strlen($this->generatedCode)
+                    ]);
+                    
+                    // Switch to code tab to show the generated code
+                    $this->activeTab = 'preview';
+                    
+                    // Create preview
+                    Log::info('[CODE_GEN] Starting preview creation');
+                    $this->createPreview();
+                }
                 
                 // Save completed generation state to database
                 $this->currentProject->completeGeneration(
@@ -309,12 +425,6 @@ class CodeGenerationEngine extends Component
                     'component_name' => $this->componentName,
                     'message' => 'Code generation completed successfully!'
                 ]);
-                
-                // Dispatch browser event for Alpine.js listeners (sibling components)
-                $this->js("window.dispatchEvent(new CustomEvent('code-generation-complete', { detail: " . json_encode([
-                    'component_name' => $this->componentName,
-                    'message' => 'Code generation completed successfully!'
-                ]) . " }))");
                 
                 // Note: loadProjectFiles() and selectFile() are already called in createPreview()
                 // But we need to ensure the route is updated correctly

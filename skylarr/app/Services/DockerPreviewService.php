@@ -196,6 +196,32 @@ class DockerPreviewService
     }
     
     /**
+     * Parse multiple components from a response that contains multiple components.
+     * Format: ===COMPONENT_1=== ... ===END_COMPONENT_1=== ===COMPONENT_2=== ... ===END_COMPONENT_2===
+     */
+    public function parseMultipleComponents(string $code): array
+    {
+        $components = [];
+        
+        // Match all component blocks: ===COMPONENT_N=== ... ===END_COMPONENT_N===
+        if (preg_match_all('/===COMPONENT_(\d+)===(.*?)===END_COMPONENT_\1===/s', $code, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $componentNumber = $match[1];
+                $componentCode = $match[2];
+                
+                // Parse this component using the existing parseComponentCode method
+                $parsed = $this->parseComponentCode($componentCode);
+                
+                if ($parsed['class_name']) {
+                    $components[] = $parsed;
+                }
+            }
+        }
+        
+        return $components;
+    }
+    
+    /**
      * Parse code to extract component class name, view name, and view content.
      * Handles markdown code blocks and extracts only the PHP code.
      */
@@ -539,6 +565,49 @@ class DockerPreviewService
             ]);
             return false;
         }
+    }
+    
+    /**
+     * Inject multiple components into a project container.
+     * Returns array of component names that were successfully injected.
+     */
+    public function injectMultipleComponents(Project $project, string $code): array
+    {
+        $components = $this->parseMultipleComponents($code);
+        $successfulComponents = [];
+        
+        if (empty($components)) {
+            Log::warning('[DOCKER] No components found in multi-component response');
+            return [];
+        }
+        
+        // Ensure container exists before injecting
+        $this->getOrCreateProjectContainer($project);
+        
+        Log::info('[DOCKER] Injecting multiple components', [
+            'count' => count($components),
+            'component_names' => array_column($components, 'class_name')
+        ]);
+        
+        foreach ($components as $index => $component) {
+            $componentName = $component['class_name'];
+            $componentCode = $component['code'] ?? '';
+            $viewContent = $component['view_content'] ?? '';
+            
+            // Combine code and view for injection
+            $fullCode = $componentCode;
+            if ($viewContent) {
+                $fullCode .= "\n\n===BLADE_VIEW===\n{$viewContent}\n===END_BLADE===";
+            }
+            
+            if ($this->injectCode($project, $fullCode, $componentName)) {
+                $successfulComponents[] = $componentName;
+            } else {
+                Log::error('[DOCKER] Failed to inject component', ['component_name' => $componentName]);
+            }
+        }
+        
+        return $successfulComponents;
     }
     
     /**
