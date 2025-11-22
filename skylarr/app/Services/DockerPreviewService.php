@@ -47,8 +47,8 @@ class DockerPreviewService
             }
             
             $containerId = trim($result->output());
-            // Use preview.local instead of localhost to avoid browser security restrictions
-            $previewHost = env('PREVIEW_HOST', 'preview.local');
+            // Use 127.0.0.1 for preview URLs (proxied through /preview/{projectId} route)
+            $previewHost = env('PREVIEW_HOST', '127.0.0.1');
             $previewUrl = "http://{$previewHost}:{$port}";
             
             // Update project with container info
