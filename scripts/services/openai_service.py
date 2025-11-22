@@ -104,11 +104,18 @@ Available MaryUI components include: x-form, x-input, x-textarea, x-select, x-ch
 
 CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC CODE:
 
+0. **BLADE FILES ARE PURE TEMPLATES** - Blade view files (.blade.php) must NEVER contain:
+   - PHP namespace declarations (namespace App\\Livewire;)
+   - PHP opening tags (<?php)
+   - use statements
+   - Any PHP code outside Blade directives
+   Blade files should ONLY contain HTML, Blade syntax ({{ }}, @if, etc.), and MaryUI components.
+
 1. **GENERATE BOTH PHP CLASS AND COMPLETE BLADE VIEW** - Do not use placeholders like "component here" or "<!-- Component view content -->"
 2. **USE MARYUI COMPONENTS** - Use proper MaryUI components (x-form, x-input, x-button, etc.) with proper styling
 3. **BEAUTIFUL, MODERN UI** - Create polished, professional-looking interfaces with proper spacing, colors, and layout
 4. **COMPLETE FUNCTIONALITY** - Include all necessary properties, methods, validation, and user interactions
-5. **PROPER TAILWIND STYLING** - Use Tailwind CSS classes for spacing, colors, typography, and responsive design
+5. **MINIMAL STYLING** - MaryUI components are pre-styled. Use minimal wrapper divs (just <div>), avoid unnecessary Tailwind utility classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto. Let MaryUI handle the styling.
 6. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 7. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
 8. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
@@ -149,32 +156,78 @@ class ComponentName extends Component
     }}
 }}
 ===BLADE===
-<div class="min-h-screen bg-gray-50 py-12 px-4">
-    <div class="max-w-2xl mx-auto">
-        <x-card class="shadow-xl">
-            <x-slot:header>
-                <h2 class="text-3xl font-bold">Create Account</h2>
-            </x-slot:header>
-            
-            <x-form wire:submit="submit" class="space-y-6">
-                <x-input label="Name" wire:model="name" class="input-bordered" />
-                <x-input label="Email" type="email" wire:model="email" class="input-bordered" />
-                
-                <x-slot:actions>
-                    <x-button type="submit" class="btn-primary" spinner="submit">Submit</x-button>
-                </x-slot:actions>
-            </x-form>
-        </x-card>
-    </div>
+CRITICAL: Blade view files are PURE TEMPLATE FILES - they must NEVER contain:
+- PHP namespace declarations (namespace App\\Livewire;)
+- PHP opening tags (<?php)
+- use statements
+- Any PHP code outside of Blade directives ({{ }}, @if, @foreach, etc.)
+
+Blade files should ONLY contain HTML, Blade directives, and MaryUI components.
+
+MINIMALISM IS KEY: MaryUI components are already beautifully styled. DO NOT add unnecessary wrapper divs with Tailwind classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto, etc. Keep it simple - just use a basic <div> wrapper and let MaryUI handle the styling.
+
+Example of MINIMAL, CORRECT approach:
+<div>
+    <x-button wire:click="openRegisterModal" label="Register"/>
+    <x-button wire:click="openLoginModal" label="Login" />
+
+    <x-modal wire:model="registerModal">
+        <x-form wire:submit="registerUser">
+            <x-input wire:model="name" label="Name" />
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Register</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
+
+    <x-modal wire:model="loginModal">
+        <x-form wire:submit="loginUser">
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Login</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
 </div>
 ===END===
 
-EXAMPLES OF HOLISTIC, PRODUCTION-READY BLADE VIEWS:
+MINIMALISM PRINCIPLE: MaryUI components are pre-styled and beautiful. DO NOT wrap them in unnecessary divs with Tailwind utility classes. Use a simple <div> wrapper and let MaryUI handle styling.
+
+REFERENCE EXAMPLE - Minimal Authentication (from https://dev.to/lancemdev/laravel-authentication-with-maryui-fmb):
+<div>
+    <x-button wire:click="openRegisterModal" label="Register"/>
+    <x-button wire:click="openLoginModal" label="Login" />
+
+    <x-modal wire:model="registerModal">
+        <x-form wire:submit="registerUser">
+            <x-input wire:model="name" label="Name" />
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Register</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
+
+    <x-modal wire:model="loginModal">
+        <x-form wire:submit="loginUser">
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Login</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
+</div>
+
+EXAMPLES OF HOLISTIC, PRODUCTION-READY BLADE VIEWS (MINIMAL APPROACH):
 
 Complete Form with Validation Feedback:
-<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-2xl mx-auto">
-        <x-card class="shadow-xl">
+<div>
+        <x-card>
             <x-slot:header>
                 <div class="flex items-center justify-between">
                     <h2 class="text-3xl font-bold text-gray-900">Create Account</h2>
@@ -214,7 +267,6 @@ Complete Form with Validation Feedback:
                 </x-slot:actions>
             </x-form>
         </x-card>
-    </div>
 </div>
 
 CRITICAL - MARYUI AUTOMATIC FEATURES:
@@ -225,9 +277,8 @@ CRITICAL - MARYUI AUTOMATIC FEATURES:
 - Just use clean form inputs - validation errors and toasts are handled automatically by the framework
 
 Complete Data Table with Search and Actions:
-<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-7xl mx-auto">
-        <x-card class="shadow-xl">
+<div>
+        <x-card>
             <x-slot:header>
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
@@ -250,8 +301,8 @@ Complete Data Table with Search and Actions:
             </div>
             
             @if($users->isEmpty())
-                <div class="text-center py-12">
-                    <x-icon name="o-inbox" class="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                <div>
+                    <x-icon name="o-inbox" />
                     <p class="text-gray-500">No users found</p>
                 </div>
             @else
@@ -295,7 +346,6 @@ Complete Data Table with Search and Actions:
                 </div>
             @endif
         </x-card>
-    </div>
 </div>
 
 FORBIDDEN:
