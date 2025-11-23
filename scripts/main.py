@@ -36,6 +36,7 @@ async def preload_gnn():
 
 class GenerateRequest(BaseModel):
 	prompt: str
+	messages: list[dict] | None = None  # Conversation history for context
 	model: str | None = None
 	temperature: float = 0.2
 	max_tokens: int = 1024
@@ -51,6 +52,7 @@ async def post_generate_code(body: GenerateRequest):
     try:
         code, component_name = generate_code(
             prompt=body.prompt,
+            messages=body.messages or [],
             model=body.model,
             temperature=body.temperature,
             max_tokens=body.max_tokens,

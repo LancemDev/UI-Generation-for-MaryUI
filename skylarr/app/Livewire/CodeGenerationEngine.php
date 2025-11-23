@@ -32,6 +32,7 @@ class CodeGenerationEngine extends Component
     public bool $showOverwriteConfirmModal = false;
     public ?string $pendingComponentName = null;
     public string $pendingPrompt = '';
+    public array $pendingConversationHistory = [];
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -143,7 +144,7 @@ class CodeGenerationEngine extends Component
         }
     }
     
-    public function generateCode(string $prompt, ?string $targetComponentName = null)
+    public function generateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = [])
     {
         if (!$this->currentProject) {
             Log::error('[CODE_GEN] No project selected');
@@ -158,21 +159,23 @@ class CodeGenerationEngine extends Component
                 // Component exists - show confirmation
                 $this->pendingComponentName = $targetComponentName;
                 $this->pendingPrompt = $prompt;
+                $this->pendingConversationHistory = $conversationHistory;
                 $this->showOverwriteConfirmModal = true;
                 return;
             }
         }
         
-        $this->doGenerateCode($prompt, $targetComponentName);
+        $this->doGenerateCode($prompt, $targetComponentName, $conversationHistory);
     }
     
     public function confirmOverwrite(): void
     {
         if ($this->pendingComponentName && $this->pendingPrompt) {
             $this->showOverwriteConfirmModal = false;
-            $this->doGenerateCode($this->pendingPrompt, $this->pendingComponentName);
+            $this->doGenerateCode($this->pendingPrompt, $this->pendingComponentName, $this->pendingConversationHistory);
             $this->pendingComponentName = null;
             $this->pendingPrompt = '';
+            $this->pendingConversationHistory = [];
         }
     }
     
@@ -181,14 +184,40 @@ class CodeGenerationEngine extends Component
         $this->showOverwriteConfirmModal = false;
         $this->pendingComponentName = null;
         $this->pendingPrompt = '';
+        $this->pendingConversationHistory = [];
     }
     
-    private function doGenerateCode(string $prompt, ?string $targetComponentName = null): void
+    private function doGenerateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
     {
+        // Extract component name from conversation history if not provided (for follow-up requests)
+        if (!$targetComponentName && !empty($conversationHistory)) {
+            foreach (array_reverse($conversationHistory) as $msg) {
+                if ($msg['role'] === 'assistant' && isset($msg['content'])) {
+                    // Try to extract component name from messages like "I've created the `ComponentName` component"
+                    if (preg_match("/`([A-Z][a-zA-Z0-9]+)`/", $msg['content'], $matches)) {
+                        $targetComponentName = $matches[1];
+                        Log::info('[CODE_GEN] Extracted component name from conversation history', [
+                            'component_name' => $targetComponentName
+                        ]);
+                        break;
+                    }
+                    // Also check for component names like "RegisterForm", "LoginForm", etc.
+                    if (preg_match("/([A-Z][a-zA-Z0-9]+Form|[A-Z][a-zA-Z0-9]+Component|[A-Z][a-zA-Z0-9]+Modal|[A-Z][a-zA-Z0-9]+Dashboard)/", $msg['content'], $matches)) {
+                        $targetComponentName = $matches[1];
+                        Log::info('[CODE_GEN] Extracted component name from conversation history', [
+                            'component_name' => $targetComponentName
+                        ]);
+                        break;
+                    }
+                }
+            }
+        }
+        
         Log::info('[CODE_GEN] Starting generation', [
             'project_id' => $this->currentProject->id,
             'prompt' => $prompt,
-            'target_component' => $targetComponentName
+            'target_component' => $targetComponentName,
+            'history_count' => count($conversationHistory)
         ]);
         
         $this->isGenerating = true;
@@ -205,8 +234,10 @@ class CodeGenerationEngine extends Component
             // Generate code using AI
             $aiGateway = app(AiGateway::class);
             
-            Log::info('[CODE_GEN] Calling AI Gateway');
-            $response = $aiGateway->generateCode($prompt);
+            Log::info('[CODE_GEN] Calling AI Gateway', [
+                'history_count' => count($conversationHistory)
+            ]);
+            $response = $aiGateway->generateCode($prompt, $conversationHistory);
             
             Log::info('[CODE_GEN] AI Gateway response received', [
                 'success' => $response['success'] ?? false,
@@ -216,6 +247,7 @@ class CodeGenerationEngine extends Component
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
                 // Use target component name if provided, otherwise use AI-generated name
+                // For follow-ups, prefer the extracted name to ensure we update the same component
                 $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
                 
                 Log::info('[CODE_GEN] Code generated successfully', [
@@ -501,17 +533,20 @@ class CodeGenerationEngine extends Component
         // Handle different event data formats
         $prompt = '';
         $targetComponentName = null;
+        $conversationHistory = [];
         
         if (is_array($data)) {
-            // Direct array format: ['prompt' => '...', 'component_name' => '...']
+            // Direct array format: ['prompt' => '...', 'component_name' => '...', 'conversation_history' => [...]]
             if (isset($data['prompt'])) {
                 $prompt = $data['prompt'];
                 $targetComponentName = $data['component_name'] ?? null;
+                $conversationHistory = $data['conversation_history'] ?? [];
             }
             // Nested array format: [['prompt' => '...']]
             elseif (isset($data[0]) && is_array($data[0]) && isset($data[0]['prompt'])) {
                 $prompt = $data[0]['prompt'];
                 $targetComponentName = $data[0]['component_name'] ?? null;
+                $conversationHistory = $data[0]['conversation_history'] ?? [];
             }
             // Single element array: ['prompt']
             elseif (count($data) === 1 && is_string($data[0])) {
@@ -524,9 +559,10 @@ class CodeGenerationEngine extends Component
         if ($prompt) {
             Log::info('[CODE_GEN] Starting code generation', [
                 'prompt' => $prompt,
-                'target_component' => $targetComponentName
+                'target_component' => $targetComponentName,
+                'history_count' => count($conversationHistory)
             ]);
-            $this->generateCode($prompt, $targetComponentName);
+            $this->generateCode($prompt, $targetComponentName, $conversationHistory);
         } else {
             Log::warning('[CODE_GEN] No prompt provided in event data', ['data_type' => gettype($data), 'data' => $data]);
         }

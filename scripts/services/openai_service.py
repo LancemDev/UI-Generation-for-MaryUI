@@ -67,6 +67,7 @@ def extract_component_name(prompt: str, code: str = "") -> str:
 
 def generate_code(
     prompt: str,
+    messages: list[dict] | None = None,
     model: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 4096,
@@ -78,6 +79,7 @@ def generate_code(
 
     Args:
         prompt: Natural language description of the code to generate.
+        messages: Optional conversation history for context. Format: [{'role': 'user'|'assistant', 'content': '...'}, ...]
         model: Optional model override. Defaults to env OPENAI_MODEL or "gpt-4o-mini".
         temperature: Sampling temperature for creativity.
         max_tokens: Maximum tokens in the completion (increased for complete code).
@@ -95,12 +97,46 @@ def generate_code(
     gnn_service = get_gnn_service()
     gnn_context = gnn_service.get_enhanced_context(prompt)
     
+    # Check if this is a follow-up request (updating existing component)
+    is_followup = False
+    existing_component_name = None
+    if messages:
+        # Look for component names in conversation history
+        for msg in reversed(messages):
+            if msg.get('role') == 'assistant' and msg.get('content'):
+                content = msg['content']
+                # Extract component name from messages like "I've created the `ComponentName` component"
+                import re
+                match = re.search(r'`([A-Z][a-zA-Z0-9]+)`', content)
+                if match:
+                    existing_component_name = match.group(1)
+                    is_followup = True
+                    break
+                # Also check for component names in code blocks or explicit mentions
+                match = re.search(r'(RegisterForm|LoginForm|UserForm|Dashboard|ComponentName)', content)
+                if match:
+                    existing_component_name = match.group(1)
+                    is_followup = True
+                    break
+    
+    followup_instruction = ""
+    if is_followup and existing_component_name:
+        followup_instruction = f"""
+IMPORTANT: This is a FOLLOW-UP request to UPDATE an existing component named "{existing_component_name}".
+- You MUST use the EXACT same component class name: {existing_component_name}
+- UPDATE the existing component by adding/modifying fields, methods, or views as requested
+- DO NOT create a new component with a different name
+- Preserve existing functionality unless explicitly asked to change it
+- The user wants to modify the existing {existing_component_name} component, not create a new one
+"""
+    
     system_message = f"""You are Skylarr, an AI assistant that generates PRODUCTION-READY, HOLISTIC Laravel Livewire components with complete, beautiful Blade views using MaryUI.
 
 MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI and Tailwind CSS.
 Available MaryUI components include: x-form, x-input, x-textarea, x-select, x-checkbox, x-radio, x-button, x-card, x-modal, x-table, x-badge, x-alert, x-dropdown, x-tabs, x-avatar, x-progress, x-link, x-stat, x-menu, and more.
 
 {gnn_context}
+{followup_instruction}
 
 CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC CODE:
 
@@ -379,14 +415,25 @@ ROUTING NOTE:
 - Consider navigation between related components if applicable
 - Use proper Livewire wire:model, wire:click, wire:submit for interactivity"""
 
+    # Build messages array with conversation history
+    messages_list = [
+        {"role": "system", "content": system_message},
+    ]
+    
+    # Add conversation history if provided (for conversational context)
+    if messages:
+        # Filter out system messages from history (we already have one)
+        conversation_messages = [msg for msg in messages if msg.get("role") != "system"]
+        messages_list.extend(conversation_messages)
+    
+    # Add the current prompt as the final user message
+    messages_list.append({"role": "user", "content": prompt})
+    
     completion = client.chat.completions.create(
         model=selected_model,
         temperature=temperature,
         max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt},
-        ],
+        messages=messages_list,
     )
 
     content = completion.choices[0].message.content if completion.choices else ""
@@ -439,7 +486,21 @@ ROUTING NOTE:
         combined_code = php_code
     
     # Extract component name from code or prompt
-    component_name = extract_component_name(prompt, php_code or combined_code)
+    # For follow-ups, prefer the existing component name
+    if is_followup and existing_component_name:
+        # Verify the extracted name matches, but prefer the existing one
+        extracted_name = extract_component_name(prompt, php_code or combined_code)
+        # If the code contains the existing component name, use it; otherwise use extracted
+        if existing_component_name.lower() in (php_code or combined_code).lower():
+            component_name = existing_component_name
+        else:
+            component_name = extracted_name
+            # Log warning if names don't match
+            if component_name != existing_component_name:
+                import logging
+                logging.warning(f"Component name mismatch: expected {existing_component_name}, got {component_name}. Using {component_name}.")
+    else:
+        component_name = extract_component_name(prompt, php_code or combined_code)
     
     return combined_code, component_name
 

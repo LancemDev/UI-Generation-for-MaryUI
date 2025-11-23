@@ -233,6 +233,7 @@ class ChatInterface extends Component
     private function checkForCodeGeneration(string $userMessage): void
     {
         // Simple heuristic to detect code generation requests
+        // Include both initial creation and follow-up modification keywords
         $codeKeywords = [
             'create',
             'build',
@@ -245,22 +246,80 @@ class ChatInterface extends Component
             'table',
             'dashboard',
             'page',
-            'view'
+            'view',
+            // Follow-up modification keywords
+            'add',
+            'update',
+            'modify',
+            'change',
+            'edit',
+            'remove',
+            'delete',
+            'field',
+            'fields',
+            'input',
+            'button',
+            'checkbox',
+            'textarea',
+            'toggle',
+            'select'
         ];
         
         $lowerMessage = strtolower($userMessage);
         
         foreach ($codeKeywords as $keyword) {
             if (str_contains($lowerMessage, $keyword)) {
+                // Build conversation history for context
+                $history = array_map(fn ($m) => [
+                    'role' => $m['role'],
+                    'content' => $m['content'],
+                ], $this->messages);
+                
+                // Extract component name from conversation history for follow-up requests
+                $extractedComponentName = $this->selectedComponentName;
+                if (!$extractedComponentName && count($history) > 2) {
+                    // Look for component names in previous assistant messages
+                    foreach (array_reverse($history) as $msg) {
+                        if ($msg['role'] === 'assistant' && isset($msg['content'])) {
+                            // Try to extract component name from messages like "I've created the `ComponentName` component"
+                            if (preg_match("/`([A-Z][a-zA-Z0-9]+)`/", $msg['content'], $matches)) {
+                                $extractedComponentName = $matches[1];
+                                break;
+                            }
+                            // Also check for "RegisterForm", "LoginForm", etc. in the content
+                            if (preg_match("/([A-Z][a-zA-Z0-9]+Form|[A-Z][a-zA-Z0-9]+Component|[A-Z][a-zA-Z0-9]+Modal)/", $msg['content'], $matches)) {
+                                $extractedComponentName = $matches[1];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If still not found, check the project's existing components
+                    // This helps with follow-up requests where the completion message hasn't been added yet
+                    if (!$extractedComponentName && $this->projectId) {
+                        $components = $this->getComponentsProperty();
+                        if (!empty($components)) {
+                            // Use the most recently created component (last in array)
+                            $lastComponent = end($components);
+                            if (isset($lastComponent['name'])) {
+                                $extractedComponentName = $lastComponent['name'];
+                            }
+                        }
+                    }
+                }
+                
                 Log::info('[CHAT] Dispatching generate-code event', [
                     'trigger_keyword' => $keyword,
                     'prompt' => $userMessage,
-                    'selected_component' => $this->selectedComponentName
+                    'selected_component' => $this->selectedComponentName,
+                    'extracted_component' => $extractedComponentName,
+                    'history_count' => count($history)
                 ]);
                 
                 $this->dispatch('generate-code', [
                     'prompt' => $userMessage,
-                    'component_name' => $this->selectedComponentName
+                    'component_name' => $extractedComponentName,
+                    'conversation_history' => $history
                 ]);
                 return;
             }
@@ -311,18 +370,59 @@ class ChatInterface extends Component
         // Handle both array and object data, or default values
         if (is_array($data)) {
             $message = $data['message'] ?? 'Code generation completed successfully!';
-            $componentName = $data['component_name'] ?? 'component';
+            $componentName = $data['component_name'] ?? null;
         } else {
             $message = 'Code generation completed successfully!';
-            $componentName = 'component';
+            $componentName = null;
+        }
+        
+        // If component name is missing, try to extract from project components
+        if (!$componentName && $this->projectId) {
+            $components = $this->getComponentsProperty();
+            if (!empty($components)) {
+                $lastComponent = end($components);
+                if (isset($lastComponent['name'])) {
+                    $componentName = $lastComponent['name'];
+                }
+            }
+        }
+        
+        // If still no component name, skip adding the message to avoid "component" placeholder
+        if (!$componentName) {
+            Log::info('[CHAT] Skipping code generation message - no component name available', [
+                'thread_id' => $this->threadId,
+                'data' => $data
+            ]);
+            return;
         }
 
         $fullMessage = "✅ Code generation complete! I've created the `{$componentName}` component. You can view it in the Code tab and see the live preview in the Preview tab.";
 
-        // Check if this exact message was already added recently (within last 10 seconds) to prevent duplicates
+        // Check if this exact message was already added recently (within last 30 seconds) to prevent duplicates
+        // Also check for similar messages about code generation completion
         $recentMessage = collect($this->messages)
             ->where('role', 'assistant')
-            ->where('content', $fullMessage)
+            ->filter(function ($msg) use ($fullMessage, $componentName) {
+                if (!isset($msg['content'])) {
+                    return false;
+                }
+                
+                // Check for exact match
+                if ($msg['content'] === $fullMessage) {
+                    return true;
+                }
+                
+                // Check for similar messages about code generation completion
+                // This catches cases where component name might differ (e.g., "RegisterForm" vs "component")
+                if (str_contains($msg['content'], 'Code generation complete') || 
+                    str_contains($msg['content'], "I've created the")) {
+                    // If both messages are about code generation completion, consider it a duplicate
+                    // even if component names differ (one might be a fallback)
+                    return true;
+                }
+                
+                return false;
+            })
             ->filter(function ($msg) {
                 if (!isset($msg['created_at'])) {
                     return false;
@@ -331,7 +431,7 @@ class ChatInterface extends Component
                     $createdAt = is_string($msg['created_at']) 
                         ? \Carbon\Carbon::parse($msg['created_at']) 
                         : $msg['created_at'];
-                    return $createdAt->isAfter(now()->subSeconds(10));
+                    return $createdAt->isAfter(now()->subSeconds(30));
                 } catch (\Exception $e) {
                     return false;
                 }
@@ -341,7 +441,8 @@ class ChatInterface extends Component
         if ($recentMessage) {
             Log::info('[CHAT] Duplicate code generation message detected, skipping', [
                 'component_name' => $componentName,
-                'thread_id' => $this->threadId
+                'thread_id' => $this->threadId,
+                'recent_message' => substr($recentMessage['content'] ?? '', 0, 50)
             ]);
             return;
         }
