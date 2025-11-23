@@ -1,35 +1,115 @@
 <div class="h-full flex flex-col" wire:poll.2s="checkGenerationStatus">
-    {{-- Header with Toggle --}}
-    <div class="p-4 border-b border-secondary-200">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <h3 class="text-sm font-medium text-gray-900">Code & Preview</h3>
+    {{-- Header with Toggle and Controls --}}
+    <div class="px-4 py-2 border-b border-secondary-200">
+        <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 flex-1">
+                {{-- Toggle Buttons --}}
+                <div class="flex items-center bg-secondary-100 rounded-lg p-1">
+                    <button 
+                        wire:click="$set('activeTab', 'code')"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
+                        <x-icon name="o-code-bracket" class="w-4 h-4" />
+                    </button>
+                    <button 
+                        wire:click="$set('activeTab', 'preview')"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
+                        <x-icon name="o-eye" class="w-4 h-4" />
+                    </button>
+                </div>
+                
                 @if($componentName)
                     <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
                         {{ $componentName }}
                     </span>
                 @endif
+                
                 @if($isGenerating)
                     <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 animate-pulse">
                         Generating...
                     </span>
                 @endif
-            </div>
-            
-            {{-- Toggle Buttons --}}
-            <div class="flex items-center bg-secondary-100 rounded-lg p-1">
-                <button 
-                    wire:click="$set('activeTab', 'code')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
-                    <x-icon name="o-code-bracket" class="w-4 h-4 mr-1" />
-                    Code
-                </button>
-                <button 
-                    wire:click="$set('activeTab', 'preview')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
-                    <x-icon name="o-eye" class="w-4 h-4 mr-1" />
-                    Preview
-                </button>
+                
+                {{-- Preview Controls (only show when preview is active) --}}
+                @if($activeTab === 'preview' && $previewReady && $previewUrl)
+                    @php
+                        $routes = $currentProject ? $currentProject->getRoutes() : [];
+                        // Format routes for MaryUI select component
+                        $formattedRoutesArray = [];
+                        if (is_array($routes) && count($routes) > 0) {
+                            foreach ($routes as $route) {
+                                if (isset($route['url']) && isset($route['component'])) {
+                                    $label = $route['url'] === '/' 
+                                        ? "Home (/) - {$route['component']}"
+                                        : "{$route['url']} - {$route['component']}";
+                                    $formattedRoutesArray[] = [
+                                        'id' => $route['url'],
+                                        'name' => $label,
+                                    ];
+                                }
+                            }
+                        }
+                    @endphp
+                    
+                    @if(count($formattedRoutesArray) > 0)
+                        <x-select 
+                            wire:model.live="selectedRoute" 
+                            :options="$formattedRoutesArray"
+                            icon="o-map-pin"
+                            inline
+                            class="text-xs"
+                        />
+                    @endif
+                    
+                    {{-- Theme Selector Dropdown --}}
+                    <div class="relative inline-block">
+                        <x-dropdown 
+                            :label="collect($availableThemes)->firstWhere('id', $selectedTheme)['name'] ?? ucfirst($selectedTheme ?? 'light')"
+                            icon="o-paint-brush"
+                            class="btn-xs btn-ghost theme-dropdown"
+                            scroll
+                            no-x-anchor
+                            wire:key="theme-dropdown-{{ $selectedTheme }}"
+                        >
+                        @foreach($availableThemes as $theme)
+                            @php
+                                $isSelected = $selectedTheme === $theme['id'];
+                                $isSelecting = $selectingTheme === $theme['id'];
+                            @endphp
+                            @if($isSelecting)
+                                <x-menu-item 
+                                    :title="$theme['name']"
+                                    icon="o-check-circle"
+                                    :class="$isSelected ? 'text-primary font-semibold' : ''"
+                                    wire:click.stop="selectTheme('{{ $theme['id'] }}')"
+                                    spinner="selectTheme"
+                                />
+                            @elseif($isSelected)
+                                <x-menu-item 
+                                    :title="$theme['name']"
+                                    icon="o-check-circle"
+                                    class="text-primary font-semibold"
+                                    wire:click.stop="selectTheme('{{ $theme['id'] }}')"
+                                />
+                            @else
+                                <x-menu-item 
+                                    :title="$theme['name']"
+                                    wire:click.stop="selectTheme('{{ $theme['id'] }}')"
+                                />
+                            @endif
+                        @endforeach
+                        </x-dropdown>
+                    </div>
+                    
+                    {{-- Open in New Window --}}
+                    <a 
+                        href="{{ $previewUrl }}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="btn btn-xs btn-primary flex items-center gap-1">
+                        <x-icon name="o-arrow-top-right-on-square" class="w-3 h-3" />
+                        <span class="hidden sm:inline">Open</span>
+                    </a>
+                @endif
             </div>
         </div>
     </div>
@@ -57,9 +137,77 @@
                     @endif
                 </div>
                 
-                <div class="flex-1 flex flex-col code-viewer-container" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}">
-                    @if($generatedCode)
-                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative">
+                <div class="flex-1 flex flex-col code-viewer-container" style="min-height: 0; height: 100%; overflow: hidden;" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}-{{ $isGenerating }}">
+                    @if($isGenerating)
+                        {{-- Code Generation Loader --}}
+                        <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg relative overflow-hidden">
+                            {{-- Animated background pattern --}}
+                            <div class="absolute inset-0 opacity-10">
+                                <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.05) 20px);"></div>
+                            </div>
+                            
+                            <div class="relative z-10 text-center">
+                                {{-- Animated code icon --}}
+                                <div class="mb-6 flex justify-center">
+                                    <div class="relative">
+                                        <x-icon name="o-code-bracket" class="w-16 h-16 text-green-400 animate-pulse" />
+                                        <div class="absolute inset-0 flex items-center justify-center">
+                                            <x-icon name="o-arrow-path" class="w-8 h-8 text-green-500 animate-spin" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {{-- Loading text with animation --}}
+                                <h3 class="text-xl font-semibold text-green-400 mb-2">Generating Code...</h3>
+                                <p class="text-sm text-gray-400 mb-4">Creating your Livewire component</p>
+                                
+                                {{-- Animated dots --}}
+                                <div class="flex justify-center gap-1">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
+                                </div>
+                                
+                                {{-- Progress indicator --}}
+                                <div class="mt-6 w-64 mx-auto">
+                                    <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-green-400 rounded-full animate-pulse" style="width: 60%; animation: progress 2s ease-in-out infinite;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @elseif(empty($generatedCode) && !$previewReady)
+                        {{-- Initial State - Encourage Prompt --}}
+                        <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg">
+                            <div class="text-center max-w-md px-6">
+                                <div class="mb-6 flex justify-center">
+                                    <x-icon name="o-sparkles" class="w-20 h-20 text-green-400 opacity-70" />
+                                </div>
+                                <h3 class="text-2xl font-semibold text-green-400 mb-3">Ready to Build!</h3>
+                                <p class="text-base text-gray-300 mb-2">Give us a prompt and we'll cook something amazing for you.</p>
+                                <p class="text-sm text-gray-400 mb-6">Describe what you want to build, and we'll generate beautiful Livewire components with MaryUI.</p>
+                                <div class="flex flex-col gap-2 text-left text-xs text-gray-500">
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Dashboard with sidebar navigation</span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Forms with validation</span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Data tables and lists</span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Multi-page applications</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    @elseif($generatedCode)
+                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative" style="height: 100%; overflow-y: auto; overflow-x: auto;">
                             <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10 flex items-center justify-between">
                                 <div>
                                     @if($selectedFilePath)
@@ -68,31 +216,55 @@
                                         <span>Generated: {{ $componentName }}</span>
                                     @endif
                                 </div>
-                                <button
-                                    type="button"
-                                    x-data="{ copied: false }"
-                                    x-on:click="
-                                        const codeId = 'code-content-{{ md5($selectedFilePath ?: $componentName) }}';
-                                        const codeContent = document.getElementById(codeId)?.textContent || '';
-                                        navigator.clipboard.writeText(codeContent).then(() => {
-                                            copied = true;
-                                            setTimeout(() => copied = false, 2000);
-                                        });
-                                    "
-                                    class="px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 flex items-center gap-1 transition-colors"
-                                    title="Copy code"
-                                >
-                                    <span x-show="!copied" class="flex items-center gap-1">
-                                        <x-icon name="o-clipboard" class="w-3 h-3" />
-                                        Copy
-                                    </span>
-                                    <span x-show="copied" class="flex items-center gap-1 text-green-400">
-                                        <x-icon name="o-check" class="w-3 h-3" />
-                                        Copied!
-                                    </span>
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        wire:click="saveEditedCode"
+                                        wire:loading.attr="disabled"
+                                        class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded border border-blue-500 flex items-center gap-1 transition-colors"
+                                        title="Save changes"
+                                    >
+                                        <span wire:loading.remove wire:target="saveEditedCode" class="flex items-center gap-1">
+                                            <x-icon name="o-check" class="w-3 h-3" />
+                                            Save
+                                        </span>
+                                        <span wire:loading wire:target="saveEditedCode" class="flex items-center gap-1">
+                                            <x-icon name="o-arrow-path" class="w-3 h-3 animate-spin" />
+                                            Saving...
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        x-data="{ copied: false }"
+                                        x-on:click="
+                                            const codeId = 'code-content-{{ md5($selectedFilePath ?: $componentName) }}';
+                                            const codeContent = document.getElementById(codeId)?.value || '';
+                                            navigator.clipboard.writeText(codeContent).then(() => {
+                                                copied = true;
+                                                setTimeout(() => copied = false, 2000);
+                                            });
+                                        "
+                                        class="px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 flex items-center gap-1 transition-colors"
+                                        title="Copy code"
+                                    >
+                                        <span x-show="!copied" class="flex items-center gap-1">
+                                            <x-icon name="o-clipboard" class="w-3 h-3" />
+                                            Copy
+                                        </span>
+                                        <span x-show="copied" class="flex items-center gap-1 text-green-400">
+                                            <x-icon name="o-check" class="w-3 h-3" />
+                                            Copied!
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
-                            <pre id="code-content-{{ md5($selectedFilePath ?: $componentName) }}" class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
+                            <textarea 
+                                id="code-content-{{ md5($selectedFilePath ?: $componentName) }}"
+                                wire:model.defer="generatedCode"
+                                class="w-full h-full bg-transparent text-sm text-green-400 font-mono border-0 outline-none resize-none p-0 m-0"
+                                style="min-height: calc(100% - 3rem); font-family: 'Courier New', monospace; white-space: pre; overflow-wrap: normal; tab-size: 4;"
+                                spellcheck="false"
+                            >{{ $generatedCode }}</textarea>
                         </div>
                     @else
                         <div class="h-full flex items-center justify-center text-gray-400">
@@ -109,66 +281,65 @@
 
         {{-- Preview Tab --}}
         @if($activeTab === 'preview')
-            @if($previewReady && $previewUrl)
-                <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;" wire:key="preview-container-{{ $previewUrl }}-{{ $previewReady }}">
-                    {{-- Preview Controls Bar --}}
-                    <div class="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-                        <div class="flex items-center gap-3 flex-1">
-                            @php
-                                $routes = $currentProject ? $currentProject->getRoutes() : [];
-                                $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
-                            @endphp
-                            
-                            @if(count($routes) > 0)
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-600">Route:</span>
-                                    <select 
-                                        wire:model.live="selectedRoute"
-                                        x-data="{ baseUrl: '{{ $baseUrl }}' }"
-                                        x-on:change="
-                                            const newUrl = baseUrl + $event.target.value;
-                                            $wire.set('previewUrl', newUrl);
-                                            document.getElementById('preview-iframe').src = newUrl;
-                                        "
-                                        class="text-xs bg-white px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        @foreach($routes as $route)
-                                            <option value="{{ $route['url'] }}" {{ $selectedRoute === $route['url'] ? 'selected' : '' }}>
-                                                @if($route['url'] === '/')
-                                                    Home (/) - {{ $route['component'] }}
-                                                @else
-                                                    {{ $route['url'] }} - {{ $route['component'] }}
-                                                @endif
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @else
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-600">Preview URL:</span>
-                                    <code class="text-xs bg-white px-2 py-1 rounded border">{{ $previewUrl }}</code>
-                                </div>
-                            @endif
-                            
-                            {{-- Theme Selector --}}
-                            <x-select 
-                                label="Theme" 
-                                wire:model.live="selectedTheme" 
-                                :options="$availableThemes"
-                                icon="o-paint-brush"
-                                inline
-                                class="text-xs"
-                            />
-                        </div>
-                        <a 
-                            href="{{ $previewUrl }}" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            class="btn btn-sm btn-primary flex items-center gap-2">
-                            <x-icon name="o-arrow-top-right-on-square" class="w-4 h-4" />
-                            Open in New Window
-                        </a>
+            @if($isGenerating)
+                {{-- Preview Generation Loader --}}
+                <div class="flex-1 flex items-center justify-center bg-gray-50 relative overflow-hidden">
+                    {{-- Animated background pattern --}}
+                    <div class="absolute inset-0 opacity-5">
+                        <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px);"></div>
                     </div>
                     
+                    <div class="relative z-10 text-center">
+                        {{-- Animated preview icon --}}
+                        <div class="mb-6 flex justify-center">
+                            <div class="relative">
+                                <x-icon name="o-eye" class="w-16 h-16 text-blue-500 animate-pulse" />
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <x-icon name="o-arrow-path" class="w-8 h-8 text-blue-600 animate-spin" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {{-- Loading text --}}
+                        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Preparing Preview...</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Setting up your component preview</p>
+                        
+                        {{-- Animated dots --}}
+                        <div class="flex justify-center gap-1">
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
+                        </div>
+                    </div>
+                </div>
+            @elseif(!$previewReady && empty($previewUrl))
+                {{-- Initial State - Encourage Prompt --}}
+                <div class="flex-1 flex items-center justify-center bg-gray-50">
+                    <div class="text-center max-w-md px-6">
+                        <div class="mb-6 flex justify-center">
+                            <x-icon name="o-eye" class="w-20 h-20 text-blue-500 opacity-70" />
+                        </div>
+                        <h3 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-3">Ready to Preview!</h3>
+                        <p class="text-base text-gray-600 dark:text-gray-400 mb-2">Give us a prompt and we'll build something amazing for you.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-500 mb-6">Once you generate code, the live preview will appear here.</p>
+                        <div class="flex flex-col gap-2 text-left text-xs text-gray-500 dark:text-gray-400">
+                            <p class="flex items-center gap-2">
+                                <x-icon name="o-check-circle" class="w-4 h-4 text-blue-500" />
+                                <span>See your components in action</span>
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <x-icon name="o-check-circle" class="w-4 h-4 text-blue-500" />
+                                <span>Test different themes</span>
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <x-icon name="o-check-circle" class="w-4 h-4 text-blue-500" />
+                                <span>Navigate between routes</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @elseif($previewReady && $previewUrl)
+                <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;" wire:key="preview-container-{{ $previewUrl }}-{{ $previewReady }}">
                     <div class="flex-1 bg-white overflow-hidden relative" style="min-height: 0; height: 100%;">
                         <iframe 
                             id="preview-iframe"
@@ -176,7 +347,8 @@
                             class="w-full h-full border-0"
                             title="Live Preview"
                             style="width: 100%; height: 100%; min-height: 0;"
-                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox">
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                            wire:key="preview-iframe-{{ $previewUrl }}-{{ $selectedRoute }}">
                         </iframe>
                     </div>
                 </div>
@@ -256,8 +428,19 @@
         .code-viewer-scrollable {
             flex: 1 1 auto;
             min-height: 0;
-            overflow-y: auto;
-            overflow-x: auto;
+            height: 100%;
+            overflow-y: auto !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .code-viewer-scrollable textarea {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto !important;
+            overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
         }
         
@@ -267,6 +450,60 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-wrap: break-word;
+        }
+        
+        /* Theme dropdown max height and scrollable */
+        .theme-dropdown [role="menu"],
+        .theme-dropdown .dropdown-content,
+        .theme-dropdown ul[role="menu"],
+        .theme-dropdown > div[role="menu"],
+        .theme-dropdown .menu,
+        .theme-dropdown ul.menu {
+            max-height: 6rem !important; /* 24 * 0.25rem = 6rem - very minimal height */
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        
+        /* Ensure smooth scrolling for theme dropdown */
+        .theme-dropdown [role="menu"]::-webkit-scrollbar,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .theme-dropdown [role="menu"]::-webkit-scrollbar-track,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar-track,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .theme-dropdown [role="menu"]::-webkit-scrollbar-thumb,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar-thumb,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        
+        .theme-dropdown [role="menu"]::-webkit-scrollbar-thumb:hover,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar-thumb:hover,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Code generation loader animations */
+        @keyframes progress {
+            0% {
+                width: 0%;
+                transform: translateX(0);
+            }
+            50% {
+                width: 70%;
+                transform: translateX(0);
+            }
+            100% {
+                width: 100%;
+                transform: translateX(100%);
+            }
         }
     </style>
     

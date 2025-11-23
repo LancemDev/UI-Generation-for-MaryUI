@@ -236,8 +236,7 @@ class CodeGenerationEngine extends Component
         $this->pendingPrompt = '';
         $this->pendingConversationHistory = [];
         
-        // Force Livewire to update the modal state
-        $this->dispatch('$refresh');
+        // Livewire 3 automatically re-renders when properties change
     }
     
     private function doGenerateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
@@ -275,6 +274,10 @@ class CodeGenerationEngine extends Component
         
         $this->isGenerating = true;
         $this->previewReady = false;
+        $this->generatedCode = ''; // Clear previous code to show loader
+        
+        // Livewire 3 automatically re-renders when properties change
+        // No need for explicit refresh - property updates trigger re-renders
         
         // Clear any previous generation state and start new generation
         $this->currentProject->clearGenerationState();
@@ -365,8 +368,7 @@ class CodeGenerationEngine extends Component
                 // Switch to preview tab to show the result
                 $this->activeTab = 'preview';
                 
-                // Force UI refresh to show the new code and preview
-                $this->dispatch('$refresh');
+                // Livewire 3 automatically re-renders when properties change
                 
                 // Refresh iframe AFTER route is set, with a longer delay to ensure route is ready
                 $finalPreviewUrl = $this->previewUrl;
@@ -508,7 +510,7 @@ class CodeGenerationEngine extends Component
             
                     if ($success) {
                         $this->previewReady = true;
-                        $this->isGenerating = false; // Ensure generating flag is cleared
+                        // Keep isGenerating true until everything is complete - loader will show
 
                         // Load project files first
                         $this->loadProjectFiles();
@@ -547,6 +549,9 @@ class CodeGenerationEngine extends Component
                                 'preview_ready' => true,
                             ]);
                         }
+                        
+                        // NOW clear the generating flag after everything is complete
+                        $this->isGenerating = false;
                 
                 Log::info('[CODE_GEN] Preview ready', [
                     'preview_url' => $this->previewUrl,
@@ -559,9 +564,8 @@ class CodeGenerationEngine extends Component
                 // Switch to preview tab
                 $this->activeTab = 'preview';
                 
-                // Force Livewire to update - ensure all state is set first
-                // Trigger a property update to force re-render
-                $this->dispatch('$refresh');
+                // Livewire 3 automatically re-renders when properties change
+                // Property updates above will trigger re-render automatically
                 
                 // Use JavaScript to ensure UI updates and iframe loads
                 $finalPreviewUrl = $this->previewUrl;
@@ -615,6 +619,90 @@ class CodeGenerationEngine extends Component
     public function updatePreview()
     {
         $this->createPreview();
+    }
+    
+    public function saveEditedCode(): void
+    {
+        if (empty($this->generatedCode) || !$this->currentProject || empty($this->componentName)) {
+            $this->error('No code to save or component name missing.');
+            return;
+        }
+        
+        try {
+            Log::info('[CODE_GEN] Saving edited code', [
+                'component_name' => $this->componentName,
+                'project_id' => $this->currentProject->id
+            ]);
+            
+            $dockerService = app(DockerPreviewService::class);
+            
+            // Inject the edited code into the container
+            $success = $dockerService->injectCode(
+                $this->currentProject,
+                $this->generatedCode,
+                $this->componentName
+            );
+            
+            if ($success) {
+                // Update the generation state with the new code
+                $this->currentProject->setGenerationState([
+                    'generated_code' => $this->generatedCode,
+                ]);
+                
+                // Refresh the preview iframe
+                $this->js("
+                    setTimeout(() => {
+                        const iframe = document.getElementById('preview-iframe');
+                        if (iframe) {
+                            iframe.src = iframe.src;
+                        }
+                    }, 500);
+                ");
+                
+                $this->success('Code saved and preview updated!');
+                Log::info('[CODE_GEN] Edited code saved successfully');
+            } else {
+                $this->error('Failed to save code. Please check for syntax errors.');
+                Log::error('[CODE_GEN] Failed to save edited code');
+            }
+        } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Exception while saving edited code', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            $this->error('Error saving code: ' . $e->getMessage());
+        }
+    }
+    
+    public string $selectingTheme = '';
+    
+    public function selectTheme(string $theme): void
+    {
+        if (!$this->currentProject) {
+            Log::warning('[CODE_GEN] Cannot select theme: no current project');
+            return;
+        }
+        
+        Log::info('[CODE_GEN] Selecting theme', [
+            'theme' => $theme,
+            'current_theme' => $this->selectedTheme,
+            'project_id' => $this->currentProject->id
+        ]);
+        
+        // Track which theme is being selected for spinner display
+        $this->selectingTheme = $theme;
+        
+        // Set the property - this will trigger updatedSelectedTheme automatically
+        $oldTheme = $this->selectedTheme;
+        $this->selectedTheme = $theme;
+        
+        // If the theme actually changed, explicitly call the update logic
+        if ($oldTheme !== $theme) {
+            $this->updatedSelectedTheme($theme);
+        }
+        
+        // Clear selecting state after a brief delay
+        $this->js("setTimeout(() => \$wire.set('selectingTheme', ''), 1000);");
     }
     
     public function updatedSelectedTheme($theme)
@@ -906,8 +994,7 @@ class CodeGenerationEngine extends Component
                 }
             }
             
-            // Force UI refresh
-            $this->dispatch('$refresh');
+            // Livewire 3 automatically re-renders when properties change
         }
     }
     
@@ -935,6 +1022,48 @@ class CodeGenerationEngine extends Component
             return [];
         }
         return $this->currentProject->getComponents();
+    }
+    
+    public function getFormattedRoutesProperty(): array
+    {
+        try {
+            if (!$this->currentProject) {
+                return [];
+            }
+            
+            $routes = $this->currentProject->getRoutes();
+            
+            // Ensure $routes is an array and not empty
+            if (!is_array($routes) || empty($routes)) {
+                return [];
+            }
+    
+            return collect($routes)
+                ->map(function ($route) {
+                    // Validate route structure
+                    if (!isset($route['url']) || !isset($route['component'])) {
+                        Log::warning('[CODE_GEN] Invalid route structure detected, skipping.', ['route' => $route]);
+                        return null; // Skip this route
+                    }
+                    $label = $route['url'] === '/' 
+                        ? "Home (/) - {$route['component']}"
+                        : "{$route['url']} - {$route['component']}";
+                    
+                    return [
+                        'id' => $route['url'],
+                        'name' => $label,
+                    ];
+                })
+                ->filter() // Remove any null entries from invalid routes
+                ->values()
+                ->toArray();
+        } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Error formatting routes for MaryUI', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return []; // Return empty array on error
+        }
     }
     
     public function render()

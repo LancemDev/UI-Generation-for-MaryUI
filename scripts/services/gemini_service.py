@@ -2,27 +2,29 @@ import os
 from typing import Optional
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
+import google.generativeai as genai
 
-from openai import OpenAI
 
-
-_client: Optional[OpenAI] = None
+_client_initialized = False
 
 # Load environment variables from either CWD or the scripts folder explicitly
 _loaded = load_dotenv(find_dotenv(usecwd=True))
 if not _loaded:
-    # Try scripts/.env relative to this file (scripts/services/openai_service.py -> scripts/.env)
+    # Try scripts/.env relative to this file (scripts/services/gemini_service.py -> scripts/.env)
     load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 
 
-def _get_client() -> OpenAI:
-    global _client
-    if _client is None:
-        api_key = os.getenv("OPENAI_API_KEY")
+def _get_client(model_name: Optional[str] = None) -> genai.GenerativeModel:
+    global _client_initialized
+    if not _client_initialized:
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY environment variable is not set")
-        _client = OpenAI(api_key=api_key)
-    return _client
+            raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+        genai.configure(api_key=api_key)
+        _client_initialized = True
+    
+    selected_model = model_name or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    return genai.GenerativeModel(selected_model)
 
 
 def extract_component_name(prompt: str, code: str = "") -> str:
@@ -80,7 +82,7 @@ def generate_code(
     Args:
         prompt: Natural language description of the code to generate.
         messages: Optional conversation history for context. Format: [{'role': 'user'|'assistant', 'content': '...'}, ...]
-        model: Optional model override. Defaults to env OPENAI_MODEL or "gpt-4o-mini".
+        model: Optional model override. Defaults to env GEMINI_MODEL or "gemini-2.0-flash".
         temperature: Sampling temperature for creativity.
         max_tokens: Maximum tokens in the completion (increased for complete code).
 
@@ -90,8 +92,8 @@ def generate_code(
     """
     from .gnn_service import get_gnn_service
     
-    selected_model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    client = _get_client()
+    selected_model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    client = _get_client(selected_model)
     
     # Get GNN context for the prompt
     gnn_service = get_gnn_service()
@@ -174,28 +176,14 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
    - Use `activate-by-route` on `<x-menu>` for automatic active state highlighting
 7. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 8. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
-9. **MULTIPLE COMPONENTS** - If the user requests multiple components (e.g., "login form, register form, and dashboard"), generate ALL components in separate code blocks. Each component should be complete with its own ===PHP=== and ===BLADE=== sections. Use redirect()->to('/route-path') to navigate between components.
-10. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
-11. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
+9. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
+9. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
 
 OUTPUT FORMAT - You MUST return code in this exact format:
 
 CRITICAL: DO NOT include any explanatory text, descriptions, or comments outside the code blocks. 
 ONLY output the code markers (===PHP===, ===BLADE===, ===END===) and the actual code.
 DO NOT add text like "This code creates..." or "The following code..." - just output the code directly.
-
-IF MULTIPLE COMPONENTS ARE REQUESTED: Generate each component in sequence, each with its own ===PHP=== and ===BLADE=== sections.
-For example, if asked for "login form and dashboard", generate:
-===PHP===
-[First component PHP code]
-===BLADE===
-[First component Blade view]
-===END===
-===PHP===
-[Second component PHP code]
-===BLADE===
-[Second component Blade view]
-===END===
 
 ===PHP===
 <?php
@@ -354,7 +342,7 @@ Complete Form with Validation Feedback:
 </div>
 
 CRITICAL - MARYUI AUTOMATIC FEATURES:
-- Toast trait: use Mary\Traits\Toast; then $this->success('Message') AUTOMATICALLY shows a toast - NO frontend code needed
+- Toast trait: use Mary\\Traits\\Toast; then $this->success('Message') AUTOMATICALLY shows a toast - NO frontend code needed
 - Validation errors: Livewire/MaryUI AUTOMATICALLY displays validation errors - DO NOT use @error() directives or manual <x-alert> components
 - DO NOT add @error('field') <x-alert>...</x-alert> @enderror - this is redundant and wrong
 - DO NOT use session()->has('success') or session('success') - toasts are automatic
@@ -463,28 +451,41 @@ ROUTING NOTE:
 - Consider navigation between related components if applicable
 - Use proper Livewire wire:model, wire:click, wire:submit for interactivity"""
 
-    # Build messages array with conversation history
-    messages_list = [
-        {"role": "system", "content": system_message},
-    ]
+    # Build conversation history for Gemini
+    # Gemini uses a different format - it expects a list of Content objects or dicts
+    conversation_history = []
     
-    # Add conversation history if provided (for conversational context)
+    # Configure generation settings
+    generation_config = genai.types.GenerationConfig(
+        temperature=temperature,
+        max_output_tokens=max_tokens,
+    )
+    
+    # Build the full prompt with system message and conversation history
+    full_prompt = system_message
+    
+    # Add conversation history if provided
     if messages:
         # Filter out system messages from history (we already have one)
         conversation_messages = [msg for msg in messages if msg.get("role") != "system"]
-        messages_list.extend(conversation_messages)
+        for msg in conversation_messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                full_prompt += f"\n\nUser: {content}"
+            elif role == "assistant":
+                full_prompt += f"\n\nAssistant: {content}"
     
-    # Add the current prompt as the final user message
-    messages_list.append({"role": "user", "content": prompt})
+    # Add the current prompt
+    full_prompt += f"\n\nUser: {prompt}\n\nAssistant:"
     
-    completion = client.chat.completions.create(
-        model=selected_model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        messages=messages_list,
+    # Generate response
+    response = client.generate_content(
+        full_prompt,
+        generation_config=generation_config
     )
-
-    content = completion.choices[0].message.content if completion.choices else ""
+    
+    content = response.text
     
     # Remove markdown code blocks if present
     if content.startswith("```"):
@@ -566,11 +567,11 @@ def stream_chat(
     temperature: float = 0.2,
     max_tokens: int = 1024,
 ):
-    """Yield chat chunks using OpenAI streaming with GNN-enhanced context."""
+    """Yield chat chunks using Gemini streaming with GNN-enhanced context."""
     from .gnn_service import get_gnn_service
     
-    selected_model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    client = _get_client()
+    selected_model = model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    client = _get_client(selected_model)
     
     # Get the last user message for GNN context
     last_user_message = ""
@@ -582,9 +583,9 @@ def stream_chat(
     # If it's just a greeting, respond with a Skylarr-specific onboarding message
     if last_user_message.strip().lower() in {"hi", "hello", "hey", "yo", "sup", "hi!", "hello!", "hey!"}:
         canned = (
-            "Hi, I’m Skylarr. What component do you want to build today? "
+            "Hi, I'm Skylarr. What component do you want to build today? "
             "Examples: modal with form, login page, tabs + table, navbar, or a full Livewire flow. "
-            "Tell me the components and I’ll scaffold MaryUI Blade with correct nesting and Livewire actions."
+            "Tell me the components and I'll scaffold MaryUI Blade with correct nesting and Livewire actions."
         )
         yield canned
         return
@@ -617,19 +618,54 @@ IMPORTANT: When the user asks you to create/build/generate components:
         # Insert system message at the beginning
         enhanced_messages.insert(0, system_message)
 
-    stream = client.chat.completions.create(
-        model=selected_model,
+    # Configure generation settings
+    generation_config = genai.types.GenerationConfig(
         temperature=temperature,
-        max_tokens=max_tokens,
-        stream=True,
-        messages=enhanced_messages,
+        max_output_tokens=max_tokens,
+    )
+    
+    # Build the full prompt with system message and conversation history
+    full_prompt = ""
+    
+    # Extract system message if present
+    system_content = ""
+    conversation_parts = []
+    
+    for msg in enhanced_messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        
+        if role == "system":
+            system_content = content
+        else:
+            conversation_parts.append((role, content))
+    
+    # Build full prompt
+    if system_content:
+        full_prompt = system_content + "\n\n"
+    
+    # Add conversation history
+    for role, content in conversation_parts:
+        if role == "user":
+            full_prompt += f"User: {content}\n\n"
+        elif role == "assistant":
+            full_prompt += f"Assistant: {content}\n\n"
+    
+    # Add final assistant prompt
+    full_prompt += "Assistant:"
+    
+    # Generate streaming response
+    response = client.generate_content(
+        full_prompt,
+        generation_config=generation_config,
+        stream=True
     )
 
-    for event in stream:
+    for chunk in response:
         try:
-            delta = event.choices[0].delta.content
-            if delta:
-                yield delta
+            if chunk.text:
+                yield chunk.text
         except Exception:
-            # Some events may not have content (e.g., role updates)
+            # Some chunks may not have text
             continue
+

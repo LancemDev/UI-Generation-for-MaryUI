@@ -4,16 +4,21 @@
     
     /* Make project dropdown scrollable */
     .project-dropdown-menu {
-        max-height: 24rem; /* 96 * 0.25rem = 24rem */
-        overflow-y: auto;
+        max-height: 24rem !important; /* 96 * 0.25rem = 24rem */
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+        z-index: 50 !important;
     }
     
     /* Target MaryUI dropdown menu container */
     .project-dropdown [role="menu"],
     .project-dropdown .dropdown-content,
     .project-dropdown ul[role="menu"] {
-        max-height: 24rem;
-        overflow-y: auto;
+        max-height: 24rem !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        position: relative !important;
     }
     
     /* Ensure smooth scrolling */
@@ -67,8 +72,15 @@
             right
             wire:poll.5s="loadProjects"
         >
-            <div class="project-dropdown-menu">
+            <div class="project-dropdown-menu" style="max-height: 24rem; overflow-y: auto;">
+                <x-menu-item 
+                    title="Create New Project" 
+                    icon="o-plus" 
+                    class="text-blue-600 dark:text-blue-400"
+                    wire:click.stop="openCreateProjectModal"
+                />
                 @if($projects && count($projects) > 0)
+                    <x-menu-item separator />
                     @foreach($projects as $project)
                         <x-menu-item 
                             :title="$project->name"
@@ -79,12 +91,6 @@
                         />
                     @endforeach
                 @endif
-                <x-menu-item 
-                    title="Create New Project" 
-                    icon="o-plus" 
-                    class="text-blue-600 dark:text-blue-400"
-                    wire:click.stop="openCreateProjectModal"
-                />
             </div>
         </x-dropdown>
     @else

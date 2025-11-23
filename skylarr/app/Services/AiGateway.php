@@ -23,7 +23,7 @@ class AiGateway
             'stream' => true,
         ])->post(rtrim($baseUrl, '/') . '/chat/stream', [
             'messages' => $messages,
-            'model' => config('services.openai.model'),
+            // Model selection is handled by Python backend based on AI_PROVIDER env var
             'temperature' => 0.2,
             'max_tokens' => 1024,
         ]);
@@ -66,7 +66,7 @@ class AiGateway
             $response = Http::timeout(60)->post(rtrim($baseUrl, '/') . '/generate/code', [
                 'prompt' => $prompt,
                 'messages' => $conversationHistory, // Pass conversation history for context
-                'model' => config('services.openai.model', 'gpt-4'),
+                // Model selection is handled by Python backend based on AI_PROVIDER env var
                 'temperature' => 0.1,
                 'max_tokens' => 4096, // Increased for complete code with views
             ]);

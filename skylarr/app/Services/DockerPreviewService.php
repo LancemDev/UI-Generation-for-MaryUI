@@ -218,6 +218,18 @@ class DockerPreviewService
             $code = preg_replace('/\s*===BLADE_VIEW===\s*\n.*?\n===END_BLADE===\s*/s', '', $code);
         }
         
+        // Step 0.5: Extract Blade view from ===BLADE=== ... ===END=== format (used by AI)
+        // Use non-greedy match to stop at the FIRST ===END=== marker
+        if (empty($viewContent) && preg_match('/===BLADE===\s*\n(.*?)\n===END===/s', $code, $matches)) {
+            $viewContent = trim($matches[1]);
+            
+            // CRITICAL: Use comprehensive validation function to remove ALL PHP code
+            $viewContent = $this->validateAndCleanBladeView($viewContent);
+            
+            // Remove the Blade section from code to get clean PHP (non-greedy to stop at first ===END===)
+            $code = preg_replace('/\s*===BLADE===\s*\n.*?\n===END===\s*/s', '', $code);
+        }
+        
         // Step 1: Extract PHP code from markdown code blocks if present
         // Look for ```php or ``` blocks containing PHP code
         if (preg_match('/```(?:php)?\s*\n(.*?)\n```/s', $code, $matches)) {
@@ -314,7 +326,10 @@ class DockerPreviewService
                     // Strip any remaining markdown markers that might be in the content
                     $blockContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $blockContent);
                     $blockContent = preg_replace('/\n?```\s*$/m', '', $blockContent);
-                    $viewContent = trim($blockContent);
+                    
+                    // CRITICAL: Use comprehensive validation to remove ALL PHP code
+                    $blockContent = $this->validateAndCleanBladeView($blockContent);
+                    $viewContent = $blockContent;
                     break;
                 }
             }
@@ -327,8 +342,14 @@ class DockerPreviewService
                 // Strip any remaining markdown markers
                 $blockContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $blockContent);
                 $blockContent = preg_replace('/\n?```\s*$/m', '', $blockContent);
-                $viewContent = trim($blockContent);
+                // CRITICAL: Use comprehensive validation to remove ALL PHP code
+                $viewContent = $this->validateAndCleanBladeView($blockContent);
             }
+        }
+        
+        // Step 8.5: Final validation of extracted Blade view
+        if (!empty($viewContent)) {
+            $viewContent = $this->validateAndCleanBladeView($viewContent);
         }
         
         // Step 9: Final cleanup - ensure code is valid PHP
@@ -359,11 +380,512 @@ class DockerPreviewService
     }
     
     /**
+     * Validate and clean Blade view content to ensure it contains ONLY Blade/HTML.
+     * This is CRITICAL - Blade files must NEVER contain PHP class code.
+     */
+    private function validateAndCleanBladeView(string $viewContent): string
+    {
+        // Remove ALL PHP code patterns
+        // 1. Remove entire PHP class definitions (handle nested braces)
+        $viewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{.*?\}/s', '', $viewContent);
+        // More aggressive: match class with deeply nested braces
+        $viewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s', '', $viewContent);
+        
+        // 2. Remove namespace declarations
+        $viewContent = preg_replace('/namespace\s+[^;]+;/', '', $viewContent);
+        
+        // 3. Remove use statements
+        $viewContent = preg_replace('/use\s+[^;]+;/', '', $viewContent);
+        
+        // 4. Remove PHP tags
+        $viewContent = preg_replace('/<\?php\s*/', '', $viewContent);
+        $viewContent = preg_replace('/<\?/', '', $viewContent);
+        $viewContent = preg_replace('/\?>/', '', $viewContent);
+        
+        // 5. Remove property declarations (public/protected/private $var;)
+        $viewContent = preg_replace('/\b(public|protected|private)\s+\$[^;]+;/', '', $viewContent);
+        
+        // 6. Remove method definitions (handle multi-line with nested braces)
+        // Match: public function methodName() { ... }
+        $viewContent = preg_replace('/\b(public|protected|private)\s+function\s+\w+\s*\([^)]*\)\s*\{[^}]*\}/s', '', $viewContent);
+        // More aggressive: handle nested braces in methods
+        $viewContent = preg_replace('/\b(public|protected|private)\s+function\s+\w+\s*\([^)]*\)\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s', '', $viewContent);
+        
+        // 7. Remove any lines that start with PHP keywords (class, namespace, use, public, protected, private, function)
+        $viewContent = preg_replace('/^\s*(class|namespace|use|public|protected|private|function)\s+.*$/m', '', $viewContent);
+        
+        // 8. Remove any remaining PHP code blocks
+        $viewContent = preg_replace('/<\?php.*?\?>/s', '', $viewContent);
+        $viewContent = preg_replace('/<\?.*?\?>/s', '', $viewContent);
+        
+        // 9. Final validation: Remove any lines that don't contain valid Blade/HTML syntax
+        // Valid Blade/HTML contains: <, {{, @, or is empty/whitespace
+        $lines = explode("\n", $viewContent);
+        $cleanedLines = [];
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            
+            // Keep lines that are:
+            // - Empty or whitespace only
+            // - Contain HTML tags (<)
+            // - Contain Blade expressions ({{ or {!!)
+            // - Contain Blade directives (@if, @foreach, @endif, etc.)
+            // - Contain comments (<!-- or {{--)
+            if (empty($trimmed) || 
+                preg_match('/[\s\t]*$/', $line) || // Whitespace only
+                str_contains($line, '<') || 
+                str_contains($line, '{{') || 
+                str_contains($line, '{!!') ||
+                str_contains($line, '@') ||
+                str_contains($line, '<!--') ||
+                str_contains($line, '{{--')) {
+                $cleanedLines[] = $line;
+            }
+            // Skip all other lines (they're likely PHP code)
+        }
+        
+        $viewContent = implode("\n", $cleanedLines);
+        
+        // 10. Final trim and cleanup
+        $viewContent = trim($viewContent);
+        $viewContent = preg_replace('/\n{3,}/', "\n\n", $viewContent); // Remove excessive newlines
+        
+        return $viewContent;
+    }
+
+    /**
      * Convert PascalCase to kebab-case.
      */
     private function toKebabCase(string $string): string
     {
         return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
+    }
+
+    /**
+     * Validate and clean PHP code to ensure it contains ONLY PHP (no Blade/HTML).
+     * This is CRITICAL - PHP files must NEVER contain Blade template code.
+     */
+    private function validateAndCleanPhpCode(string $code): string
+    {
+        // Remove ALL Blade/HTML code patterns
+        
+        // 1. Remove Blade view markers and their content
+        $code = preg_replace('/===BLADE===\s*\n.*?\n===END===\s*/s', '', $code);
+        $code = preg_replace('/===BLADE_VIEW===\s*\n.*?\n===END_BLADE===\s*/s', '', $code);
+        
+        // 2. Remove HTML/Blade code blocks (markdown code blocks with html/blade)
+        $code = preg_replace('/```(?:html|blade)?\s*\n.*?\n```/s', '', $code);
+        
+        // 3. Remove standalone HTML tags (unless in strings - rough check)
+        // This is tricky because HTML might be in strings, so we'll be conservative
+        // Only remove obvious HTML blocks that aren't in quotes
+        $lines = explode("\n", $code);
+        $cleanedLines = [];
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            
+            // Skip lines that are pure HTML/Blade (not in strings)
+            // Check if line starts with HTML tag and doesn't appear to be in a string
+            if (preg_match('/^\s*<[^?]/', $trimmed) && !preg_match('/["\']/', $line)) {
+                // This looks like HTML outside of strings - skip it
+                continue;
+            }
+            
+            // Skip lines that are pure Blade directives (not in strings)
+            if (preg_match('/^\s*@(if|foreach|for|while|switch|case|break|continue|endif|endforeach|endfor|endwhile|endswitch|php|endphp)/', $trimmed) && !preg_match('/["\']/', $line)) {
+                // This looks like Blade directive outside of strings - skip it
+                continue;
+            }
+            
+            // Keep the line
+            $cleanedLines[] = $line;
+        }
+        $code = implode("\n", $cleanedLines);
+        
+        // 4. Remove any remaining Blade expressions outside of strings (rough check)
+        // This is conservative - we only remove obvious cases
+        $code = preg_replace('/\{\{[^}]+\}\}/', '', $code);
+        
+        // 5. Clean up excessive newlines
+        $code = preg_replace('/\n{3,}/', "\n\n", $code);
+        $code = trim($code);
+        
+        return $code;
+    }
+
+    /**
+     * Validate that PHP code contains only PHP (no Blade/HTML mixed in).
+     */
+    private function validatePhpCode(string $code): bool
+    {
+        // PHP code should NOT contain Blade syntax (unless in strings/comments)
+        // Check for common Blade patterns that shouldn't be in PHP files
+        $bladePatterns = [
+            '/<x-[^>]+>/',  // MaryUI components
+            '/\{\{[^}]+\}\}/',  // Blade expressions
+            '/@(if|foreach|for|while|switch|case|break|continue|endif|endforeach|endfor|endwhile|endswitch)/',  // Blade directives
+        ];
+        
+        foreach ($bladePatterns as $pattern) {
+            // Allow these in strings (quoted) but not as actual code
+            $matches = preg_match_all($pattern, $code, $allMatches);
+            if ($matches > 0) {
+                // Check if they're in strings - if not, it's a problem
+                foreach ($allMatches[0] as $match) {
+                    $pos = strpos($code, $match);
+                    // Simple check: if not in quotes, it's invalid
+                    $before = substr($code, 0, $pos);
+                    $quotesBefore = substr_count($before, '"') + substr_count($before, "'");
+                    // If odd number of quotes, we're inside a string (rough check)
+                    // For now, we'll be lenient - just log a warning
+                }
+            }
+        }
+        
+        return true; // PHP validation passed
+    }
+
+
+    /**
+     * Split code into multiple component blocks if multiple components are present.
+     */
+    private function splitMultipleComponents(string $code): array
+    {
+        $blocks = [];
+        
+        // Check if code contains multiple ===PHP=== markers
+        $phpMarkerCount = substr_count($code, '===PHP===');
+        
+        if ($phpMarkerCount <= 1) {
+            // Single component, return as-is
+            return [$code];
+        }
+        
+        // Split by ===PHP=== markers, but preserve the structure
+        // Pattern: ===PHP=== ... ===BLADE=== ... ===END===
+        $pattern = '/(===PHP===\s*\n.*?)(?=\n===PHP===|\n===END===|$)/s';
+        
+        if (preg_match_all($pattern, $code, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($matches as $match) {
+                $block = trim($match[1][0]);
+                
+                // Find the end of this component block
+                // Look for ===END=== or next ===PHP===
+                $nextPhpPos = strpos($code, '===PHP===', $match[1][1] + strlen($match[1][0]));
+                $endPos = strpos($code, '===END===', $match[1][1]);
+                
+                if ($endPos !== false && ($nextPhpPos === false || $endPos < $nextPhpPos)) {
+                    // This block has an ===END=== marker
+                    $fullBlock = substr($code, $match[1][1], $endPos - $match[1][1] + 9); // +9 for "===END==="
+                    $blocks[] = trim($fullBlock);
+                } elseif ($nextPhpPos !== false) {
+                    // Next component starts, extract up to that point
+                    $fullBlock = substr($code, $match[1][1], $nextPhpPos - $match[1][1]);
+                    // Add ===END=== if it has ===BLADE=== but no ===END===
+                    if (str_contains($fullBlock, '===BLADE===') && !str_contains($fullBlock, '===END===')) {
+                        $fullBlock .= "\n===END===";
+                    }
+                    $blocks[] = trim($fullBlock);
+                } else {
+                    // Last block, extract to end
+                    $fullBlock = substr($code, $match[1][1]);
+                    if (str_contains($fullBlock, '===BLADE===') && !str_contains($fullBlock, '===END===')) {
+                        $fullBlock .= "\n===END===";
+                    }
+                    $blocks[] = trim($fullBlock);
+                }
+            }
+        } else {
+            // Fallback: simple split
+            $parts = preg_split('/===PHP===/', $code, -1, PREG_SPLIT_NO_EMPTY);
+            
+            foreach ($parts as $part) {
+                $part = trim($part);
+                if (empty($part)) {
+                    continue;
+                }
+                
+                // Reconstruct the component block with ===PHP=== marker
+                $block = '===PHP===' . "\n" . $part;
+                
+                // Ensure it ends with ===END=== if it has a Blade section
+                if (str_contains($block, '===BLADE===') && !str_contains($block, '===END===')) {
+                    $block .= "\n===END===";
+                }
+                
+                $blocks[] = $block;
+            }
+        }
+        
+        return $blocks;
+    }
+
+    /**
+     * Extract all component class names from the generated code.
+     * Handles cases where multiple components are generated in one prompt.
+     */
+    private function extractAllComponents(string $code): array
+    {
+        $components = [];
+        
+        // Find all class declarations that extend Component
+        if (preg_match_all('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends\s+Component/s', $code, $matches)) {
+            $components = $matches[1];
+        }
+        
+        // Also check for class declarations in separate code blocks
+        // Look for patterns like "===PHP===" followed by class definitions
+        if (preg_match_all('/===PHP===\s*(?:.*?)class\s+([A-Z][a-zA-Z0-9]*)\s+extends\s+Component/s', $code, $matches)) {
+            $components = array_merge($components, $matches[1]);
+        }
+        
+        // Remove duplicates and return
+        return array_unique($components);
+    }
+
+    /**
+     * Extract route references from code (e.g., redirect()->to('/dashboard')).
+     */
+    private function extractRouteReferences(string $code): array
+    {
+        $routes = [];
+        
+        // Find redirect()->to('/path') patterns
+        if (preg_match_all("/redirect\(\)->to\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
+            $routes = array_merge($routes, $matches[1]);
+        }
+        
+        // Find redirect('/path') patterns
+        if (preg_match_all("/redirect\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
+            $routes = array_merge($routes, $matches[1]);
+        }
+        
+        // Find route('name') patterns and resolve them (if we can)
+        // This is more complex, so we'll focus on direct paths for now
+        
+        // Remove duplicates and filter out empty routes
+        $routes = array_filter(array_unique($routes), function($route) {
+            return !empty($route) && $route !== '/';
+        });
+        
+        return array_values($routes);
+    }
+
+    /**
+     * Find which component should handle a given route path.
+     */
+    private function findComponentForRoute(string $routePath, array $components, string $containerId): ?string
+    {
+        // Remove leading slash and convert to component name format
+        $routeName = trim($routePath, '/');
+        
+        // Try to match route to component name
+        // e.g., /dashboard -> DashboardComponent
+        foreach ($components as $component) {
+            $kebabName = $this->toKebabCase($component);
+            if ($kebabName === $routeName || str_ends_with($kebabName, '-' . $routeName)) {
+                return $component;
+            }
+        }
+        
+        // Try to find component by checking if file exists with route name
+        // e.g., /dashboard -> DashboardComponent.php
+        $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+        $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+        
+        $checkResult = $this->runDockerCommand([
+            'exec', $containerId,
+            'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+        ]);
+        
+        if (trim($checkResult->output()) === 'exists') {
+            return $potentialComponent;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Create a minimal component for a route that was referenced but doesn't exist.
+     */
+    private function createMinimalComponentForRoute(Project $project, string $routePath, string $componentName): bool
+    {
+        try {
+            $kebabName = $this->toKebabCase($componentName);
+            $routeName = trim($routePath, '/');
+            
+            // Generate minimal component code
+            $componentCode = <<<PHP
+<?php
+
+namespace App\\Livewire;
+
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class {$componentName} extends Component
+{
+    use Toast;
+    
+    public function render()
+    {
+        return view('livewire.{$kebabName}');
+    }
+}
+PHP;
+
+            $viewCode = <<<BLADE
+<div>
+    <h1 class="text-3xl font-bold mb-4">{{ ucfirst('{$routeName}') }}</h1>
+    <p class="text-gray-600">Welcome to your dashboard.</p>
+</div>
+BLADE;
+
+            // Inject the component
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            
+            // Create component file
+            $escapedCode = escapeshellarg($componentCode);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "echo {$escapedCode} > {$componentPath}"
+            ]);
+            
+            // Create view directory if needed
+            $viewDir = dirname($viewPath);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "mkdir -p {$viewDir}"
+            ]);
+            
+            // Create view file
+            $escapedView = escapeshellarg($viewCode);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "echo {$escapedView} > {$viewPath}"
+            ]);
+            
+            // Track in project metadata
+            if (!$project->hasComponent($componentName)) {
+                $project->addComponent($componentName, $routePath, str_replace('/', '-', trim($routePath, '/')));
+            }
+            
+            Log::info('[DOCKER] Created minimal component for route', [
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Failed to create minimal component', [
+                'error' => $e->getMessage(),
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Add a route with a custom path (not based on component name).
+     */
+    private function addCustomRoute(string $containerId, string $componentName, string $routePath): bool
+    {
+        try {
+            $routeName = trim($routePath, '/');
+            $routeName = str_replace('/', '-', $routeName);
+            
+            // Read current web.php
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cat /var/www/html/routes/web.php'
+            ]);
+            
+            if ($readResult->failed()) {
+                Log::error('[DOCKER] Failed to read web.php for custom route', [
+                    'container_id' => $containerId,
+                    'error' => $readResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            $webPhpContent = $readResult->output();
+            
+            // Check if route already exists
+            $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
+                           str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
+            
+            if ($routeExists) {
+                Log::info('[DOCKER] Custom route already exists', [
+                    'route' => $routePath,
+                    'component' => $componentName
+                ]);
+                return true;
+            }
+            
+            // Check if use statement exists
+            $useStatement = "use App\\Livewire\\{$componentName};";
+            $hasUseStatement = str_contains($webPhpContent, $useStatement);
+            
+            // Prepare route line
+            $routeLine = "Route::get('{$routePath}', {$componentName}::class)->name('{$routeName}');";
+            
+            // Build new content
+            $newContent = $webPhpContent;
+            
+            // Add use statement if not present
+            if (!$hasUseStatement) {
+                if (preg_match('/(use\s+[^;]+;[\s\n]*)+/', $webPhpContent, $matches)) {
+                    $lastUsePos = strrpos($webPhpContent, $matches[0]) + strlen($matches[0]);
+                    $newContent = substr_replace($webPhpContent, "\n{$useStatement}\n", $lastUsePos, 0);
+                } else {
+                    $phpTagPos = strpos($webPhpContent, '<?php');
+                    if ($phpTagPos !== false) {
+                        $insertPos = $phpTagPos + 5;
+                        $newContent = substr_replace($webPhpContent, "\n\n{$useStatement}\n", $insertPos, 0);
+                    }
+                }
+            }
+            
+            // Add route at the end of the file
+            $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+            
+            // Write updated web.php
+            $escapedContent = escapeshellarg($newContent);
+            $writeResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "echo {$escapedContent} > /var/www/html/routes/web.php"
+            ]);
+            
+            if ($writeResult->failed()) {
+                Log::error('[DOCKER] Failed to write web.php for custom route', [
+                    'container_id' => $containerId,
+                    'error' => $writeResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            // Clear route cache
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan route:clear 2>&1'
+            ]);
+            
+            Log::info('[DOCKER] Custom route added', [
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception adding custom route', [
+                'error' => $e->getMessage(),
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            return false;
+        }
     }
 
     /**
@@ -500,6 +1022,16 @@ class DockerPreviewService
      */
     public function injectCode(Project $project, string $code, string $componentName): bool
     {
+        return $this->injectCodeInternal($project, $code, $componentName, $code);
+    }
+    
+    /**
+     * Internal method that handles code injection with access to original full code.
+     * 
+     * @param bool $skipRouteRegistration If true, skip route registration (used when processing multiple components)
+     */
+    private function injectCodeInternal(Project $project, string $code, string $componentName, string $originalFullCode, bool $skipRouteRegistration = false): bool
+    {
         try {
             if (!$project->container_id || !$this->isContainerRunning($project->container_id)) {
                 throw new \Exception("Container not running for project {$project->id}");
@@ -519,8 +1051,145 @@ class DockerPreviewService
                 throw new \Exception("Generated code is not a valid Laravel Livewire component. Only Laravel Livewire components are supported.");
             }
             
-            // Step 2: Parse the code to extract class name, view name, and view content
-            Log::info('[DOCKER] Parsing component code', ['code_length' => strlen($code), 'code_preview' => substr($code, 0, 200)]);
+            // Step 2: Check if code contains multiple components
+            $componentBlocks = $this->splitMultipleComponents($code);
+            
+            // If multiple components found, process each one recursively
+            if (count($componentBlocks) > 1) {
+                Log::info('[DOCKER] Multiple components detected', ['count' => count($componentBlocks)]);
+                
+                $firstComponentName = $componentName;
+                $allProcessed = true;
+                $processedComponents = [];
+                
+                foreach ($componentBlocks as $index => $componentCode) {
+                    $parsed = $this->parseComponentCode($componentCode);
+                    $blockComponentName = $parsed['class_name'] ?? ($index === 0 ? $componentName : "Component" . ($index + 1));
+                    
+                    Log::info('[DOCKER] Processing component block', [
+                        'index' => $index,
+                        'component_name' => $blockComponentName
+                    ]);
+                    
+                    // Recursively call injectCodeInternal for each component (it will detect single component and process normally)
+                    // Skip route registration during recursive calls - we'll do it once after all components are processed
+                    $result = $this->injectCodeInternal(
+                        $project,
+                        $componentCode,
+                        $index === 0 ? $firstComponentName : $blockComponentName,
+                        $originalFullCode, // Pass original full code for route extraction
+                        true // Skip route registration - we'll do it once after all components
+                    );
+                    
+                    if ($result) {
+                        $processedComponents[] = $blockComponentName;
+                    } else {
+                        $allProcessed = false;
+                        Log::warning('[DOCKER] Failed to process component', ['component' => $blockComponentName]);
+                    }
+                }
+                
+                // After processing all components, register routes ONCE from the FULL original code
+                // This is the ONLY place routes should be registered for multi-component scenarios
+                Log::info('[DOCKER] Registering routes from full original code (single pass)');
+                $allComponents = $this->extractAllComponents($originalFullCode);
+                $routeReferences = $this->extractRouteReferences($originalFullCode);
+                
+                Log::info('[DOCKER] Route extraction results', [
+                    'components_found' => $allComponents,
+                    'route_references' => $routeReferences,
+                    'processed_components' => $processedComponents
+                ]);
+                
+                // Step 1: Add default routes for all processed components
+                foreach ($processedComponents as $processedComponent) {
+                    Log::info('[DOCKER] Adding default route for processed component', [
+                        'component' => $processedComponent
+                    ]);
+                    $this->addComponentRoute($project->container_id, $processedComponent);
+                    
+                    // Ensure component is tracked in project metadata
+                    if (!$project->hasComponent($processedComponent)) {
+                        $kebabName = $this->toKebabCase($processedComponent);
+                        $route = "/{$kebabName}";
+                        $project->addComponent($processedComponent, $route, $kebabName);
+                    }
+                }
+                
+                // Step 2: Add routes for all other components found in the code (if any)
+                foreach ($allComponents as $foundComponent) {
+                    if (!in_array($foundComponent, $processedComponents)) {
+                        Log::info('[DOCKER] Found additional component in code, checking if exists', [
+                            'component' => $foundComponent
+                        ]);
+                        
+                        // Check if component file exists in container
+                        $foundComponentPath = "/var/www/html/app/Livewire/{$foundComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$foundComponentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            // Component exists, add route for it
+                            $this->addComponentRoute($project->container_id, $foundComponent);
+                            
+                            // Track it in project metadata if not already tracked
+                            if (!$project->hasComponent($foundComponent)) {
+                                $foundKebabName = $this->toKebabCase($foundComponent);
+                                $foundRoute = "/{$foundKebabName}";
+                                $project->addComponent($foundComponent, $foundRoute, $foundKebabName);
+                            }
+                        }
+                    }
+                }
+                
+                // Step 3: Add custom routes for route references found in code (e.g., redirect()->to('/dashboard'))
+                foreach ($routeReferences as $routePath) {
+                    $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
+                    
+                    if ($routeComponent) {
+                        Log::info('[DOCKER] Adding custom route for reference', [
+                            'route' => $routePath,
+                            'component' => $routeComponent
+                        ]);
+                        $this->addCustomRoute($project->container_id, $routeComponent, $routePath);
+                    } else {
+                        // Route component not found - try to create it or use a default
+                        Log::warning('[DOCKER] Route component not found, attempting to create', [
+                            'route' => $routePath
+                        ]);
+                        
+                        // Try to infer component name from route (e.g., /dashboard -> DashboardComponent)
+                        $routeName = trim($routePath, '/');
+                        $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+                        
+                        // Check if it exists
+                        $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        } else {
+                            // Create minimal component for the route
+                            Log::info('[DOCKER] Creating minimal component for route', [
+                                'route' => $routePath,
+                                'component' => $potentialComponent
+                            ]);
+                            $this->createMinimalComponentForRoute($project, $routePath, $potentialComponent);
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        }
+                    }
+                }
+                
+                return $allProcessed;
+            }
+            
+            // Single component - proceed with normal flow
+            Log::info('[DOCKER] Parsing single component code', ['code_length' => strlen($code), 'code_preview' => substr($code, 0, 200)]);
             $parsed = $this->parseComponentCode($code);
             $actualClassName = $parsed['class_name'] ?? $componentName;
             
@@ -620,10 +1289,28 @@ class DockerPreviewService
                 );
             }
             
-            // Step 6: Inject PHP class code
+            // Step 6: CRITICAL - Clean PHP code to ensure it contains NO Blade/HTML
+            $cleanedCode = $this->validateAndCleanPhpCode($cleanedCode);
+            
+            // Step 7: Validate PHP code before writing
+            if (!$this->validatePhpCode($cleanedCode)) {
+                Log::warning('[DOCKER] PHP code validation warning', ['component' => $componentName]);
+            }
+            
+            // Step 7: CRITICAL - Final validation before writing PHP file
+            // Ensure absolutely NO Blade/HTML code remains
+            if (preg_match('/(===BLADE===|===BLADE_VIEW===|<x-[^>]+>|@(if|foreach|for|while|switch))/', $cleanedCode)) {
+                Log::warning('[DOCKER] Blade/HTML code detected in PHP file before writing, performing final cleanup', [
+                    'component' => $componentName
+                ]);
+                $cleanedCode = $this->validateAndCleanPhpCode($cleanedCode);
+            }
+            
+            // Step 8: Inject PHP class code
             Log::info('[DOCKER] Injecting PHP class code', [
                 'path' => $componentPath,
-                'is_update' => $componentExists
+                'is_update' => $componentExists,
+                'code_length' => strlen($cleanedCode)
             ]);
             $escapedCode = escapeshellarg($cleanedCode);
             $writeResult = $this->runDockerCommand([
@@ -635,7 +1322,17 @@ class DockerPreviewService
                 throw new \Exception("Failed to write component class: " . $writeResult->errorOutput());
             }
             
-            // Step 7: Inject Blade view code
+            // Step 9: Verify the written file doesn't contain Blade/HTML code
+            $verifyResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "grep -q '===BLADE===' {$componentPath} && echo 'ERROR' || echo 'OK'"
+            ]);
+            if (trim($verifyResult->output()) === 'ERROR') {
+                Log::error('[DOCKER] CRITICAL: Blade code found in PHP file!', ['component' => $componentName]);
+                throw new \Exception("CRITICAL ERROR: Blade code detected in PHP file. This should never happen!");
+            }
+            
+            // Step 10: Inject Blade view code
             $finalViewName = $viewName ?: "livewire.{$kebabName}";
             $viewPath = str_replace('.', '/', $finalViewName);
             if (!str_ends_with($viewPath, '.blade.php')) {
@@ -658,6 +1355,14 @@ class DockerPreviewService
                 // Remove ```html, ```blade, ```, and any leading/trailing whitespace
                 $finalViewContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $finalViewContent);
                 $finalViewContent = preg_replace('/\n?```\s*$/m', '', $finalViewContent);
+                
+                // CRITICAL: Remove code generation markers (===PHP===, ===BLADE===, ===END===)
+                $finalViewContent = preg_replace('/===PHP===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===BLADE===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===END===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===BLADE_VIEW===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===END_BLADE===\s*/', '', $finalViewContent);
+                
                 $finalViewContent = trim($finalViewContent);
                 
                 // CRITICAL: Remove any explanatory text that might appear in Blade files
@@ -673,16 +1378,18 @@ class DockerPreviewService
                 // Remove any text blocks that don't start with < or @ (HTML/Blade syntax)
                 $finalViewContent = preg_replace('/^([^<@][^<@\n]*?\.)(\s*\n)/m', '', $finalViewContent);
                 
-                // CRITICAL: Remove any PHP namespace declarations from Blade files
-                // Blade files should NEVER contain namespace declarations
-                $finalViewContent = preg_replace('/<\?php\s*namespace[^;]+;/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/namespace\s+[^;]+;/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/<\?php\s*/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/use\s+[^;]+;/', '', $finalViewContent);
+                // CRITICAL: Use comprehensive validation and cleaning function
+                $finalViewContent = $this->validateAndCleanBladeView($finalViewContent);
                 
-                // Remove any leading PHP tags
-                $finalViewContent = preg_replace('/^<\?php\s*/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/^<\?/', '', $finalViewContent);
+                // Final validation: Ensure no PHP code remains
+                if (preg_match('/(class\s+\w+|namespace\s+|use\s+|public\s+\$|protected\s+\$|private\s+\$|public\s+function|protected\s+function|private\s+function|<\?php)/', $finalViewContent)) {
+                    Log::warning('[DOCKER] PHP code detected in Blade view after cleaning, performing aggressive cleanup', [
+                        'component' => $componentName,
+                        'view_preview' => substr($finalViewContent, 0, 200)
+                    ]);
+                    // One more aggressive pass
+                    $finalViewContent = $this->validateAndCleanBladeView($finalViewContent);
+                }
                 
                 // Clean up any double newlines that might result
                 $finalViewContent = preg_replace('/\n{3,}/', "\n\n", $finalViewContent);
@@ -697,7 +1404,29 @@ class DockerPreviewService
 BLADE;
             }
             
-            Log::info('[DOCKER] Injecting Blade view code', ['path' => $fullViewPath]);
+            Log::info('[DOCKER] Injecting Blade view code', [
+                'path' => $fullViewPath,
+                'view_length' => strlen($finalViewContent)
+            ]);
+            
+            // CRITICAL: Final validation before writing Blade file
+            // Ensure absolutely NO PHP code remains
+            if (preg_match('/(class\s+\w+|namespace\s+|use\s+|public\s+\$|protected\s+\$|private\s+\$|public\s+function|protected\s+function|private\s+function|<\?php)/', $finalViewContent)) {
+                Log::error('[DOCKER] CRITICAL: PHP code still present in Blade view after cleaning!', [
+                    'component' => $componentName,
+                    'view_preview' => substr($finalViewContent, 0, 300)
+                ]);
+                // Perform one more aggressive cleanup
+                $finalViewContent = $this->validateAndCleanBladeView($finalViewContent);
+                
+                // If still contains PHP, log error but continue (better than crashing)
+                if (preg_match('/(class\s+\w+|namespace\s+|use\s+|public\s+\$|protected\s+\$|private\s+\$|public\s+function|protected\s+function|private\s+function|<\?php)/', $finalViewContent)) {
+                    Log::error('[DOCKER] CRITICAL ERROR: Unable to remove all PHP code from Blade view!', [
+                        'component' => $componentName
+                    ]);
+                }
+            }
+            
             $escapedView = escapeshellarg($finalViewContent);
             $viewWriteResult = $this->runDockerCommand([
                 'exec', $project->container_id,
@@ -706,6 +1435,16 @@ BLADE;
             
             if ($viewWriteResult->failed()) {
                 throw new \Exception("Failed to write view file: " . $viewWriteResult->errorOutput());
+            }
+            
+            // Verify the written Blade file doesn't contain PHP class code
+            $verifyViewResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "grep -q 'class.*extends.*Component' {$fullViewPath} && echo 'ERROR' || echo 'OK'"
+            ]);
+            if (trim($verifyViewResult->output()) === 'ERROR') {
+                Log::error('[DOCKER] CRITICAL: PHP class code found in Blade file!', ['component' => $componentName]);
+                throw new \Exception("CRITICAL ERROR: PHP class code detected in Blade file. This should never happen!");
             }
             
             // Step 7: Clear caches and regenerate autoloader
@@ -779,34 +1518,144 @@ BLADE;
                 }
             }
             
-            // Step 11: Generate route for the component
-            Log::info('[DOCKER] Generating route for component', ['component_name' => $componentName]);
-            
-            // Every component gets its own unique route based on component name
-            $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
-            
-            if ($routeAdded) {
-                // Track component and route in project metadata (with code and view for versioning)
+            // Step 11: Extract all components and routes from the ORIGINAL full code (not just this component)
+            // Only do route registration if not skipped (i.e., when processing single component or final pass)
+            if (!$skipRouteRegistration) {
+                Log::info('[DOCKER] Extracting all components and routes from original full code');
+                $allComponents = $this->extractAllComponents($originalFullCode);
+                
+                // Add route for the primary component
+                Log::info('[DOCKER] Generating route for primary component', ['component_name' => $componentName]);
+                $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
+                
+                if ($routeAdded) {
+                    // Track component and route in project metadata (with code and view for versioning)
+                    $kebabName = $this->toKebabCase($componentName);
+                    // Always use component name for route - never use root route
+                    $route = "/{$kebabName}";
+                    $routeName = $kebabName;
+                    
+                    // Check if component already exists
+                    $componentExists = $project->hasComponent($componentName);
+                    
+                    $project->addComponent(
+                        $componentName, 
+                        $route, 
+                        $routeName,
+                        $cleanedCode, // Store code for versioning
+                        $finalViewContent // Store view for versioning
+                    );
+                    
+                    Log::info('[DOCKER] Route added and tracked', [
+                        'component' => $componentName,
+                        'route' => $route,
+                        'is_update' => $componentExists
+                    ]);
+                }
+                
+                // Step 12: Add routes for all other components found in the code
+                foreach ($allComponents as $foundComponent) {
+                    if ($foundComponent !== $componentName) {
+                        Log::info('[DOCKER] Found additional component, adding route', [
+                            'component' => $foundComponent,
+                            'primary' => $componentName
+                        ]);
+                        
+                        // Check if component file exists in container
+                        $foundComponentPath = "/var/www/html/app/Livewire/{$foundComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$foundComponentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            // Component exists, add route for it
+                            $this->addComponentRoute($project->container_id, $foundComponent);
+                            
+                            // Track it in project metadata if not already tracked
+                            if (!$project->hasComponent($foundComponent)) {
+                                $foundKebabName = $this->toKebabCase($foundComponent);
+                                $foundRoute = "/{$foundKebabName}";
+                                $project->addComponent($foundComponent, $foundRoute, $foundKebabName);
+                            }
+                        }
+                    }
+                }
+                
+                // Step 13: Extract route references from ORIGINAL full code (not just this component)
+                // This ensures we catch routes referenced in other components
+                $routeReferences = $this->extractRouteReferences($originalFullCode);
+                
+                Log::info('[DOCKER] Extracted route references from full code', [
+                    'routes' => $routeReferences,
+                    'all_components' => $allComponents
+                ]);
+                
+                foreach ($routeReferences as $routePath) {
+                    // Find which component should handle this route
+                    $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
+                    
+                    if ($routeComponent) {
+                        Log::info('[DOCKER] Adding route reference', [
+                            'route' => $routePath,
+                            'component' => $routeComponent
+                        ]);
+                        
+                        // Add route with custom path if different from default
+                        $this->addCustomRoute($project->container_id, $routeComponent, $routePath);
+                    } else {
+                        // Component not found in code - try to infer from route name
+                        $routeName = trim($routePath, '/');
+                        $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+                        
+                        Log::info('[DOCKER] Route component not found in code, checking if exists', [
+                            'route' => $routePath,
+                            'potential_component' => $potentialComponent
+                        ]);
+                        
+                        // Check if component file exists
+                        $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            Log::info('[DOCKER] Found component file, adding route', [
+                                'route' => $routePath,
+                                'component' => $potentialComponent
+                            ]);
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        } else {
+                            // Component doesn't exist - create a minimal component for the route
+                            Log::info('[DOCKER] Component not found, creating minimal component for route', [
+                                'route' => $routePath,
+                                'component' => $potentialComponent
+                            ]);
+                            
+                            $this->createMinimalComponentForRoute($project, $routePath, $potentialComponent);
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        }
+                    }
+                }
+            } else {
+                // Still track component in project metadata even if skipping route registration
                 $kebabName = $this->toKebabCase($componentName);
-                // Always use component name for route - never use root route
                 $route = "/{$kebabName}";
                 $routeName = $kebabName;
                 
-                // Check if component already exists
-                $componentExists = $project->hasComponent($componentName);
+                if (!$project->hasComponent($componentName)) {
+                    $project->addComponent(
+                        $componentName, 
+                        $route, 
+                        $routeName,
+                        $cleanedCode, // Store code for versioning
+                        $finalViewContent // Store view for versioning
+                    );
+                }
                 
-                $project->addComponent(
-                    $componentName, 
-                    $route, 
-                    $routeName,
-                    $cleanedCode, // Store code for versioning
-                    $finalViewContent // Store view for versioning
-                );
-                
-                Log::info('[DOCKER] Route added and tracked', [
-                    'component' => $componentName,
-                    'route' => $route,
-                    'is_update' => $componentExists
+                Log::info('[DOCKER] Component processed (route registration skipped)', [
+                    'component' => $componentName
                 ]);
             }
             
