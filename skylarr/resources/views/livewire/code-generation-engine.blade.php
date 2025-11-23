@@ -60,14 +60,26 @@
                         />
                     @endif
                     
-                    {{-- Theme Selector --}}
-                    <x-select 
-                        wire:model.live="selectedTheme" 
-                        :options="$availableThemes"
+                    {{-- Theme Selector Dropdown --}}
+                    @php
+                        $currentThemeName = collect($availableThemes)->firstWhere('id', $selectedTheme)['name'] ?? ucfirst($selectedTheme ?? 'light');
+                    @endphp
+                    <x-dropdown 
+                        :label="$currentThemeName"
                         icon="o-paint-brush"
-                        inline
-                        class="text-xs"
-                    />
+                        class="btn-xs btn-ghost"
+                        scroll
+                        max-height="max-h-64"
+                    >
+                        @foreach($availableThemes as $theme)
+                            <x-menu-item 
+                                :title="$theme['name']"
+                                :icon="$selectedTheme === $theme['id'] ? 'o-check-circle' : 'o-paint-brush'"
+                                :class="$selectedTheme === $theme['id'] ? 'text-primary font-semibold' : ''"
+                                wire:click.stop="$set('selectedTheme', '{{ $theme['id'] }}')"
+                            />
+                        @endforeach
+                    </x-dropdown>
                     
                     {{-- Open in New Window --}}
                     <a 
