@@ -105,9 +105,10 @@
                 <div class="flex-1">
                     <textarea 
                         wire:model="message" 
-                        placeholder="Type your message here..." 
-                        rows="2" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)" 
+                        rows="4" 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl resize-none text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:border-gray-400"
+                        style="min-height: 80px; max-height: 200px;"
                         @if($isStreaming) disabled @endif
                         x-on:keydown.enter.prevent="if (!event.shiftKey && $wire.message.trim()) { $wire.sendMessage(); }"
                     ></textarea>

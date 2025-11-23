@@ -158,8 +158,32 @@
                                 </div>
                                 
                                 {{-- Loading text with animation --}}
-                                <h3 class="text-xl font-semibold text-green-400 mb-2">Generating Code...</h3>
-                                <p class="text-sm text-gray-400 mb-4">Creating your Livewire component</p>
+                                <h3 class="text-xl font-semibold text-green-400 mb-2">
+                                    @if($generationStatus === 'generating')
+                                        Generating Code...
+                                    @elseif($generationStatus === 'validating')
+                                        Validating & Injecting Code...
+                                    @elseif($generationStatus === 'debugging')
+                                        Debugging Issues...
+                                    @elseif($generationStatus === 'fixing')
+                                        Fixing Bugs Automatically...
+                                    @else
+                                        Processing...
+                                    @endif
+                                </h3>
+                                <p class="text-sm text-gray-400 mb-4">
+                                    @if($generationStatus === 'generating')
+                                        Creating your Livewire component with AI
+                                    @elseif($generationStatus === 'validating')
+                                        Checking code and setting up preview
+                                    @elseif($generationStatus === 'debugging')
+                                        Analyzing errors and preparing fixes
+                                    @elseif($generationStatus === 'fixing')
+                                        Auto-fixing detected issues
+                                    @else
+                                        Working on your component
+                                    @endif
+                                </p>
                                 
                                 {{-- Animated dots --}}
                                 <div class="flex justify-center gap-1">
@@ -353,10 +377,28 @@
                     </div>
                 </div>
             @elseif($isGenerating)
-                <div class="flex-1 flex items-center justify-center" style="min-height: 0;">
+                <div class="flex-1 flex items-center justify-center bg-gray-50 rounded-lg" style="min-height: 0;">
                     <div class="text-center">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                        <p class="text-sm text-gray-600">Generating code...</p>
+                        <div class="relative mb-4">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <x-icon name="o-code-bracket" class="w-6 h-6 text-blue-500" />
+                            </div>
+                        </div>
+                        <p class="text-sm font-medium text-gray-700">
+                            @if($generationStatus === 'generating')
+                                Generating code...
+                            @elseif($generationStatus === 'validating')
+                                Validating & injecting code...
+                            @elseif($generationStatus === 'debugging')
+                                Debugging issues...
+                            @elseif($generationStatus === 'fixing')
+                                Fixing bugs automatically...
+                            @else
+                                Processing...
+                            @endif
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">This may take a moment</p>
                     </div>
                 </div>
             @else

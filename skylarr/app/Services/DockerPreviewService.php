@@ -73,6 +73,9 @@ class DockerPreviewService
             // Ensure storage directories are writable
             $this->ensureStoragePermissions($containerId);
             
+            // Ensure required layout components exist
+            $this->ensureLayoutComponents($containerId);
+            
             Log::info("Successfully created container for project {$project->id}", [
                 'container_id' => $containerId,
                 'preview_url' => $previewUrl
@@ -105,6 +108,8 @@ class DockerPreviewService
                 $this->fixPailServiceProviderError($project->container_id);
                 // Ensure storage permissions
                 $this->ensureStoragePermissions($project->container_id);
+                // Ensure required layout components exist
+                $this->ensureLayoutComponents($project->container_id);
                 $project->touchLastAccessed();
                 return $project->preview_url;
             }
@@ -1464,7 +1469,16 @@ BLADE;
                 $fixResult = $this->autoFixComponentIssues($project->container_id, $componentName, $validationResult['errors']);
                 
                 if ($fixResult['fixed']) {
-                    Log::info('[DOCKER] Auto-fix applied, re-validating');
+                    Log::info('[DOCKER] Auto-fix applied', [
+                        'fixes' => $fixResult['fixes_applied']
+                    ]);
+                    
+                    // Store fix information for user notification
+                    $project->setGenerationState([
+                        'auto_fixes' => $fixResult['fixes_applied'] ?? [],
+                        'fixes_applied_at' => now()->toISOString()
+                    ]);
+                    
                     // Re-validate after fix
                     $validationResult = $this->validateComponentCode($project->container_id, $componentName);
                 }
@@ -2371,7 +2385,25 @@ BLADE;
                 $errors[] = "View compilation error: " . substr($viewCompileCheck->errorOutput(), 0, 200);
             }
             
-            // Check 6: Runtime error detection - check Laravel logs for recent errors
+            // Check 6: Detect invalid icon names in Blade files (proactive check)
+            $kebabName = $this->toKebabCase($componentName);
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            $viewCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "test -f {$viewPath} && echo 'exists' || echo 'missing'"
+            ]);
+            
+            if (trim($viewCheck->output()) === 'exists') {
+                $viewContent = $this->readFileFromContainer($containerId, $viewPath);
+                $invalidIcons = $this->detectInvalidIcons($viewContent);
+                if (!empty($invalidIcons)) {
+                    foreach ($invalidIcons as $invalidIcon) {
+                        $errors[] = "Invalid icon name: {$invalidIcon}";
+                    }
+                }
+            }
+            
+            // Check 7: Runtime error detection - check Laravel logs for recent errors
             $runtimeErrors = $this->checkRuntimeErrors($containerId, $componentName);
             if (!empty($runtimeErrors)) {
                 $errors = array_merge($errors, $runtimeErrors);
@@ -2467,7 +2499,13 @@ BLADE;
                 $logOutput = $logCheck->output();
                 if (!empty($logOutput)) {
                     // Extract error message
-                    if (preg_match('/ErrorException: (.+?)(?:\n|$)/', $logOutput, $matches)) {
+                    if (preg_match('/SvgNotFound.*?by name "([^"]+)" from set/', $logOutput, $matches)) {
+                        $invalidIcon = $matches[1];
+                        $errors[] = "Invalid icon: {$invalidIcon} (SvgNotFound)";
+                    } elseif (preg_match('/Unable to locate.*?component \[([^\]]+)\]/', $logOutput, $matches)) {
+                        $missingComponent = $matches[1];
+                        $errors[] = "Missing component: {$missingComponent}";
+                    } elseif (preg_match('/ErrorException: (.+?)(?:\n|$)/', $logOutput, $matches)) {
                         $errorMsg = trim($matches[1]);
                         $errors[] = "Runtime error: {$errorMsg}";
                     } elseif (preg_match('/Attempt to read property "([^"]+)" on null/', $logOutput, $matches)) {
@@ -2602,7 +2640,44 @@ BLADE;
                 }
             }
             
-            // Fix 6: Null property access errors in Blade templates
+            // Fix 6: Invalid icon names
+            $iconErrors = array_filter($errors, function($error) {
+                return str_contains($error, 'Invalid icon') || str_contains($error, 'SvgNotFound');
+            });
+            
+            if (!empty($iconErrors)) {
+                $viewContent = $this->readFileFromContainer($containerId, $viewPath); // Re-read after namespace fix
+                $iconFixResult = $this->fixInvalidIcons($viewContent);
+                if ($iconFixResult['fixed']) {
+                    $escapedView = escapeshellarg($iconFixResult['content']);
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', "echo {$escapedView} > {$viewPath}"
+                    ]);
+                    $fixesApplied = array_merge($fixesApplied, $iconFixResult['fixes']);
+                    $fixed = true;
+                }
+            }
+            
+            // Fix 7: Missing components (like layouts.app-with-sidebar)
+            $missingComponentErrors = array_filter($errors, function($error) {
+                return str_contains($error, 'Missing component') || str_contains($error, 'Unable to locate');
+            });
+            
+            if (!empty($missingComponentErrors)) {
+                foreach ($missingComponentErrors as $error) {
+                    if (preg_match('/Missing component: ([^\s]+)|Unable to locate.*?component \[([^\]]+)\]/', $error, $matches)) {
+                        $missingComponent = $matches[1] ?? $matches[2];
+                        if ($missingComponent === 'layouts.app-with-sidebar') {
+                            $this->ensureLayoutComponents($containerId);
+                            $fixesApplied[] = 'Created missing layout component: app-with-sidebar';
+                            $fixed = true;
+                        }
+                    }
+                }
+            }
+            
+            // Fix 8: Null property access errors in Blade templates
             $nullPropertyErrors = array_filter($errors, function($error) {
                 return str_contains($error, 'Attempt to read property') && str_contains($error, 'on null');
             });
@@ -2621,7 +2696,7 @@ BLADE;
                 }
             }
             
-            // Fix 6: Clear caches after fixes
+            // Fix 9: Clear caches after fixes
             if ($fixed) {
                 $this->restartLaravelInContainer($containerId);
                 $fixesApplied[] = 'Cleared caches';
@@ -2694,6 +2769,87 @@ BLADE;
         );
         
         return $fixed;
+    }
+    
+    /**
+     * Detect invalid icon names in Blade content.
+     * Returns array of invalid icon names found.
+     */
+    private function detectInvalidIcons(string $viewContent): array
+    {
+        $invalidIcons = [];
+        
+        // Map of common invalid icons to their correct replacements
+        $iconReplacements = [
+            'o-dollar-sign' => 'o-currency-dollar',
+            'o-dollar' => 'o-currency-dollar',
+            'o-cart' => 'o-shopping-cart',
+            'o-chart-bar-square' => 'o-chart-bar',
+            'o-chart-line' => 'o-chart-bar',
+            'o-user' => 'o-users', // Single user icon doesn't exist, use users
+        ];
+        
+        // Find all icon references in the content
+        // Pattern: icon="o-..." or name="o-..."
+        preg_match_all('/(?:icon|name)=["\'](o-[^"\']+)["\']/', $viewContent, $matches);
+        
+        if (!empty($matches[1])) {
+            foreach ($matches[1] as $iconName) {
+                // Check if it's in our replacement map
+                if (isset($iconReplacements[$iconName])) {
+                    $invalidIcons[] = $iconName;
+                }
+            }
+        }
+        
+        return array_unique($invalidIcons);
+    }
+    
+    /**
+     * Fix invalid icon names in Blade content.
+     * Returns array with 'fixed' boolean, 'content' string, and 'fixes' array.
+     */
+    private function fixInvalidIcons(string $viewContent): array
+    {
+        $fixed = false;
+        $fixes = [];
+        $fixedContent = $viewContent;
+        
+        // Map of invalid icons to correct Heroicons names
+        $iconReplacements = [
+            'o-dollar-sign' => 'o-currency-dollar',
+            'o-dollar' => 'o-currency-dollar',
+            'o-cart' => 'o-shopping-cart',
+            'o-chart-bar-square' => 'o-chart-bar',
+            'o-chart-line' => 'o-chart-bar',
+            'o-user' => 'o-users',
+        ];
+        
+        foreach ($iconReplacements as $invalidIcon => $correctIcon) {
+            // Replace in icon="..." attributes
+            $pattern1 = '/(icon=["\'])(' . preg_quote($invalidIcon, '/') . ')(["\'])/';
+            if (preg_match($pattern1, $fixedContent)) {
+                $fixedContent = preg_replace($pattern1, '$1' . $correctIcon . '$3', $fixedContent);
+                $fixes[] = "Fixed icon: {$invalidIcon} → {$correctIcon}";
+                $fixed = true;
+            }
+            
+            // Replace in name="..." attributes (for x-icon components)
+            $pattern2 = '/(name=["\'])(' . preg_quote($invalidIcon, '/') . ')(["\'])/';
+            if (preg_match($pattern2, $fixedContent)) {
+                $fixedContent = preg_replace($pattern2, '$1' . $correctIcon . '$3', $fixedContent);
+                if (!in_array("Fixed icon: {$invalidIcon} → {$correctIcon}", $fixes)) {
+                    $fixes[] = "Fixed icon: {$invalidIcon} → {$correctIcon}";
+                }
+                $fixed = true;
+            }
+        }
+        
+        return [
+            'fixed' => $fixed,
+            'content' => $fixedContent,
+            'fixes' => $fixes
+        ];
     }
     
     /**
@@ -2884,6 +3040,115 @@ BLADE;
             return true;
         } catch (\Exception $e) {
             Log::error('[DOCKER] Failed to ensure storage permissions', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
+    /**
+     * Ensure required layout components exist in the preview container.
+     * This includes the app-with-sidebar component used by dashboards.
+     */
+    public function ensureLayoutComponents(string $containerId): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                return false;
+            }
+            
+            // Ensure the layouts directory exists
+            $layoutsDir = '/var/www/html/resources/views/components/layouts';
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "mkdir -p {$layoutsDir} 2>/dev/null || true"
+            ]);
+            
+            // Create the app-with-sidebar component
+            $sidebarLayoutPath = "{$layoutsDir}/app-with-sidebar.blade.php";
+            $sidebarLayoutContent = <<<'BLADE'
+<div>
+    {{-- NAVBAR mobile only --}}
+    <x-nav sticky class="lg:hidden">
+        <x-slot:brand>
+            <div class="ml-5 pt-5">App</div>
+        </x-slot:brand>
+        <x-slot:actions>
+            <label for="main-drawer" class="lg:hidden mr-3">
+                <x-icon name="o-bars-3" class="cursor-pointer" />
+            </label>
+        </x-slot:actions>
+    </x-nav>
+
+    {{-- MAIN --}}
+    <x-main full-width>
+        {{-- SIDEBAR --}}
+        <x-slot:sidebar 
+            drawer="main-drawer" 
+            collapsible 
+            collapse-text="Hide it"
+            class="bg-base-100 lg:bg-inherit"
+            left
+            left-mobile
+        >
+            {{-- BRAND --}}
+            <div class="ml-5 pt-5">App</div>
+
+            {{-- MENU --}}
+            <x-menu activate-by-route>
+                <x-menu-item title="Home" icon="o-sparkles" link="/" />
+                <x-menu-item title="Users" icon="o-users" link="/users" />
+                <x-menu-item title="Settings" icon="o-cog-6-tooth" link="/settings" />
+                <x-menu-item title="Logout" icon="o-power" link="/logout" />
+            </x-menu>
+        </x-slot:sidebar>
+
+        {{-- The `$slot` goes here --}}
+        <x-slot:content>
+            {{ $slot }}
+        </x-slot:content>
+    </x-main>
+
+    {{-- Toast --}}
+    <x-toast />
+</div>
+BLADE;
+            
+            // Check if the file already exists
+            $checkResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "test -f {$sidebarLayoutPath} && echo 'exists' || echo 'missing'"
+            ]);
+            
+            if (trim($checkResult->output()) !== 'exists') {
+                // Create the file
+                $escapedContent = escapeshellarg($sidebarLayoutContent);
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "echo {$escapedContent} > {$sidebarLayoutPath}"
+                ]);
+                
+                // Set proper permissions
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "chown www-data:www-data {$sidebarLayoutPath} 2>/dev/null || true && chmod 644 {$sidebarLayoutPath} 2>/dev/null || true"
+                ]);
+                
+                Log::info('[DOCKER] Created app-with-sidebar layout component', ['container_id' => $containerId]);
+            } else {
+                Log::debug('[DOCKER] app-with-sidebar layout component already exists', ['container_id' => $containerId]);
+            }
+            
+            // Clear view cache to ensure the new component is recognized
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan view:clear 2>/dev/null || true'
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Failed to ensure layout components', [
                 'container_id' => $containerId,
                 'error' => $e->getMessage()
             ]);

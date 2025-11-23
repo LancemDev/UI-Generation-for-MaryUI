@@ -174,9 +174,21 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
    - Use `activate-by-route` on `<x-menu>` for automatic active state highlighting
 7. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 8. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
-9. **MULTIPLE COMPONENTS** - If the user requests multiple components (e.g., "login form, register form, and dashboard"), generate ALL components in separate code blocks. Each component should be complete with its own ===PHP=== and ===BLADE=== sections. Use redirect()->to('/route-path') to navigate between components.
-10. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
-11. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
+9. **MULTIPLE COMPONENTS - CRITICAL FOR DASHBOARDS** - When user requests a "dashboard with sidebar navigation" or "multi-page application":
+   - You MUST generate SEPARATE components for EACH sidebar menu item/page
+   - Each sidebar item should be its own component with its own route
+   - Example: If sidebar has "Dashboard", "Users", "Orders", "Settings" - generate 4 separate components:
+     * DashboardComponent (main dashboard with stats)
+     * UsersComponent (users management page)
+     * OrdersComponent (orders management page)
+     * SettingsComponent (settings page)
+   - Each component uses `<x-layouts.app-with-sidebar>` and contains its specific content
+   - Sidebar menu in layout should have `<x-menu-item>` with `link` attributes pointing to each route (e.g., link="/dashboard", link="/users", link="/orders")
+   - NEVER create a single component with all content - that's lazy and wrong
+   - If user says "dashboard with sidebar showing X, Y, Z", create separate pages for X, Y, Z PLUS a main dashboard page
+10. **MULTIPLE COMPONENTS (GENERAL)** - If the user requests multiple components (e.g., "login form, register form, and dashboard"), generate ALL components in separate code blocks. Each component should be complete with its own ===PHP=== and ===BLADE=== sections. Use redirect()->to('/route-path') to navigate between components.
+11. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
+12. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
 
 OUTPUT FORMAT - You MUST return code in this exact format:
 
@@ -246,6 +258,8 @@ FOR DASHBOARDS AND MULTI-PAGE APPS: ALWAYS use the shared layout component patte
         <!-- Page content here - use MaryUI components -->
         <x-card title="Dashboard">
             <x-stat label="Users" value="1,234" icon="o-users" />
+            <x-stat label="Revenue" value="$5,678" icon="o-currency-dollar" />
+            <x-stat label="Orders" value="456" icon="o-shopping-cart" />
         </x-card>
     </div>
 </x-layouts.app-with-sidebar>
@@ -452,7 +466,13 @@ REQUIRED:
 - Keep Blade views clean - just form inputs, no manual error handling
 - Empty states when no data is available
 - Proper spacing, typography, and visual hierarchy
-- Icons from Heroicons (using x-icon component)
+- Icons from Heroicons (using x-icon component with "o-" prefix for outline icons)
+  CRITICAL: Only use icons that exist in Heroicons v2.1.5 (https://heroicons.com/)
+  Common valid icons: o-users, o-cog-6-tooth, o-sparkles, o-power, o-trash, o-pencil, o-plus, o-magnifying-glass, o-inbox, o-paper-airplane
+  For currency/money: use "o-currency-dollar" (NOT "o-dollar-sign"), "o-currency-euro", "o-currency-pound", etc.
+  For shopping: use "o-shopping-cart" or "o-shopping-bag" (NOT "o-cart")
+  For charts: use "o-chart-bar", "o-chart-pie" (NOT "o-chart-bar-square")
+  Always verify icon names match exactly what's on https://heroicons.com/ - use the exact name with "o-" prefix
 - Loading states with spinners on async actions (spinner="methodName" attribute)
 - Confirmation dialogs for destructive actions (wire:confirm="Are you sure?")
 - Holistic user experience - think about the complete flow, not just individual elements

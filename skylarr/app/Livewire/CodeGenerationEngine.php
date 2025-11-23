@@ -23,6 +23,7 @@ class CodeGenerationEngine extends Component
     public bool $isGenerating = false;
     public bool $previewReady = false;
     public string $activeTab = 'preview';
+    public string $generationStatus = ''; // Track current generation stage: 'generating', 'debugging', 'fixing', 'validating', 'ready'
     public array $projectFiles = [];
     public array $projectFilesTree = [];
     public string $selectedFile = '';
@@ -275,6 +276,7 @@ class CodeGenerationEngine extends Component
         $this->isGenerating = true;
         $this->previewReady = false;
         $this->generatedCode = ''; // Clear previous code to show loader
+        $this->generationStatus = 'generating'; // Set initial status
         
         // Livewire 3 automatically re-renders when properties change
         // No need for explicit refresh - property updates trigger re-renders
@@ -500,6 +502,8 @@ class CodeGenerationEngine extends Component
                 'component_name' => $this->componentName
             ]);
             
+            $this->generationStatus = 'validating'; // Update status to validating
+            
             $success = $dockerService->injectCode(
                 $this->currentProject,
                 $this->generatedCode,
@@ -544,6 +548,34 @@ class CodeGenerationEngine extends Component
                                 $this->generatedCode,
                                 $fullPreviewUrl
                             );
+                            
+                            // Check for auto-fixes and notify user
+                            $state = $this->currentProject->getGenerationState();
+                            $autoFixes = $state['auto_fixes'] ?? [];
+                            if (!empty($autoFixes)) {
+                                $this->generationStatus = 'fixing'; // Update status to show we're fixing
+                                $this->dispatch('$refresh'); // Force UI update
+                                
+                                $fixCount = count($autoFixes);
+                                $fixMessage = $fixCount === 1 
+                                    ? "Fixed 1 issue: " . $autoFixes[0]
+                                    : "Fixed {$fixCount} issues automatically";
+                                
+                                NotificationService::info(
+                                    'Bugs Fixed Automatically',
+                                    $fixMessage . ". Your component is ready!",
+                                    $this->currentProject->id,
+                                    ['fixes' => $autoFixes, 'component_name' => $this->componentName]
+                                );
+                                
+                                $this->dispatch('notification-created');
+                                
+                                Log::info('[CODE_GEN] Auto-fixes applied and user notified', [
+                                    'fixes' => $autoFixes,
+                                    'component' => $this->componentName
+                                ]);
+                            }
+                            
                             // Also set preview_ready flag
                             $this->currentProject->setGenerationState([
                                 'preview_ready' => true,
@@ -552,6 +584,7 @@ class CodeGenerationEngine extends Component
                         
                         // NOW clear the generating flag after everything is complete
                         $this->isGenerating = false;
+                        $this->generationStatus = 'ready';
                 
                 Log::info('[CODE_GEN] Preview ready', [
                     'preview_url' => $this->previewUrl,
