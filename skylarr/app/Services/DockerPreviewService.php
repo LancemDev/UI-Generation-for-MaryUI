@@ -660,6 +660,19 @@ class DockerPreviewService
                 $finalViewContent = preg_replace('/\n?```\s*$/m', '', $finalViewContent);
                 $finalViewContent = trim($finalViewContent);
                 
+                // CRITICAL: Remove any explanatory text that might appear in Blade files
+                // Remove text that looks like descriptions/explanations (not code)
+                // Pattern: Sentences that don't contain HTML/Blade syntax
+                $finalViewContent = preg_replace('/^(This code|This creates|The following|The code|This component|This form|This modal|This table|This dashboard|This view|This page)[^<]*?(\n|$)/im', '', $finalViewContent);
+                $finalViewContent = preg_replace('/^(The modal|The form|The component|The table|The dashboard|The view|The page)[^<]*?(\n|$)/im', '', $finalViewContent);
+                // Remove paragraphs that are pure text (no HTML/Blade syntax) - matches sentences ending with period
+                $finalViewContent = preg_replace('/^([A-Z][^<]*?\.)(\s*\n)/m', '', $finalViewContent);
+                // Remove multi-sentence explanatory paragraphs (common pattern from AI)
+                $finalViewContent = preg_replace('/^(This code creates[^<]*?\.)(\s*\n)/im', '', $finalViewContent);
+                $finalViewContent = preg_replace('/^(The modal is initially hidden[^<]*?\.)(\s*\n)/im', '', $finalViewContent);
+                // Remove any text blocks that don't start with < or @ (HTML/Blade syntax)
+                $finalViewContent = preg_replace('/^([^<@][^<@\n]*?\.)(\s*\n)/m', '', $finalViewContent);
+                
                 // CRITICAL: Remove any PHP namespace declarations from Blade files
                 // Blade files should NEVER contain namespace declarations
                 $finalViewContent = preg_replace('/<\?php\s*namespace[^;]+;/', '', $finalViewContent);

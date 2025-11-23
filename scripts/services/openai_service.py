@@ -159,6 +159,10 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
 
 OUTPUT FORMAT - You MUST return code in this exact format:
 
+CRITICAL: DO NOT include any explanatory text, descriptions, or comments outside the code blocks. 
+ONLY output the code markers (===PHP===, ===BLADE===, ===END===) and the actual code.
+DO NOT add text like "This code creates..." or "The following code..." - just output the code directly.
+
 ===PHP===
 <?php
 namespace App\\Livewire;
@@ -459,8 +463,15 @@ ROUTING NOTE:
         php_part = parts[0].replace("===PHP===", "").strip()
         blade_part = parts[1].replace("===END===", "").strip() if len(parts) > 1 else ""
         
-        php_code = php_part
-        blade_code = blade_part
+        # Remove any explanatory text from Blade part (common patterns)
+        import re
+        blade_part = re.sub(r'^(This code|This creates|The following|The code|This component|This form|This modal|This table|This dashboard)[^<]*?(\n|$)', '', blade_part, flags=re.IGNORECASE | re.MULTILINE)
+        blade_part = re.sub(r'^(The modal|The form|The component|The table|The dashboard)[^<]*?(\n|$)', '', blade_part, flags=re.IGNORECASE | re.MULTILINE)
+        # Remove paragraphs that are pure text (no HTML/Blade syntax) at the start
+        blade_part = re.sub(r'^([A-Z][^<]*?\.)(\s*\n)', '', blade_part, flags=re.MULTILINE)
+        
+        php_code = php_part.strip()
+        blade_code = blade_part.strip()
     elif "===BLADE===" in content:
         # Only Blade provided, extract it
         blade_code = content.split("===BLADE===")[1].replace("===END===", "").strip()
