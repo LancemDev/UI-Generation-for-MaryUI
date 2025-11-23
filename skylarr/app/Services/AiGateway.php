@@ -49,20 +49,23 @@ class AiGateway
      * Generate code using the Python FastAPI service.
      *
      * @param string $prompt
+     * @param array<int, array{role:string, content:string}> $conversationHistory Conversation history for context
      * @return array{success: bool, code?: string, component_name?: string, message?: string}
      */
-    public function generateCode(string $prompt): array
+    public function generateCode(string $prompt, array $conversationHistory = []): array
     {
         $baseUrl = config('services.aigateway.url', env('PY_BACKEND_URL', 'http://127.0.0.1:8001'));
         
         Log::info('[AI_GATEWAY] Starting code generation', [
             'url' => $baseUrl,
-            'prompt_length' => strlen($prompt)
+            'prompt_length' => strlen($prompt),
+            'history_count' => count($conversationHistory)
         ]);
         
         try {
             $response = Http::timeout(60)->post(rtrim($baseUrl, '/') . '/generate/code', [
                 'prompt' => $prompt,
+                'messages' => $conversationHistory, // Pass conversation history for context
                 'model' => config('services.openai.model', 'gpt-4'),
                 'temperature' => 0.1,
                 'max_tokens' => 4096, // Increased for complete code with views

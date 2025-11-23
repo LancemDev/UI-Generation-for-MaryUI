@@ -67,6 +67,7 @@ def extract_component_name(prompt: str, code: str = "") -> str:
 
 def generate_code(
     prompt: str,
+    messages: list[dict] | None = None,
     model: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 4096,
@@ -78,6 +79,7 @@ def generate_code(
 
     Args:
         prompt: Natural language description of the code to generate.
+        messages: Optional conversation history for context. Format: [{'role': 'user'|'assistant', 'content': '...'}, ...]
         model: Optional model override. Defaults to env OPENAI_MODEL or "gpt-4o-mini".
         temperature: Sampling temperature for creativity.
         max_tokens: Maximum tokens in the completion (increased for complete code).
@@ -95,26 +97,71 @@ def generate_code(
     gnn_service = get_gnn_service()
     gnn_context = gnn_service.get_enhanced_context(prompt)
     
+    # Check if this is a follow-up request (updating existing component)
+    is_followup = False
+    existing_component_name = None
+    if messages:
+        # Look for component names in conversation history
+        for msg in reversed(messages):
+            if msg.get('role') == 'assistant' and msg.get('content'):
+                content = msg['content']
+                # Extract component name from messages like "I've created the `ComponentName` component"
+                import re
+                match = re.search(r'`([A-Z][a-zA-Z0-9]+)`', content)
+                if match:
+                    existing_component_name = match.group(1)
+                    is_followup = True
+                    break
+                # Also check for component names in code blocks or explicit mentions
+                match = re.search(r'(RegisterForm|LoginForm|UserForm|Dashboard|ComponentName)', content)
+                if match:
+                    existing_component_name = match.group(1)
+                    is_followup = True
+                    break
+    
+    followup_instruction = ""
+    if is_followup and existing_component_name:
+        followup_instruction = f"""
+IMPORTANT: This is a FOLLOW-UP request to UPDATE an existing component named "{existing_component_name}".
+- You MUST use the EXACT same component class name: {existing_component_name}
+- UPDATE the existing component by adding/modifying fields, methods, or views as requested
+- DO NOT create a new component with a different name
+- Preserve existing functionality unless explicitly asked to change it
+- The user wants to modify the existing {existing_component_name} component, not create a new one
+"""
+    
     system_message = f"""You are Skylarr, an AI assistant that generates PRODUCTION-READY, HOLISTIC Laravel Livewire components with complete, beautiful Blade views using MaryUI.
 
 MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI and Tailwind CSS.
 Available MaryUI components include: x-form, x-input, x-textarea, x-select, x-checkbox, x-radio, x-button, x-card, x-modal, x-table, x-badge, x-alert, x-dropdown, x-tabs, x-avatar, x-progress, x-link, x-stat, x-menu, and more.
 
 {gnn_context}
+{followup_instruction}
 
 CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC CODE:
+
+0. **BLADE FILES ARE PURE TEMPLATES** - Blade view files (.blade.php) must NEVER contain:
+   - PHP namespace declarations (namespace App\\Livewire;)
+   - PHP opening tags (<?php)
+   - use statements
+   - Any PHP code outside Blade directives
+   Blade files should ONLY contain HTML, Blade syntax ({{ }}, @if, etc.), and MaryUI components.
 
 1. **GENERATE BOTH PHP CLASS AND COMPLETE BLADE VIEW** - Do not use placeholders like "component here" or "<!-- Component view content -->"
 2. **USE MARYUI COMPONENTS** - Use proper MaryUI components (x-form, x-input, x-button, etc.) with proper styling
 3. **BEAUTIFUL, MODERN UI** - Create polished, professional-looking interfaces with proper spacing, colors, and layout
 4. **COMPLETE FUNCTIONALITY** - Include all necessary properties, methods, validation, and user interactions
-5. **PROPER TAILWIND STYLING** - Use Tailwind CSS classes for spacing, colors, typography, and responsive design
+5. **MINIMAL STYLING** - MaryUI components are pre-styled. Use minimal wrapper divs (just <div>), avoid unnecessary Tailwind utility classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto. Let MaryUI handle the styling.
 6. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 7. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
 8. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
 9. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
 
 OUTPUT FORMAT - You MUST return code in this exact format:
+
+CRITICAL: DO NOT include any explanatory text, descriptions, or comments outside the code blocks. 
+ONLY output the code markers (===PHP===, ===BLADE===, ===END===) and the actual code.
+DO NOT add text like "This code creates..." or "The following code..." - just output the code directly.
 
 ===PHP===
 <?php
@@ -149,32 +196,78 @@ class ComponentName extends Component
     }}
 }}
 ===BLADE===
-<div class="min-h-screen bg-gray-50 py-12 px-4">
-    <div class="max-w-2xl mx-auto">
-        <x-card class="shadow-xl">
-            <x-slot:header>
-                <h2 class="text-3xl font-bold">Create Account</h2>
-            </x-slot:header>
-            
-            <x-form wire:submit="submit" class="space-y-6">
-                <x-input label="Name" wire:model="name" class="input-bordered" />
-                <x-input label="Email" type="email" wire:model="email" class="input-bordered" />
-                
-                <x-slot:actions>
-                    <x-button type="submit" class="btn-primary" spinner="submit">Submit</x-button>
-                </x-slot:actions>
-            </x-form>
-        </x-card>
-    </div>
+CRITICAL: Blade view files are PURE TEMPLATE FILES - they must NEVER contain:
+- PHP namespace declarations (namespace App\\Livewire;)
+- PHP opening tags (<?php)
+- use statements
+- Any PHP code outside of Blade directives ({{ }}, @if, @foreach, etc.)
+
+Blade files should ONLY contain HTML, Blade directives, and MaryUI components.
+
+MINIMALISM IS KEY: MaryUI components are already beautifully styled. DO NOT add unnecessary wrapper divs with Tailwind classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto, etc. Keep it simple - just use a basic <div> wrapper and let MaryUI handle the styling.
+
+Example of MINIMAL, CORRECT approach:
+<div>
+    <x-button wire:click="openRegisterModal" label="Register"/>
+    <x-button wire:click="openLoginModal" label="Login" />
+
+    <x-modal wire:model="registerModal">
+        <x-form wire:submit="registerUser">
+            <x-input wire:model="name" label="Name" />
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Register</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
+
+    <x-modal wire:model="loginModal">
+        <x-form wire:submit="loginUser">
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Login</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
 </div>
 ===END===
 
-EXAMPLES OF HOLISTIC, PRODUCTION-READY BLADE VIEWS:
+MINIMALISM PRINCIPLE: MaryUI components are pre-styled and beautiful. DO NOT wrap them in unnecessary divs with Tailwind utility classes. Use a simple <div> wrapper and let MaryUI handle styling.
+
+REFERENCE EXAMPLE - Minimal Authentication (from https://dev.to/lancemdev/laravel-authentication-with-maryui-fmb):
+<div>
+    <x-button wire:click="openRegisterModal" label="Register"/>
+    <x-button wire:click="openLoginModal" label="Login" />
+
+    <x-modal wire:model="registerModal">
+        <x-form wire:submit="registerUser">
+            <x-input wire:model="name" label="Name" />
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Register</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
+
+    <x-modal wire:model="loginModal">
+        <x-form wire:submit="loginUser">
+            <x-input wire:model="email" label="Email" type="email" />
+            <x-input wire:model="password" label="Password" type="password" />
+            <x-slot:actions>
+                <x-button type="submit">Login</x-button>
+            </x-slot:actions>
+        </x-form>
+    </x-modal>
+</div>
+
+EXAMPLES OF HOLISTIC, PRODUCTION-READY BLADE VIEWS (MINIMAL APPROACH):
 
 Complete Form with Validation Feedback:
-<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-2xl mx-auto">
-        <x-card class="shadow-xl">
+<div>
+        <x-card>
             <x-slot:header>
                 <div class="flex items-center justify-between">
                     <h2 class="text-3xl font-bold text-gray-900">Create Account</h2>
@@ -214,7 +307,6 @@ Complete Form with Validation Feedback:
                 </x-slot:actions>
             </x-form>
         </x-card>
-    </div>
 </div>
 
 CRITICAL - MARYUI AUTOMATIC FEATURES:
@@ -225,9 +317,8 @@ CRITICAL - MARYUI AUTOMATIC FEATURES:
 - Just use clean form inputs - validation errors and toasts are handled automatically by the framework
 
 Complete Data Table with Search and Actions:
-<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-7xl mx-auto">
-        <x-card class="shadow-xl">
+<div>
+        <x-card>
             <x-slot:header>
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
@@ -250,8 +341,8 @@ Complete Data Table with Search and Actions:
             </div>
             
             @if($users->isEmpty())
-                <div class="text-center py-12">
-                    <x-icon name="o-inbox" class="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                <div>
+                    <x-icon name="o-inbox" />
                     <p class="text-gray-500">No users found</p>
                 </div>
             @else
@@ -295,7 +386,6 @@ Complete Data Table with Search and Actions:
                 </div>
             @endif
         </x-card>
-    </div>
 </div>
 
 FORBIDDEN:
@@ -329,14 +419,25 @@ ROUTING NOTE:
 - Consider navigation between related components if applicable
 - Use proper Livewire wire:model, wire:click, wire:submit for interactivity"""
 
+    # Build messages array with conversation history
+    messages_list = [
+        {"role": "system", "content": system_message},
+    ]
+    
+    # Add conversation history if provided (for conversational context)
+    if messages:
+        # Filter out system messages from history (we already have one)
+        conversation_messages = [msg for msg in messages if msg.get("role") != "system"]
+        messages_list.extend(conversation_messages)
+    
+    # Add the current prompt as the final user message
+    messages_list.append({"role": "user", "content": prompt})
+    
     completion = client.chat.completions.create(
         model=selected_model,
         temperature=temperature,
         max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt},
-        ],
+        messages=messages_list,
     )
 
     content = completion.choices[0].message.content if completion.choices else ""
@@ -362,8 +463,15 @@ ROUTING NOTE:
         php_part = parts[0].replace("===PHP===", "").strip()
         blade_part = parts[1].replace("===END===", "").strip() if len(parts) > 1 else ""
         
-        php_code = php_part
-        blade_code = blade_part
+        # Remove any explanatory text from Blade part (common patterns)
+        import re
+        blade_part = re.sub(r'^(This code|This creates|The following|The code|This component|This form|This modal|This table|This dashboard)[^<]*?(\n|$)', '', blade_part, flags=re.IGNORECASE | re.MULTILINE)
+        blade_part = re.sub(r'^(The modal|The form|The component|The table|The dashboard)[^<]*?(\n|$)', '', blade_part, flags=re.IGNORECASE | re.MULTILINE)
+        # Remove paragraphs that are pure text (no HTML/Blade syntax) at the start
+        blade_part = re.sub(r'^([A-Z][^<]*?\.)(\s*\n)', '', blade_part, flags=re.MULTILINE)
+        
+        php_code = php_part.strip()
+        blade_code = blade_part.strip()
     elif "===BLADE===" in content:
         # Only Blade provided, extract it
         blade_code = content.split("===BLADE===")[1].replace("===END===", "").strip()
@@ -389,7 +497,21 @@ ROUTING NOTE:
         combined_code = php_code
     
     # Extract component name from code or prompt
-    component_name = extract_component_name(prompt, php_code or combined_code)
+    # For follow-ups, prefer the existing component name
+    if is_followup and existing_component_name:
+        # Verify the extracted name matches, but prefer the existing one
+        extracted_name = extract_component_name(prompt, php_code or combined_code)
+        # If the code contains the existing component name, use it; otherwise use extracted
+        if existing_component_name.lower() in (php_code or combined_code).lower():
+            component_name = existing_component_name
+        else:
+            component_name = extracted_name
+            # Log warning if names don't match
+            if component_name != existing_component_name:
+                import logging
+                logging.warning(f"Component name mismatch: expected {existing_component_name}, got {component_name}. Using {component_name}.")
+    else:
+        component_name = extract_component_name(prompt, php_code or combined_code)
     
     return combined_code, component_name
 

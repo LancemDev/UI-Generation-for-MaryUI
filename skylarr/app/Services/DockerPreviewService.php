@@ -47,8 +47,8 @@ class DockerPreviewService
             }
             
             $containerId = trim($result->output());
-            // Use preview.local instead of localhost to avoid browser security restrictions
-            $previewHost = env('PREVIEW_HOST', 'preview.local');
+            // Use 127.0.0.1 for preview URLs (proxied through /preview/{projectId} route)
+            $previewHost = env('PREVIEW_HOST', '127.0.0.1');
             $previewUrl = "http://{$previewHost}:{$port}";
             
             // Update project with container info
@@ -69,6 +69,9 @@ class DockerPreviewService
             
             // Fix any PailServiceProvider issues in the new container
             $this->fixPailServiceProviderError($containerId);
+            
+            // Ensure storage directories are writable
+            $this->ensureStoragePermissions($containerId);
             
             Log::info("Successfully created container for project {$project->id}", [
                 'container_id' => $containerId,
@@ -100,6 +103,8 @@ class DockerPreviewService
                 $this->ensureAppKeyExists($project->container_id);
                 // Fix PailServiceProvider error if it exists in the running container
                 $this->fixPailServiceProviderError($project->container_id);
+                // Ensure storage permissions
+                $this->ensureStoragePermissions($project->container_id);
                 $project->touchLastAccessed();
                 return $project->preview_url;
             }
@@ -363,21 +368,16 @@ class DockerPreviewService
 
     /**
      * Add a route for a Livewire component in the container's web.php.
-     * If isFirstComponent is true, uses root route '/' instead of '/component-name'.
+     * Every component gets its own unique route based on its name.
      */
-    private function addComponentRoute(string $containerId, string $componentName, bool $isFirstComponent = false): bool
+    private function addComponentRoute(string $containerId, string $componentName): bool
     {
         try {
             $kebabName = $this->toKebabCase($componentName);
             
-            // Use root route for first component, otherwise use component name
-            if ($isFirstComponent) {
-                $routePath = '/';
-                $routeName = 'home';
-            } else {
-                $routePath = "/{$kebabName}";
-                $routeName = $kebabName;
-            }
+            // Always use component name for route path - never use root route
+            $routePath = "/{$kebabName}";
+            $routeName = $kebabName;
             
             // Read current web.php
             $readResult = $this->runDockerCommand([
@@ -396,15 +396,8 @@ class DockerPreviewService
             $webPhpContent = $readResult->output();
             
             // Check if route already exists
-            // For root route, check for Route::get('/', or Route::get("/",
-            // For other routes, check for exact path match
-            $routeExists = false;
-            if ($routePath === '/') {
-                $routeExists = preg_match("/Route::get\s*\(\s*['\"]\/['\"]\s*,/", $webPhpContent);
-            } else {
-                $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
-                               str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
-            }
+            $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
+                           str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
             
             if ($routeExists) {
                 Log::info('[DOCKER] Route already exists', [
@@ -440,52 +433,11 @@ class DockerPreviewService
                 }
             }
             
-            // Add route - replace welcome route if it's the first component, otherwise add after
-            if ($isFirstComponent) {
-                // Replace any existing root route with our component
-                if (preg_match("/Route::get\('\/',\s*[^;]+;/", $newContent)) {
-                    $newContent = preg_replace(
-                        "/Route::get\('\/',\s*[^;]+;/",
-                        $routeLine,
-                        $newContent
-                    );
-                } elseif (preg_match('/Route::get\("\/",\s*[^;]+;/', $newContent)) {
-                    $newContent = preg_replace(
-                        '/Route::get\("\/",\s*[^;]+;/',
-                        $routeLine,
-                        $newContent
-                    );
-                } else {
-                    // No root route exists, add it at the beginning of routes
-                    if (preg_match('/Route::/', $newContent)) {
-                        // Find first Route:: and add before it
-                        $firstRoutePos = strpos($newContent, 'Route::');
-                        $newContent = substr_replace($newContent, "{$routeLine}\n", $firstRoutePos, 0);
-                    } else {
-                        // No routes at all, add at end
-                        $newContent = rtrim($newContent) . "\n{$routeLine}\n";
-                    }
-                }
-            } elseif (str_contains($newContent, "Route::get('/',") || str_contains($newContent, 'Route::get("/",')) {
-                // Add after the welcome route (or root route)
-                $welcomeRoutePos = strpos($newContent, "Route::get('/");
-                if ($welcomeRoutePos === false) {
-                    $welcomeRoutePos = strpos($newContent, 'Route::get("/');
-                }
-                if ($welcomeRoutePos !== false) {
-                    $nextLinePos = strpos($newContent, "\n", $welcomeRoutePos);
-                    if ($nextLinePos !== false) {
-                        $newContent = substr_replace($newContent, "\n{$routeLine}", $nextLinePos, 0);
-                    } else {
-                        $newContent .= "\n{$routeLine}";
-                    }
-                } else {
-                    $newContent = rtrim($newContent) . "\n{$routeLine}\n";
-                }
-            } else {
-                // Add at the end before closing
-                $newContent = rtrim($newContent) . "\n{$routeLine}\n";
-            }
+            // Remove any existing root route (Route::get('/', ...))
+            $newContent = preg_replace("/Route::get\s*\(\s*['\"]\/['\"]\s*,[^;]+;/", '', $newContent);
+            
+            // Add route at the end of the file
+            $newContent = rtrim($newContent) . "\n{$routeLine}\n";
             
             // Write updated web.php
             $escapedContent = escapeshellarg($newContent);
@@ -707,6 +659,34 @@ class DockerPreviewService
                 $finalViewContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $finalViewContent);
                 $finalViewContent = preg_replace('/\n?```\s*$/m', '', $finalViewContent);
                 $finalViewContent = trim($finalViewContent);
+                
+                // CRITICAL: Remove any explanatory text that might appear in Blade files
+                // Remove text that looks like descriptions/explanations (not code)
+                // Pattern: Sentences that don't contain HTML/Blade syntax
+                $finalViewContent = preg_replace('/^(This code|This creates|The following|The code|This component|This form|This modal|This table|This dashboard|This view|This page)[^<]*?(\n|$)/im', '', $finalViewContent);
+                $finalViewContent = preg_replace('/^(The modal|The form|The component|The table|The dashboard|The view|The page)[^<]*?(\n|$)/im', '', $finalViewContent);
+                // Remove paragraphs that are pure text (no HTML/Blade syntax) - matches sentences ending with period
+                $finalViewContent = preg_replace('/^([A-Z][^<]*?\.)(\s*\n)/m', '', $finalViewContent);
+                // Remove multi-sentence explanatory paragraphs (common pattern from AI)
+                $finalViewContent = preg_replace('/^(This code creates[^<]*?\.)(\s*\n)/im', '', $finalViewContent);
+                $finalViewContent = preg_replace('/^(The modal is initially hidden[^<]*?\.)(\s*\n)/im', '', $finalViewContent);
+                // Remove any text blocks that don't start with < or @ (HTML/Blade syntax)
+                $finalViewContent = preg_replace('/^([^<@][^<@\n]*?\.)(\s*\n)/m', '', $finalViewContent);
+                
+                // CRITICAL: Remove any PHP namespace declarations from Blade files
+                // Blade files should NEVER contain namespace declarations
+                $finalViewContent = preg_replace('/<\?php\s*namespace[^;]+;/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/namespace\s+[^;]+;/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/<\?php\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/use\s+[^;]+;/', '', $finalViewContent);
+                
+                // Remove any leading PHP tags
+                $finalViewContent = preg_replace('/^<\?php\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/^<\?/', '', $finalViewContent);
+                
+                // Clean up any double newlines that might result
+                $finalViewContent = preg_replace('/\n{3,}/', "\n\n", $finalViewContent);
+                $finalViewContent = trim($finalViewContent);
             } else {
                 // Extract view from code if available, otherwise use default
                 $finalViewContent = <<<BLADE
@@ -758,8 +738,24 @@ BLADE;
                     $validationResult = $this->validateComponentCode($project->container_id, $componentName);
                 }
                 
+                // If still invalid, attempt AI-powered error correction
                 if (!$validationResult['valid']) {
-                    throw new \Exception("Code validation failed: " . implode(', ', $validationResult['errors']));
+                    Log::warning('[DOCKER] Code still invalid after auto-fix, attempting AI-powered correction', [
+                        'errors' => $validationResult['errors']
+                    ]);
+                    
+                    $correctionResult = $this->attemptAiErrorCorrection($project, $componentName, $validationResult['errors'], $code);
+                    
+                    if ($correctionResult['success']) {
+                        Log::info('[DOCKER] AI error correction successful, re-injecting corrected code');
+                        // Re-inject the corrected code
+                        return $this->injectCode($project, $correctionResult['code'], $componentName);
+                    } else {
+                        Log::error('[DOCKER] AI error correction failed', [
+                            'error' => $correctionResult['error'] ?? 'Unknown error'
+                        ]);
+                        throw new \Exception("Code validation failed: " . implode(', ', $validationResult['errors']));
+                    }
                 }
             }
             
@@ -786,18 +782,15 @@ BLADE;
             // Step 11: Generate route for the component
             Log::info('[DOCKER] Generating route for component', ['component_name' => $componentName]);
             
-            // Check if this is the first component - if so, use root route
-            $existingComponents = $project->getComponents();
-            $isFirstComponent = empty($existingComponents);
-            
-            $routeAdded = $this->addComponentRoute($project->container_id, $componentName, $isFirstComponent);
+            // Every component gets its own unique route based on component name
+            $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
             
             if ($routeAdded) {
                 // Track component and route in project metadata (with code and view for versioning)
                 $kebabName = $this->toKebabCase($componentName);
-                // Use root route for first component, otherwise use component name
-                $route = $isFirstComponent ? '/' : "/{$kebabName}";
-                $routeName = $isFirstComponent ? 'home' : $kebabName;
+                // Always use component name for route - never use root route
+                $route = "/{$kebabName}";
+                $routeName = $kebabName;
                 
                 // Check if component already exists
                 $componentExists = $project->hasComponent($componentName);
@@ -813,7 +806,6 @@ BLADE;
                 Log::info('[DOCKER] Route added and tracked', [
                     'component' => $componentName,
                     'route' => $route,
-                    'is_first' => $isFirstComponent,
                     'is_update' => $componentExists
                 ]);
             }
@@ -1438,9 +1430,11 @@ BLADE;
     public function readFileFromContainer(string $containerId, string $filePath): string
     {
         try {
+            // Properly escape the file path to handle spaces and special characters
+            $escapedPath = escapeshellarg($filePath);
             $result = $this->runDockerCommand([
                 'exec', $containerId,
-                'cat', $filePath
+                'sh', '-c', "cat {$escapedPath}"
             ]);
             
             if ($result->successful()) {
@@ -1507,6 +1501,15 @@ BLADE;
             
             if (trim($viewCheck->output()) !== 'exists') {
                 $errors[] = "View file does not exist: {$viewPath}";
+            } else {
+                // Check 4b: View file doesn't contain PHP namespace declarations (Blade files should never have these)
+                $viewContent = $this->readFileFromContainer($containerId, $viewPath);
+                if (preg_match('/namespace\s+[^;]+;/', $viewContent)) {
+                    $errors[] = "View file contains PHP namespace declaration (Blade files should never have namespace declarations)";
+                }
+                if (preg_match('/<\?php\s*namespace/', $viewContent)) {
+                    $errors[] = "View file contains PHP namespace declaration with opening tag";
+                }
             }
             
             // Check 5: Laravel can compile the view
@@ -1519,6 +1522,12 @@ BLADE;
                 $errors[] = "View compilation error: " . substr($viewCompileCheck->errorOutput(), 0, 200);
             }
             
+            // Check 6: Runtime error detection - check Laravel logs for recent errors
+            $runtimeErrors = $this->checkRuntimeErrors($containerId, $componentName);
+            if (!empty($runtimeErrors)) {
+                $errors = array_merge($errors, $runtimeErrors);
+            }
+            
         } catch (\Exception $e) {
             $errors[] = "Validation exception: " . $e->getMessage();
         }
@@ -1527,6 +1536,107 @@ BLADE;
             'valid' => empty($errors),
             'errors' => $errors
         ];
+    }
+    
+    /**
+     * Check for runtime errors by examining Laravel logs and attempting to render the component.
+     */
+    private function checkRuntimeErrors(string $containerId, string $componentName): array
+    {
+        $errors = [];
+        
+        try {
+            // Clear previous errors from log and ensure proper permissions
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'echo "" > /var/www/html/storage/logs/laravel.log 2>/dev/null || touch /var/www/html/storage/logs/laravel.log && echo "" > /var/www/html/storage/logs/laravel.log'
+            ]);
+            
+            // Ensure log file has correct permissions (www-data:www-data, 664)
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'chown www-data:www-data /var/www/html/storage/logs/laravel.log 2>/dev/null || true && chmod 664 /var/www/html/storage/logs/laravel.log 2>/dev/null || true'
+            ]);
+            
+            // Get the route for this component
+            $kebabName = $this->toKebabCase($componentName);
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cat /var/www/html/routes/web.php'
+            ]);
+            
+            if ($readResult->failed()) {
+                return $errors;
+            }
+            
+            $webPhpContent = $readResult->output();
+            // Default to component name route - never use root route
+            $routePath = "/{$kebabName}";
+            
+            // Find the route path for this component
+            if (preg_match("/Route::get\s*\(\s*['\"]([^'\"]+)['\"],\s*{$componentName}::class/", $webPhpContent, $matches)) {
+                $routePath = $matches[1];
+                // Never allow root route - fallback to component name if root is found
+                if ($routePath === '/') {
+                    $routePath = "/{$kebabName}";
+                }
+            } else {
+                // Try kebab case as fallback
+                if (preg_match("/Route::get\s*\(\s*['\"]\/{$kebabName}['\"],\s*{$componentName}::class/", $webPhpContent)) {
+                    $routePath = "/{$kebabName}";
+                }
+            }
+            
+            // Get container port
+            $portCheck = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "grep -oP 'APP_PORT=\\K[0-9]+' /var/www/html/.env || echo '8000'"
+            ]);
+            $port = trim($portCheck->output()) ?: '8000';
+            
+            // Try to render the component via HTTP request
+            $host = '127.0.0.1';
+            $testUrl = "http://{$host}:{$port}{$routePath}";
+            
+            $curlResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "curl -s -w '\n%{http_code}' -H 'Accept: text/html' --max-time 5 '{$testUrl}' 2>&1"
+            ]);
+            
+            $response = $curlResult->output();
+            $lines = explode("\n", $response);
+            $httpCode = end($lines);
+            
+            // Check for HTTP 500 or error responses
+            if ($httpCode == '500' || str_contains($response, 'ErrorException') || str_contains($response, 'FatalErrorException')) {
+                // Read Laravel log for detailed error
+                $logCheck = $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', 'tail -50 /var/www/html/storage/logs/laravel.log 2>&1 | grep -A 10 "ErrorException\|FatalErrorException\|Attempt to read property" | head -30'
+                ]);
+                
+                $logOutput = $logCheck->output();
+                if (!empty($logOutput)) {
+                    // Extract error message
+                    if (preg_match('/ErrorException: (.+?)(?:\n|$)/', $logOutput, $matches)) {
+                        $errorMsg = trim($matches[1]);
+                        $errors[] = "Runtime error: {$errorMsg}";
+                    } elseif (preg_match('/Attempt to read property "([^"]+)" on null/', $logOutput, $matches)) {
+                        $property = $matches[1];
+                        $errors[] = "Runtime error: Attempt to read property '{$property}' on null";
+                    } elseif (str_contains($logOutput, 'Attempt to read property')) {
+                        $errors[] = "Runtime error: Attempt to read property on null (check Laravel logs for details)";
+                    }
+                } else {
+                    $errors[] = "Runtime error: HTTP 500 error when rendering component";
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Log::warning('[DOCKER] Error checking runtime errors', ['error' => $e->getMessage()]);
+        }
+        
+        return $errors;
     }
     
     /**
@@ -1614,7 +1724,55 @@ BLADE;
                 $fixed = true;
             }
             
-            // Fix 5: Clear caches after fixes
+            // Fix 5: Remove PHP namespace declarations from Blade files
+            $viewContent = $this->readFileFromContainer($containerId, $viewPath);
+            $namespaceErrors = array_filter($errors, function($error) {
+                return str_contains($error, 'namespace') || str_contains($error, 'Namespace declaration');
+            });
+            
+            if (!empty($namespaceErrors) || preg_match('/namespace\s+[^;]+;/', $viewContent) || preg_match('/<\?php\s*namespace/', $viewContent)) {
+                $fixedView = $viewContent;
+                // Remove namespace declarations
+                $fixedView = preg_replace('/<\?php\s*namespace[^;]+;/', '', $fixedView);
+                $fixedView = preg_replace('/namespace\s+[^;]+;/', '', $fixedView);
+                $fixedView = preg_replace('/<\?php\s*/', '', $fixedView);
+                $fixedView = preg_replace('/use\s+[^;]+;/', '', $fixedView);
+                $fixedView = preg_replace('/^<\?php\s*/', '', $fixedView);
+                $fixedView = preg_replace('/^<\?/', '', $fixedView);
+                $fixedView = preg_replace('/\n{3,}/', "\n\n", $fixedView);
+                $fixedView = trim($fixedView);
+                
+                if ($fixedView !== $viewContent) {
+                    $escapedView = escapeshellarg($fixedView);
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', "echo {$escapedView} > {$viewPath}"
+                    ]);
+                    $fixesApplied[] = 'Removed PHP namespace declarations from Blade template';
+                    $fixed = true;
+                }
+            }
+            
+            // Fix 6: Null property access errors in Blade templates
+            $nullPropertyErrors = array_filter($errors, function($error) {
+                return str_contains($error, 'Attempt to read property') && str_contains($error, 'on null');
+            });
+            
+            if (!empty($nullPropertyErrors)) {
+                $viewContent = $this->readFileFromContainer($containerId, $viewPath); // Re-read after namespace fix
+                $fixedView = $this->fixNullPropertyAccess($viewContent, $nullPropertyErrors);
+                if ($fixedView !== $viewContent) {
+                    $escapedView = escapeshellarg($fixedView);
+                    $this->runDockerCommand([
+                        'exec', $containerId,
+                        'sh', '-c', "echo {$escapedView} > {$viewPath}"
+                    ]);
+                    $fixesApplied[] = 'Fixed null property access errors in Blade template';
+                    $fixed = true;
+                }
+            }
+            
+            // Fix 6: Clear caches after fixes
             if ($fixed) {
                 $this->restartLaravelInContainer($containerId);
                 $fixesApplied[] = 'Cleared caches';
@@ -1628,6 +1786,131 @@ BLADE;
             'fixed' => $fixed,
             'fixes_applied' => $fixesApplied
         ];
+    }
+    
+    /**
+     * Fix null property access errors in Blade templates by adding null checks.
+     */
+    private function fixNullPropertyAccess(string $viewContent, array $errors): string
+    {
+        $fixed = $viewContent;
+        
+        // Extract property names from errors
+        $properties = [];
+        foreach ($errors as $error) {
+            if (preg_match("/property ['\"]([^'\"]+)['\"]/", $error, $matches)) {
+                $properties[] = $matches[1];
+            }
+        }
+        
+        // Fix common patterns: $variable->property, {{ $variable->property }}, etc.
+        foreach ($properties as $property) {
+            // Pattern 1: {{ $var->property }} -> {{ $var?->property ?? '' }}
+            // Note: $1 captures the variable name (without $), so we need to add $ before it
+            // Using double quotes with escaped $ to properly reference backreference $1
+            $fixed = preg_replace(
+                '/\{\{\s*\$(\w+)->' . preg_quote($property, '/') . '\s*\}\}/',
+                "{{ \${1}?->{$property} ?? '' }}",
+                $fixed
+            );
+            
+            // Pattern 2: $var->property in attributes -> $var?->property
+            $fixed = preg_replace(
+                '/\$(\w+)->' . preg_quote($property, '/') . '/',
+                "\${1}?->{$property}",
+                $fixed
+            );
+            
+            // Pattern 3: @if($var->property) -> @if($var?->property)
+            $fixed = preg_replace(
+                '/@if\s*\(\s*\$(\w+)->' . preg_quote($property, '/') . '\s*\)/',
+                "@if(\${1}?->{$property})",
+                $fixed
+            );
+        }
+        
+        // Also fix common patterns without specific property names
+        // Pattern: {{ $user->name }} -> {{ $user?->name ?? '' }}
+        $fixed = preg_replace(
+            '/\{\{\s*\$(\w+)->(\w+)\s*\}\}/',
+            "{{ \${1}?->\${2} ?? '' }}",
+            $fixed
+        );
+        
+        // Pattern: $var->prop in PHP code blocks
+        $fixed = preg_replace(
+            '/\$(\w+)->(\w+)(?!\?)/',
+            "\${1}?->\${2}",
+            $fixed
+        );
+        
+        return $fixed;
+    }
+    
+    /**
+     * Attempt AI-powered error correction by re-generating code with error context.
+     */
+    private function attemptAiErrorCorrection(Project $project, string $componentName, array $errors, string $originalCode): array
+    {
+        try {
+            Log::info('[DOCKER] Attempting AI-powered error correction', [
+                'component' => $componentName,
+                'error_count' => count($errors)
+            ]);
+            
+            // Read current code from container
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            $kebabName = $this->toKebabCase($componentName);
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            
+            $currentPhpCode = $this->readFileFromContainer($project->container_id, $componentPath);
+            $currentViewCode = $this->readFileFromContainer($project->container_id, $viewPath);
+            
+            // Build error correction prompt
+            $errorSummary = implode("\n- ", $errors);
+            $correctionPrompt = "The following Laravel Livewire component has runtime errors. Please fix them:\n\n";
+            $correctionPrompt .= "Component: {$componentName}\n\n";
+            $correctionPrompt .= "Errors encountered:\n- {$errorSummary}\n\n";
+            $correctionPrompt .= "Current PHP code:\n```php\n{$currentPhpCode}\n```\n\n";
+            $correctionPrompt .= "Current Blade view:\n```blade\n{$currentViewCode}\n```\n\n";
+            $correctionPrompt .= "Please regenerate the complete component code (both PHP class and Blade view) with all errors fixed. ";
+            $correctionPrompt .= "Ensure all property accesses use null-safe operators (?->) or null checks to prevent 'Attempt to read property on null' errors.";
+            
+            // Call AI gateway to regenerate code
+            $aiGateway = app(\App\Services\AiGateway::class);
+            $response = $aiGateway->generateCode($correctionPrompt);
+            
+            if ($response['success'] && !empty($response['code'])) {
+                Log::info('[DOCKER] AI error correction successful', [
+                    'component' => $componentName
+                ]);
+                
+                return [
+                    'success' => true,
+                    'code' => $response['code']
+                ];
+            } else {
+                Log::error('[DOCKER] AI error correction failed', [
+                    'error' => $response['message'] ?? 'Unknown error'
+                ]);
+                
+                return [
+                    'success' => false,
+                    'error' => $response['message'] ?? 'AI error correction failed'
+                ];
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception during AI error correction', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
     }
     
     /**
@@ -1716,6 +1999,183 @@ BLADE;
     /**
      * Run a Docker command.
      */
+    /**
+     * Ensure storage directories have correct permissions for Laravel to write compiled views, logs, etc.
+     */
+    public function ensureStoragePermissions(string $containerId): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                return false;
+            }
+            
+            // Set permissions for all storage directories
+            $storageDirs = [
+                '/var/www/html/storage/framework/views',
+                '/var/www/html/storage/framework/cache',
+                '/var/www/html/storage/framework/sessions',
+                '/var/www/html/storage/logs',
+            ];
+            
+            foreach ($storageDirs as $dir) {
+                // Create directory if it doesn't exist
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "mkdir -p {$dir} 2>/dev/null || true"
+                ]);
+                
+                // Set ownership and permissions
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "chown -R www-data:www-data {$dir} 2>/dev/null || true && chmod -R 775 {$dir} 2>/dev/null || true"
+                ]);
+            }
+            
+            Log::info('[DOCKER] Storage permissions ensured', ['container_id' => $containerId]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Failed to ensure storage permissions', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
+    /**
+     * Update the theme in the preview container's layout file.
+     */
+    public function updatePreviewTheme(string $containerId, string $theme): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                Log::error('[DOCKER] Container not running for theme update', ['container_id' => $containerId]);
+                return false;
+            }
+            
+            $layoutPath = '/var/www/html/resources/views/components/layouts/app.blade.php';
+            
+            // Read current layout file
+            $escapedLayoutPath = escapeshellarg($layoutPath);
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "cat {$escapedLayoutPath}"
+            ]);
+            
+            if ($readResult->failed()) {
+                Log::error('[DOCKER] Failed to read layout file', [
+                    'container_id' => $containerId,
+                    'error' => $readResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            $layoutContent = $readResult->output();
+            
+            // Fix any corrupted layout files first (in case of previous regex issues)
+            // Check if the file has malformed syntax like: app()- data-theme="light">getLocale()
+            if (preg_match('/app\(\)-\s*data-theme/i', $layoutContent)) {
+                Log::warning('[DOCKER] Detected corrupted layout file, fixing...', ['container_id' => $containerId]);
+                // Restore the correct format - fix the broken Blade syntax
+                $layoutContent = preg_replace(
+                    '/app\(\)-\s*data-theme="[^"]*">getLocale\(\)/i',
+                    'app()->getLocale()',
+                    $layoutContent
+                );
+                // Also fix if data-theme got inserted in the middle of other attributes
+                $layoutContent = preg_replace(
+                    '/(lang="[^"]*")\s+data-theme="[^"]*"\s*>/i',
+                    '$1 data-theme="' . $theme . '">',
+                    $layoutContent
+                );
+            }
+            
+            // Update the data-theme attribute in the <html> tag
+            // Use a line-by-line approach to safely handle Blade syntax
+            
+            $lines = explode("\n", $layoutContent);
+            $updatedLines = [];
+            
+            foreach ($lines as $line) {
+                // Find the line with the <html> tag
+                if (preg_match('/<html/i', $line)) {
+                    // Remove any existing data-theme attribute from this line
+                    $line = preg_replace('/\s+data-theme\s*=\s*"[^"]*"/i', '', $line);
+                    
+                    // Add data-theme before the closing > of the <html> tag
+                    // Match: "> at the end (after last attribute's closing quote)
+                    if (preg_match('/"\s*>/', $line)) {
+                        // Insert data-theme before the closing >
+                        $line = preg_replace(
+                            '/("\s*>)/',
+                            '" data-theme="' . $theme . '">',
+                            $line,
+                            1
+                        );
+                    } else {
+                        // Fallback: insert before any > that's at the end of the line or followed by newline
+                        // But only if it's the <html> tag (starts with <html)
+                        if (preg_match('/^(<html[^>]*?)(\s*>)/', $line, $tagMatches)) {
+                            $line = $tagMatches[1] . ' data-theme="' . $theme . '"' . $tagMatches[2];
+                        }
+                    }
+                }
+                $updatedLines[] = $line;
+            }
+            
+            $updatedContent = implode("\n", $updatedLines);
+            
+            // Write updated content back
+            $escapedContent = escapeshellarg($updatedContent);
+            $escapedLayoutPath = escapeshellarg($layoutPath);
+            $writeResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "echo {$escapedContent} > {$escapedLayoutPath}"
+            ]);
+            
+            if ($writeResult->failed()) {
+                Log::error('[DOCKER] Failed to write layout file', [
+                    'container_id' => $containerId,
+                    'error' => $writeResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            // Ensure proper permissions for layout file
+            $escapedLayoutPath = escapeshellarg($layoutPath);
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "chown www-data:www-data {$escapedLayoutPath} 2>/dev/null || true && chmod 644 {$escapedLayoutPath} 2>/dev/null || true"
+            ]);
+            
+            // Ensure storage/framework/views directory is writable (for compiled Blade views)
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "chown -R www-data:www-data /var/www/html/storage/framework/views 2>/dev/null || true && chmod -R 775 /var/www/html/storage/framework/views 2>/dev/null || true"
+            ]);
+            
+            // Clear view cache to force recompilation with new theme
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan view:clear 2>/dev/null || true'
+            ]);
+            
+            Log::info('[DOCKER] Theme updated successfully', [
+                'container_id' => $containerId,
+                'theme' => $theme
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception updating theme', [
+                'container_id' => $containerId,
+                'theme' => $theme,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
     private function runDockerCommand(array $command): \Illuminate\Process\ProcessResult
     {
         $fullCommand = array_merge(['docker'], $command);

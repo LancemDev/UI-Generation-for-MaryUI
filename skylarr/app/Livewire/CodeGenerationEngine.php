@@ -28,10 +28,27 @@ class CodeGenerationEngine extends Component
     public string $selectedFile = '';
     public string $selectedFilePath = '';
     public string $selectedRoute = '';
+    public string $selectedTheme = 'light';
     public bool $showComponentSelectModal = false;
     public bool $showOverwriteConfirmModal = false;
     public ?string $pendingComponentName = null;
     public string $pendingPrompt = '';
+    public array $pendingConversationHistory = [];
+    
+    // Available daisyUI themes (as simple array for internal use)
+    private array $themeList = [
+        'light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 
+        'retro', 'cyberpunk', 'valentine', 'halloween', 'garden', 'forest', 'aqua', 
+        'lofi', 'pastel', 'fantasy', 'wireframe', 'black', 'luxury', 'dracula', 
+        'cmyk', 'autumn', 'business', 'acid', 'lemonade', 'night', 'coffee', 
+        'winter', 'dim', 'nord', 'sunset', 'caramellatte', 'abyss', 'silk'
+    ];
+    
+    /**
+     * Themes formatted for MaryUI select component.
+     * MaryUI expects an array of objects with 'id' and 'name' properties.
+     */
+    public array $availableThemes = [];
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -42,6 +59,16 @@ class CodeGenerationEngine extends Component
     public function mount(?int $projectId = null)
     {
         $this->projectId = $projectId;
+        
+        // Initialize available themes formatted for MaryUI select
+        // MaryUI expects objects with 'id' and 'name' properties
+        $this->availableThemes = collect($this->themeList)
+            ->map(fn($theme) => [
+                'id' => $theme,
+                'name' => ucfirst($theme)
+            ])
+            ->values()
+            ->toArray();
         
         // Only load project if we have a valid projectId
         if ($this->projectId) {
@@ -58,6 +85,12 @@ class CodeGenerationEngine extends Component
     {
         if (!$this->currentProject) {
             return;
+        }
+        
+        // Restore selected theme from project metadata if available
+        $metadata = $this->currentProject->metadata ?? [];
+        if (isset($metadata['selected_theme']) && in_array($metadata['selected_theme'], $this->themeList)) {
+            $this->selectedTheme = $metadata['selected_theme'];
         }
 
         $state = $this->currentProject->getGenerationState();
@@ -143,7 +176,7 @@ class CodeGenerationEngine extends Component
         }
     }
     
-    public function generateCode(string $prompt, ?string $targetComponentName = null)
+    public function generateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = [])
     {
         if (!$this->currentProject) {
             Log::error('[CODE_GEN] No project selected');
@@ -158,22 +191,42 @@ class CodeGenerationEngine extends Component
                 // Component exists - show confirmation
                 $this->pendingComponentName = $targetComponentName;
                 $this->pendingPrompt = $prompt;
+                $this->pendingConversationHistory = $conversationHistory;
                 $this->showOverwriteConfirmModal = true;
                 return;
             }
         }
         
-        $this->doGenerateCode($prompt, $targetComponentName);
+        $this->doGenerateCode($prompt, $targetComponentName, $conversationHistory);
     }
     
     public function confirmOverwrite(): void
     {
         if ($this->pendingComponentName && $this->pendingPrompt) {
+            // Store values before clearing
+            $prompt = $this->pendingPrompt;
+            $componentName = $this->pendingComponentName;
+            $conversationHistory = $this->pendingConversationHistory;
+            
+            // Close modal first and clear pending state
             $this->showOverwriteConfirmModal = false;
-            $this->doGenerateCode($this->pendingPrompt, $this->pendingComponentName);
             $this->pendingComponentName = null;
             $this->pendingPrompt = '';
+            $this->pendingConversationHistory = [];
+            
+            // Use JavaScript to ensure modal closes, then start generation after a brief delay
+            // This allows the modal's wire:model to update before we start the generation process
+            $this->js("
+                setTimeout(() => {
+                    \$wire.doGenerateCodeDeferred(" . json_encode($prompt) . ", " . json_encode($componentName) . ", " . json_encode($conversationHistory) . ");
+                }, 200);
+            ");
         }
+    }
+    
+    public function doGenerateCodeDeferred(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
+    {
+        $this->doGenerateCode($prompt, $targetComponentName, $conversationHistory);
     }
     
     public function cancelOverwrite(): void
@@ -181,14 +234,43 @@ class CodeGenerationEngine extends Component
         $this->showOverwriteConfirmModal = false;
         $this->pendingComponentName = null;
         $this->pendingPrompt = '';
+        $this->pendingConversationHistory = [];
+        
+        // Force Livewire to update the modal state
+        $this->dispatch('$refresh');
     }
     
-    private function doGenerateCode(string $prompt, ?string $targetComponentName = null): void
+    private function doGenerateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
     {
+        // Extract component name from conversation history if not provided (for follow-up requests)
+        if (!$targetComponentName && !empty($conversationHistory)) {
+            foreach (array_reverse($conversationHistory) as $msg) {
+                if ($msg['role'] === 'assistant' && isset($msg['content'])) {
+                    // Try to extract component name from messages like "I've created the `ComponentName` component"
+                    if (preg_match("/`([A-Z][a-zA-Z0-9]+)`/", $msg['content'], $matches)) {
+                        $targetComponentName = $matches[1];
+                        Log::info('[CODE_GEN] Extracted component name from conversation history', [
+                            'component_name' => $targetComponentName
+                        ]);
+                        break;
+                    }
+                    // Also check for component names like "RegisterForm", "LoginForm", etc.
+                    if (preg_match("/([A-Z][a-zA-Z0-9]+Form|[A-Z][a-zA-Z0-9]+Component|[A-Z][a-zA-Z0-9]+Modal|[A-Z][a-zA-Z0-9]+Dashboard)/", $msg['content'], $matches)) {
+                        $targetComponentName = $matches[1];
+                        Log::info('[CODE_GEN] Extracted component name from conversation history', [
+                            'component_name' => $targetComponentName
+                        ]);
+                        break;
+                    }
+                }
+            }
+        }
+        
         Log::info('[CODE_GEN] Starting generation', [
             'project_id' => $this->currentProject->id,
             'prompt' => $prompt,
-            'target_component' => $targetComponentName
+            'target_component' => $targetComponentName,
+            'history_count' => count($conversationHistory)
         ]);
         
         $this->isGenerating = true;
@@ -205,8 +287,10 @@ class CodeGenerationEngine extends Component
             // Generate code using AI
             $aiGateway = app(AiGateway::class);
             
-            Log::info('[CODE_GEN] Calling AI Gateway');
-            $response = $aiGateway->generateCode($prompt);
+            Log::info('[CODE_GEN] Calling AI Gateway', [
+                'history_count' => count($conversationHistory)
+            ]);
+            $response = $aiGateway->generateCode($prompt, $conversationHistory);
             
             Log::info('[CODE_GEN] AI Gateway response received', [
                 'success' => $response['success'] ?? false,
@@ -216,6 +300,7 @@ class CodeGenerationEngine extends Component
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
                 // Use target component name if provided, otherwise use AI-generated name
+                // For follow-ups, prefer the extracted name to ensure we update the same component
                 $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
                 
                 Log::info('[CODE_GEN] Code generated successfully', [
@@ -226,16 +311,11 @@ class CodeGenerationEngine extends Component
                 // Switch to code tab to show the generated code
                 $this->activeTab = 'preview';
                 
-                // Create preview
+                // Create preview (this will save the completed state internally)
                 Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
                 
-                // Save completed generation state to database
-                $this->currentProject->completeGeneration(
-                    $this->componentName,
-                    $this->generatedCode,
-                    $this->previewUrl
-                );
+                // Note: completeGeneration() is now called inside createPreview() after success
                 
                 // Create success notification
                 NotificationService::success(
@@ -271,7 +351,7 @@ class CodeGenerationEngine extends Component
                     }
                 }
                 
-                // Update selected route
+                // Update selected route FIRST before refreshing iframe
                 $routes = $this->currentProject->getRoutes();
                 foreach ($routes as $route) {
                     if ($route['component'] === $this->componentName) {
@@ -281,6 +361,23 @@ class CodeGenerationEngine extends Component
                         break;
                     }
                 }
+                
+                // Switch to preview tab to show the result
+                $this->activeTab = 'preview';
+                
+                // Force UI refresh to show the new code and preview
+                $this->dispatch('$refresh');
+                
+                // Refresh iframe AFTER route is set, with a longer delay to ensure route is ready
+                $finalPreviewUrl = $this->previewUrl;
+                $this->js("
+                    setTimeout(() => {
+                        const iframe = document.getElementById('preview-iframe');
+                        if (iframe && '{$finalPreviewUrl}') {
+                            iframe.src = '{$finalPreviewUrl}';
+                        }
+                    }, 1000);
+                ");
                 
                 Log::info('[CODE_GEN] Success events dispatched', [
                     'component_name' => $this->componentName,
@@ -382,6 +479,20 @@ class CodeGenerationEngine extends Component
             
             Log::info('[CODE_GEN] Container ready', ['preview_url' => $previewUrl]);
             
+            // Apply selected theme to the container
+            if ($this->currentProject->container_id && $this->selectedTheme) {
+                try {
+                    $dockerService->updatePreviewTheme($this->currentProject->container_id, $this->selectedTheme);
+                    Log::info('[CODE_GEN] Theme applied to container', ['theme' => $this->selectedTheme]);
+                } catch (\Exception $e) {
+                    Log::warning('[CODE_GEN] Failed to apply theme to container', [
+                        'theme' => $this->selectedTheme,
+                        'error' => $e->getMessage()
+                    ]);
+                    // Don't fail the whole process if theme update fails
+                }
+            }
+            
             // Inject the generated code
             Log::info('[CODE_GEN] Injecting code into container', [
                 'component_name' => $this->componentName
@@ -396,37 +507,83 @@ class CodeGenerationEngine extends Component
             Log::info('[CODE_GEN] Code injection result', ['success' => $success]);
             
                     if ($success) {
-                        $this->previewUrl = $previewUrl;
                         $this->previewReady = true;
                         $this->isGenerating = false; // Ensure generating flag is cleared
 
-                        // Update generation state with preview URL
+                        // Load project files first
+                        $this->loadProjectFiles();
+                
+                        // Auto-select the newly generated file if it exists
+                        $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                        if (in_array($generatedFilePath, $this->projectFiles)) {
+                            $this->selectFile($generatedFilePath);
+                            Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
+                        }
+                        
+                        // Set the route and build full preview URL BEFORE setting previewUrl
+                        $routes = $this->currentProject->getRoutes();
+                        $fullPreviewUrl = $previewUrl; // Default to base URL
+                        foreach ($routes as $route) {
+                            if ($route['component'] === $this->componentName) {
+                                $this->selectedRoute = $route['url'];
+                                $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
+                                $fullPreviewUrl = $baseUrl . $route['url'];
+                                break;
+                            }
+                        }
+                        
+                        // Now set the full preview URL with route included
+                        $this->previewUrl = $fullPreviewUrl;
+
+                        // Save completed generation state to database (with all data)
                         if ($this->currentProject) {
+                            $this->currentProject->completeGeneration(
+                                $this->componentName,
+                                $this->generatedCode,
+                                $fullPreviewUrl
+                            );
+                            // Also set preview_ready flag
                             $this->currentProject->setGenerationState([
-                                'preview_url' => $previewUrl,
                                 'preview_ready' => true,
                             ]);
                         }
-
-                        // Load project files
-                        $this->loadProjectFiles();
-                
-                // Auto-select the newly generated file if it exists
-                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
-                if (in_array($generatedFilePath, $this->projectFiles)) {
-                    $this->selectFile($generatedFilePath);
-                    Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
-                }
                 
                 Log::info('[CODE_GEN] Preview ready', [
                     'preview_url' => $this->previewUrl,
                     'component_name' => $this->componentName,
                     'is_generating' => $this->isGenerating,
-                    'preview_ready' => $this->previewReady
+                    'preview_ready' => $this->previewReady,
+                    'selected_route' => $this->selectedRoute
                 ]);
                 
-                // Force Livewire to update the view
+                // Switch to preview tab
+                $this->activeTab = 'preview';
+                
+                // Force Livewire to update - ensure all state is set first
+                // Trigger a property update to force re-render
                 $this->dispatch('$refresh');
+                
+                // Use JavaScript to ensure UI updates and iframe loads
+                $finalPreviewUrl = $this->previewUrl;
+                $componentId = $this->getId();
+                $this->js("
+                    // Small delay to ensure Livewire has processed the state changes
+                    setTimeout(() => {
+                        // Force Livewire component to refresh
+                        const component = Livewire.find('{$componentId}');
+                        if (component) {
+                            component.\$refresh();
+                        }
+                        
+                        // Wait a bit more for route to be ready, then update iframe
+                        setTimeout(() => {
+                            const iframe = document.getElementById('preview-iframe');
+                            if (iframe && '{$finalPreviewUrl}') {
+                                iframe.src = '{$finalPreviewUrl}';
+                            }
+                        }, 1000);
+                    }, 200);
+                ");
                 
                 $this->success('Component generated, validated, and preview ready!');
             } else {
@@ -458,6 +615,42 @@ class CodeGenerationEngine extends Component
     public function updatePreview()
     {
         $this->createPreview();
+    }
+    
+    public function updatedSelectedTheme($theme)
+    {
+        if (!$this->currentProject) {
+            return;
+        }
+        
+        // Save theme to project metadata
+        $metadata = $this->currentProject->metadata ?? [];
+        $metadata['selected_theme'] = $theme;
+        $this->currentProject->update(['metadata' => $metadata]);
+        
+        // Update theme in container if it exists
+        if ($this->currentProject->container_id) {
+            try {
+                $dockerService = app(DockerPreviewService::class);
+                $dockerService->updatePreviewTheme($this->currentProject->container_id, $theme);
+                
+                // Refresh the iframe to show the new theme
+                $this->js("
+                    const iframe = document.getElementById('preview-iframe');
+                    if (iframe) {
+                        iframe.src = iframe.src;
+                    }
+                ");
+                
+                Log::info('[CODE_GEN] Theme updated', ['theme' => $theme]);
+            } catch (\Exception $e) {
+                Log::error('[CODE_GEN] Failed to update theme', [
+                    'theme' => $theme,
+                    'error' => $e->getMessage()
+                ]);
+                $this->error('Failed to update theme: ' . $e->getMessage());
+            }
+        }
     }
     
     public function stopPreview()
@@ -501,17 +694,20 @@ class CodeGenerationEngine extends Component
         // Handle different event data formats
         $prompt = '';
         $targetComponentName = null;
+        $conversationHistory = [];
         
         if (is_array($data)) {
-            // Direct array format: ['prompt' => '...', 'component_name' => '...']
+            // Direct array format: ['prompt' => '...', 'component_name' => '...', 'conversation_history' => [...]]
             if (isset($data['prompt'])) {
                 $prompt = $data['prompt'];
                 $targetComponentName = $data['component_name'] ?? null;
+                $conversationHistory = $data['conversation_history'] ?? [];
             }
             // Nested array format: [['prompt' => '...']]
             elseif (isset($data[0]) && is_array($data[0]) && isset($data[0]['prompt'])) {
                 $prompt = $data[0]['prompt'];
                 $targetComponentName = $data[0]['component_name'] ?? null;
+                $conversationHistory = $data[0]['conversation_history'] ?? [];
             }
             // Single element array: ['prompt']
             elseif (count($data) === 1 && is_string($data[0])) {
@@ -524,9 +720,10 @@ class CodeGenerationEngine extends Component
         if ($prompt) {
             Log::info('[CODE_GEN] Starting code generation', [
                 'prompt' => $prompt,
-                'target_component' => $targetComponentName
+                'target_component' => $targetComponentName,
+                'history_count' => count($conversationHistory)
             ]);
-            $this->generateCode($prompt, $targetComponentName);
+            $this->generateCode($prompt, $targetComponentName, $conversationHistory);
         } else {
             Log::warning('[CODE_GEN] No prompt provided in event data', ['data_type' => gettype($data), 'data' => $data]);
         }
@@ -649,6 +846,69 @@ class CodeGenerationEngine extends Component
         }
         
         return $tree;
+    }
+    
+    /**
+     * Check generation status and update UI if generation completed.
+     * Called by wire:poll continuously to check for completion.
+     */
+    public function checkGenerationStatus(): void
+    {
+        if (!$this->currentProject) {
+            return;
+        }
+        
+        // Refresh the project model to get latest state from database
+        $this->currentProject->refresh();
+        
+        // Check if generation completed in database state
+        $state = $this->currentProject->getGenerationState();
+        $isGeneratingInState = $state['is_generating'] ?? false;
+        $hasCompleted = !empty($state['completed_at']) && !empty($state['generated_code']);
+        
+        // If state shows completion but UI hasn't updated yet, update UI
+        if ($hasCompleted && ($this->isGenerating || empty($this->generatedCode) || empty($this->previewUrl))) {
+            Log::info('[CODE_GEN] Polling detected completion, updating UI', [
+                'component_name' => $state['component_name'] ?? null,
+                'has_preview_url' => !empty($state['preview_url']),
+                'preview_ready' => !empty($state['preview_ready'])
+            ]);
+            
+            // Generation completed - update UI
+            $this->isGenerating = false;
+            $this->componentName = $state['component_name'] ?? '';
+            $this->generatedCode = $state['generated_code'] ?? '';
+            $this->previewUrl = $state['preview_url'] ?? '';
+            $this->previewReady = !empty($state['preview_ready']);
+            $this->activeTab = 'preview';
+            
+            // Load project files and select the generated file
+            $this->loadProjectFiles();
+            if ($this->componentName) {
+                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                if (in_array($generatedFilePath, $this->projectFiles)) {
+                    $this->selectFile($generatedFilePath);
+                }
+            }
+            
+            // Update route and build full preview URL
+            $routes = $this->currentProject->getRoutes();
+            foreach ($routes as $route) {
+                if ($route['component'] === $this->componentName) {
+                    $this->selectedRoute = $route['url'];
+                    if ($this->previewUrl) {
+                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . 
+                                   parse_url($this->previewUrl, PHP_URL_HOST) . ':' . 
+                                   parse_url($this->previewUrl, PHP_URL_PORT);
+                        $this->previewUrl = $baseUrl . $route['url'];
+                    }
+                    break;
+                }
+            }
+            
+            // Force UI refresh
+            $this->dispatch('$refresh');
+        }
     }
     
     public function selectFile(string $filePath)

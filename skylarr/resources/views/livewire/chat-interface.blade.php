@@ -115,11 +115,22 @@
                 <button 
                     type="button"
                     wire:click="sendMessage"
+                    wire:loading.attr="disabled"
+                    wire:target="sendMessage"
                     class="chat-submit-btn btn btn-primary px-4 py-2 h-auto flex items-center gap-2 whitespace-nowrap"
                     style="visibility: visible !important; opacity: 1 !important; display: inline-flex !important;"
+                    :disabled="$isStreaming"
                 >
-                    <x-icon name="o-paper-airplane" class="w-4 h-4" />
-                    <span class="hidden sm:inline">Send</span>
+                    <span wire:loading.remove wire:target="sendMessage">
+                        <x-icon name="o-paper-airplane" class="w-4 h-4" />
+                    </span>
+                    <span wire:loading wire:target="sendMessage" class="animate-spin">
+                        <x-icon name="o-arrow-path" class="w-4 h-4" />
+                    </span>
+                    <span class="hidden sm:inline">
+                        <span wire:loading.remove wire:target="sendMessage">Send</span>
+                        <span wire:loading wire:target="sendMessage">Sending...</span>
+                    </span>
                 </button>
             </div>
         </div>
