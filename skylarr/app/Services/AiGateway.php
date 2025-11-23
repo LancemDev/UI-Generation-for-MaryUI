@@ -11,7 +11,7 @@ class AiGateway
     /**
      * Stream assistant response from the Python FastAPI service.
      *
-     * @param array<int, array{role:string, content:string}> $messages
+     * @param array<int, array{role:string, content:string, feedback?:string}> $messages
      * @return Generator<string>
      */
     public function streamChat(array $messages): Generator
@@ -26,6 +26,7 @@ class AiGateway
             // Model selection is handled by Python backend based on AI_PROVIDER env var
             'temperature' => 0.2,
             'max_tokens' => 1024,
+            'include_feedback' => true, // Signal that feedback should be considered
         ]);
 
         if ($response->failed()) {
@@ -49,7 +50,7 @@ class AiGateway
      * Generate code using the Python FastAPI service.
      *
      * @param string $prompt
-     * @param array<int, array{role:string, content:string}> $conversationHistory Conversation history for context
+     * @param array<int, array{role:string, content:string, feedback?:string}> $conversationHistory Conversation history for context
      * @return array{success: bool, code?: string, component_name?: string, message?: string}
      */
     public function generateCode(string $prompt, array $conversationHistory = []): array
@@ -65,10 +66,11 @@ class AiGateway
         try {
             $response = Http::timeout(60)->post(rtrim($baseUrl, '/') . '/generate/code', [
                 'prompt' => $prompt,
-                'messages' => $conversationHistory, // Pass conversation history for context
+                'messages' => $conversationHistory, // Pass conversation history with feedback context
                 // Model selection is handled by Python backend based on AI_PROVIDER env var
                 'temperature' => 0.1,
                 'max_tokens' => 4096, // Increased for complete code with views
+                'include_feedback' => true, // Signal that feedback should be considered
             ]);
 
             Log::info('[AI_GATEWAY] HTTP request completed', [

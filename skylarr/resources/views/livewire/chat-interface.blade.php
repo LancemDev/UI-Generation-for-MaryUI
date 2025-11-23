@@ -31,6 +31,29 @@
                             </span>
                         </div>
                         <div class="whitespace-pre-wrap leading-relaxed text-sm {{ $m['role']==='user' ? 'text-white' : 'text-gray-800' }}">{!! nl2br(e($m['content'])) !!}</div>
+                        @if($m['role'] === 'assistant' && $m['status'] === 'complete' && str_contains($m['content'], 'Code generation complete'))
+                            <div class="mt-2 flex items-center gap-2 pt-2 border-t border-gray-200">
+                                <span class="text-xs text-gray-500">Was this helpful?</span>
+                                <div class="flex gap-1">
+                                    <button
+                                        type="button"
+                                        wire:click="submitFeedback({{ $m['id'] }}, 'positive')"
+                                        class="p-1.5 rounded transition-colors {{ isset($m['feedback']) && $m['feedback'] === 'positive' ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-600' }}"
+                                        title="Helpful"
+                                    >
+                                        <x-icon name="o-hand-thumb-up" class="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        wire:click="submitFeedback({{ $m['id'] }}, 'negative')"
+                                        class="p-1.5 rounded transition-colors {{ isset($m['feedback']) && $m['feedback'] === 'negative' ? 'bg-red-100 text-red-600' : 'hover:bg-gray-100 text-gray-600' }}"
+                                        title="Not helpful"
+                                    >
+                                        <x-icon name="o-hand-thumb-down" class="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

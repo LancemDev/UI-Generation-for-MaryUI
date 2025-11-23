@@ -16,6 +16,8 @@ class ChatMessage extends Model
         'content',
         'status',
         'metadata',
+        'feedback',
+        'feedback_comment',
     ];
 
     protected $casts = [

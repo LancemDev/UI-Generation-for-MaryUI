@@ -25,6 +25,49 @@ def _get_client() -> OpenAI:
     return _client
 
 
+def _extract_feedback_context(messages: list[dict]) -> str:
+    """
+    Extract feedback context from conversation history to help the AI learn.
+    
+    Returns a formatted string with feedback insights that can be included in prompts.
+    """
+    if not messages:
+        return ""
+    
+    feedback_summary = []
+    positive_examples = []
+    negative_examples = []
+    
+    # Look for feedback indicators in messages
+    # Feedback is typically embedded in user messages as context
+    for i, msg in enumerate(messages):
+        content = msg.get('content', '')
+        
+        # Check if message contains feedback context (from Laravel backend)
+        if 'User feedback context:' in content:
+            # Extract feedback information
+            if 'positive' in content.lower():
+                positive_examples.append(content[:200])  # Store preview
+            if 'negative' in content.lower():
+                negative_examples.append(content[:200])
+    
+    # Build feedback context string
+    if positive_examples or negative_examples:
+        feedback_summary.append("User has provided feedback on previous responses:")
+        
+        if positive_examples:
+            feedback_summary.append(f"- {len(positive_examples)} positive feedback(s): User appreciated these responses. Continue similar patterns.")
+        
+        if negative_examples:
+            feedback_summary.append(f"- {len(negative_examples)} negative feedback(s): User was not satisfied with these responses. Avoid similar patterns and improve.")
+        
+        feedback_summary.append("Use this feedback to adapt your responses and improve user satisfaction.")
+        
+        return "\n".join(feedback_summary)
+    
+    return ""
+
+
 def extract_component_name(prompt: str, code: str = "") -> str:
     """Extract a meaningful component name from prompt or code."""
     import re
@@ -97,6 +140,9 @@ def generate_code(
     gnn_service = get_gnn_service()
     gnn_context = gnn_service.get_enhanced_context(prompt)
     
+    # Extract feedback context from conversation history
+    feedback_context = _extract_feedback_context(messages or [])
+    
     # Check if this is a follow-up request (updating existing component)
     is_followup = False
     existing_component_name = None
@@ -130,6 +176,17 @@ IMPORTANT: This is a FOLLOW-UP request to UPDATE an existing component named "{e
 - The user wants to modify the existing {existing_component_name} component, not create a new one
 """
     
+    # Build feedback instruction
+    feedback_instruction = ""
+    if feedback_context:
+        feedback_instruction = f"""
+
+LEARNING FROM USER FEEDBACK:
+{feedback_context}
+
+Use this feedback to improve code generation. Learn from positive examples and avoid patterns that received negative feedback.
+"""
+    
     system_message = f"""You are Skylarr, an AI assistant that generates PRODUCTION-READY, HOLISTIC Laravel Livewire components with complete, beautiful Blade views using MaryUI.
 
 MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI and Tailwind CSS.
@@ -137,6 +194,14 @@ Available MaryUI components include: x-form, x-input, x-textarea, x-select, x-ch
 
 {gnn_context}
 {followup_instruction}
+{feedback_instruction}
+
+⚠️ CRITICAL: FOCUS ON THE USER'S CURRENT REQUEST - Generate EXACTLY what the user is asking for in their current prompt. 
+- If the user asks for "register form" or "login form" → Generate ONLY forms, NOT dashboards
+- If the user asks for "modal" → Generate ONLY modals with the requested content
+- DO NOT generate dashboards, sidebars, or multi-page apps unless the user explicitly requests them
+- DO NOT add extra features that weren't requested
+- Previous conversation history is for context only - focus on the CURRENT user request
 
 CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC CODE:
 
@@ -158,7 +223,7 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
    - Use ONLY MaryUI component attributes for styling (class="p-6" for padding is acceptable, but prefer MaryUI's built-in spacing)
    - Let MaryUI and daisyUI handle ALL styling - they support theme switching automatically
    - Themes are handled via data-theme attribute on HTML element - components automatically adapt
-6. **SHARED LAYOUT PATTERN - DASHBOARDS & MULTI-PAGE APPS** - For dashboards, admin panels, or multi-page applications:
+6. **SHARED LAYOUT PATTERN - DASHBOARDS & MULTI-PAGE APPS ONLY** - ONLY use this pattern when the user EXPLICITLY requests a dashboard, admin panel, or multi-page application. For simple forms, modals, or single components, DO NOT use this layout:
    - ALWAYS use the shared layout component: `<x-layouts.app-with-sidebar>`
    - The layout provides: mobile navbar, collapsible sidebar, navigation menu, and content area
    - Page components should ONLY contain their specific content wrapped in the layout:
@@ -174,7 +239,7 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
    - Use `activate-by-route` on `<x-menu>` for automatic active state highlighting
 7. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 8. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
-9. **MULTIPLE COMPONENTS - CRITICAL FOR DASHBOARDS** - When user requests a "dashboard with sidebar navigation" or "multi-page application":
+9. **MULTIPLE COMPONENTS - ONLY FOR DASHBOARDS** - ONLY when user EXPLICITLY requests a "dashboard with sidebar navigation" or "multi-page application". For forms, modals, or single components, generate ONE component:
    - ⚠️ CRITICAL: You MUST generate SEPARATE components for EACH sidebar menu item/page
    - ⚠️ NEVER create a single component with all content bundled together - that is WRONG and LAZY
    - Each sidebar item MUST be its own component with its own route
@@ -373,7 +438,9 @@ Blade files should ONLY contain HTML, Blade directives, and MaryUI components.
 
 MINIMALISM IS KEY: MaryUI components are already beautifully styled. DO NOT add unnecessary wrapper divs with Tailwind classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto, etc. Keep it simple - just use a basic <div> wrapper and let MaryUI handle the styling.
 
-FOR DASHBOARDS AND MULTI-PAGE APPS: ALWAYS use the shared layout component pattern:
+⚠️ IMPORTANT: The examples below show different patterns. Use the SIMPLE FORM/MODAL pattern for register/login forms. Only use the dashboard layout pattern if the user EXPLICITLY requests a dashboard.
+
+FOR DASHBOARDS AND MULTI-PAGE APPS ONLY (when user explicitly requests): Use the shared layout component pattern:
 <x-layouts.app-with-sidebar>
     <div class="p-6">
         <!-- Page content here - use MaryUI components -->
@@ -730,11 +797,25 @@ def stream_chat(
         yield canned
         return
 
+    # Extract feedback context from messages
+    feedback_context = _extract_feedback_context(messages)
+    
     # Enhance messages with GNN context
     enhanced_messages = messages.copy()
     if last_user_message:
         gnn_service = get_gnn_service()
         gnn_context = gnn_service.get_enhanced_context(last_user_message)
+        
+        # Build system message with GNN and feedback context
+        feedback_instruction = ""
+        if feedback_context:
+            feedback_instruction = f"""
+
+LEARNING FROM USER FEEDBACK:
+{feedback_context}
+
+Use this feedback to improve your responses. Learn from positive examples and avoid patterns that received negative feedback.
+"""
         
         # Add system message with GNN context
         system_message = {
@@ -743,6 +824,7 @@ def stream_chat(
 MaryUI is a Laravel Blade UI component library for Livewire, styled with daisyUI and Tailwind.
 
 {gnn_context}
+{feedback_instruction}
 
 CRITICAL: This tool ONLY generates Laravel Livewire components. We do NOT support React, Vue, Angular, Svelte, or any other frameworks.
 

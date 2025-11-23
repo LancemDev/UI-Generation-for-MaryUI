@@ -98,6 +98,8 @@ class ChatInterface extends Component
             'role' => $m->role,
             'content' => $m->content,
             'status' => $m->status,
+            'feedback' => $m->feedback,
+            'feedback_comment' => $m->feedback_comment,
             'created_at' => $m->created_at?->toDateTimeString(),
         ])->values()->all();
         
@@ -176,11 +178,8 @@ class ChatInterface extends Component
         // Force another UI update to show the placeholder
         $this->dispatch('chat-scrolled');
 
-        // Build message array for gateway
-        $history = array_map(fn ($m) => [
-            'role' => $m['role'],
-            'content' => $m['content'],
-        ], $this->messages);
+        // Build message array for gateway with feedback context
+        $history = $this->buildHistoryWithFeedback();
 
         $gateway = app(AiGateway::class);
 
@@ -269,11 +268,8 @@ class ChatInterface extends Component
         
         foreach ($codeKeywords as $keyword) {
             if (str_contains($lowerMessage, $keyword)) {
-                // Build conversation history for context
-                $history = array_map(fn ($m) => [
-                    'role' => $m['role'],
-                    'content' => $m['content'],
-                ], $this->messages);
+                // Build conversation history for context with feedback
+                $history = $this->buildHistoryWithFeedback();
                 
                 // Extract component name from conversation history for follow-up requests
                 $extractedComponentName = $this->selectedComponentName;
@@ -524,6 +520,106 @@ class ChatInterface extends Component
         ];
 
         $this->dispatch('chat-scrolled');
+    }
+
+    /**
+     * Build conversation history with feedback context for AI learning
+     */
+    protected function buildHistoryWithFeedback(): array
+    {
+        $history = [];
+        $feedbackContext = [];
+        
+        foreach ($this->messages as $msg) {
+            $messageData = [
+                'role' => $msg['role'],
+                'content' => $msg['content'],
+            ];
+            
+            // Add feedback information to assistant messages
+            if ($msg['role'] === 'assistant' && isset($msg['feedback'])) {
+                $feedbackContext[] = [
+                    'message_id' => $msg['id'],
+                    'feedback' => $msg['feedback'],
+                    'content_preview' => substr($msg['content'], 0, 100),
+                ];
+            }
+            
+            $history[] = $messageData;
+        }
+        
+        // Add feedback summary as system context if there's feedback
+        if (!empty($feedbackContext)) {
+            $positiveCount = count(array_filter($feedbackContext, fn($f) => $f['feedback'] === 'positive'));
+            $negativeCount = count(array_filter($feedbackContext, fn($f) => $f['feedback'] === 'negative'));
+            
+            if ($positiveCount > 0 || $negativeCount > 0) {
+                $feedbackSummary = "User feedback context: {$positiveCount} positive, {$negativeCount} negative feedback(s) on previous responses. ";
+                $feedbackSummary .= "Learn from positive examples and avoid patterns that received negative feedback. ";
+                
+                // Add specific feedback insights
+                $recentNegative = array_filter($feedbackContext, fn($f) => $f['feedback'] === 'negative');
+                if (!empty($recentNegative)) {
+                    $feedbackSummary .= "Recent negative feedback indicates areas to improve. ";
+                }
+                
+                // Prepend feedback context to the last user message
+                if (!empty($history) && end($history)['role'] === 'user') {
+                    $history[count($history) - 1]['content'] = $feedbackSummary . $history[count($history) - 1]['content'];
+                }
+            }
+        }
+        
+        return $history;
+    }
+
+    /**
+     * Submit feedback for an assistant message
+     */
+    public function submitFeedback(int $messageId, string $feedbackType): void
+    {
+        if (!in_array($feedbackType, ['positive', 'negative'])) {
+            return;
+        }
+
+        $message = ChatMessage::where('id', $messageId)
+            ->where('chat_thread_id', $this->threadId)
+            ->where('role', 'assistant')
+            ->first();
+
+        if (!$message) {
+            Log::warning('[CHAT] Feedback submission failed - message not found', [
+                'message_id' => $messageId,
+                'thread_id' => $this->threadId
+            ]);
+            return;
+        }
+
+        // Update message with feedback
+        $message->update([
+            'feedback' => $feedbackType,
+        ]);
+
+        // Update local messages array
+        foreach ($this->messages as $key => $msg) {
+            if ($msg['id'] === $messageId) {
+                $this->messages[$key]['feedback'] = $feedbackType;
+                break;
+            }
+        }
+
+        Log::info('[CHAT] Feedback submitted', [
+            'message_id' => $messageId,
+            'feedback' => $feedbackType,
+            'thread_id' => $this->threadId
+        ]);
+
+        // Show toast notification
+        if ($feedbackType === 'positive') {
+            $this->success('Thank you for your feedback! This helps improve responses.');
+        } else {
+            $this->info('Thank you for your feedback. We\'ll use this to improve future responses.');
+        }
     }
 
     public function render()
