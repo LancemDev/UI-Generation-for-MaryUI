@@ -35,14 +35,20 @@ class CodeGenerationEngine extends Component
     public string $pendingPrompt = '';
     public array $pendingConversationHistory = [];
     
-    // Available daisyUI themes
-    public array $availableThemes = [
+    // Available daisyUI themes (as simple array for internal use)
+    private array $themeList = [
         'light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 
         'retro', 'cyberpunk', 'valentine', 'halloween', 'garden', 'forest', 'aqua', 
         'lofi', 'pastel', 'fantasy', 'wireframe', 'black', 'luxury', 'dracula', 
         'cmyk', 'autumn', 'business', 'acid', 'lemonade', 'night', 'coffee', 
         'winter', 'dim', 'nord', 'sunset', 'caramellatte', 'abyss', 'silk'
     ];
+    
+    /**
+     * Themes formatted for MaryUI select component.
+     * MaryUI expects an array of objects with 'id' and 'name' properties.
+     */
+    public array $availableThemes = [];
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -53,6 +59,16 @@ class CodeGenerationEngine extends Component
     public function mount(?int $projectId = null)
     {
         $this->projectId = $projectId;
+        
+        // Initialize available themes formatted for MaryUI select
+        // MaryUI expects objects with 'id' and 'name' properties
+        $this->availableThemes = collect($this->themeList)
+            ->map(fn($theme) => [
+                'id' => $theme,
+                'name' => ucfirst($theme)
+            ])
+            ->values()
+            ->toArray();
         
         // Only load project if we have a valid projectId
         if ($this->projectId) {
@@ -73,7 +89,7 @@ class CodeGenerationEngine extends Component
         
         // Restore selected theme from project metadata if available
         $metadata = $this->currentProject->metadata ?? [];
-        if (isset($metadata['selected_theme']) && in_array($metadata['selected_theme'], $this->availableThemes)) {
+        if (isset($metadata['selected_theme']) && in_array($metadata['selected_theme'], $this->themeList)) {
             $this->selectedTheme = $metadata['selected_theme'];
         }
 
