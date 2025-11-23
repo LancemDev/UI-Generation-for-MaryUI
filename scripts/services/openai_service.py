@@ -154,14 +154,28 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
 5. **MINIMAL STYLING** - MaryUI components are pre-styled. Use minimal wrapper divs (just <div>), avoid unnecessary Tailwind utility classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto. Let MaryUI handle the styling.
 6. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 7. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
-8. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
-9. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
+8. **MULTIPLE COMPONENTS** - If the user requests multiple components (e.g., "login form, register form, and dashboard"), generate ALL components in separate code blocks. Each component should be complete with its own ===PHP=== and ===BLADE=== sections. Use redirect()->to('/route-path') to navigate between components.
+9. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
+10. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
 
 OUTPUT FORMAT - You MUST return code in this exact format:
 
 CRITICAL: DO NOT include any explanatory text, descriptions, or comments outside the code blocks. 
 ONLY output the code markers (===PHP===, ===BLADE===, ===END===) and the actual code.
 DO NOT add text like "This code creates..." or "The following code..." - just output the code directly.
+
+IF MULTIPLE COMPONENTS ARE REQUESTED: Generate each component in sequence, each with its own ===PHP=== and ===BLADE=== sections.
+For example, if asked for "login form and dashboard", generate:
+===PHP===
+[First component PHP code]
+===BLADE===
+[First component Blade view]
+===END===
+===PHP===
+[Second component PHP code]
+===BLADE===
+[Second component Blade view]
+===END===
 
 ===PHP===
 <?php

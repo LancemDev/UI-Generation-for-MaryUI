@@ -138,7 +138,45 @@
                 </div>
                 
                 <div class="flex-1 flex flex-col code-viewer-container" style="min-height: 0; height: 100%; overflow: hidden;" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}">
-                    @if($generatedCode)
+                    @if($isGenerating)
+                        {{-- Code Generation Loader --}}
+                        <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg relative overflow-hidden">
+                            {{-- Animated background pattern --}}
+                            <div class="absolute inset-0 opacity-10">
+                                <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.05) 20px);"></div>
+                            </div>
+                            
+                            <div class="relative z-10 text-center">
+                                {{-- Animated code icon --}}
+                                <div class="mb-6 flex justify-center">
+                                    <div class="relative">
+                                        <x-icon name="o-code-bracket" class="w-16 h-16 text-green-400 animate-pulse" />
+                                        <div class="absolute inset-0 flex items-center justify-center">
+                                            <x-icon name="o-arrow-path" class="w-8 h-8 text-green-500 animate-spin" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {{-- Loading text with animation --}}
+                                <h3 class="text-xl font-semibold text-green-400 mb-2">Generating Code...</h3>
+                                <p class="text-sm text-gray-400 mb-4">Creating your Livewire component</p>
+                                
+                                {{-- Animated dots --}}
+                                <div class="flex justify-center gap-1">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
+                                </div>
+                                
+                                {{-- Progress indicator --}}
+                                <div class="mt-6 w-64 mx-auto">
+                                    <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-green-400 rounded-full animate-pulse" style="width: 60%; animation: progress 2s ease-in-out infinite;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @elseif($generatedCode)
                         <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative" style="height: 100%; overflow-y: auto; overflow-x: auto;">
                             <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10 flex items-center justify-between">
                                 <div>
@@ -213,7 +251,38 @@
 
         {{-- Preview Tab --}}
         @if($activeTab === 'preview')
-            @if($previewReady && $previewUrl)
+            @if($isGenerating)
+                {{-- Preview Generation Loader --}}
+                <div class="flex-1 flex items-center justify-center bg-gray-50 relative overflow-hidden">
+                    {{-- Animated background pattern --}}
+                    <div class="absolute inset-0 opacity-5">
+                        <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px);"></div>
+                    </div>
+                    
+                    <div class="relative z-10 text-center">
+                        {{-- Animated preview icon --}}
+                        <div class="mb-6 flex justify-center">
+                            <div class="relative">
+                                <x-icon name="o-eye" class="w-16 h-16 text-blue-500 animate-pulse" />
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <x-icon name="o-arrow-path" class="w-8 h-8 text-blue-600 animate-spin" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {{-- Loading text --}}
+                        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Preparing Preview...</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Setting up your component preview</p>
+                        
+                        {{-- Animated dots --}}
+                        <div class="flex justify-center gap-1">
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
+                        </div>
+                    </div>
+                </div>
+            @elseif($previewReady && $previewUrl)
                 <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;" wire:key="preview-container-{{ $previewUrl }}-{{ $previewReady }}">
                     <div class="flex-1 bg-white overflow-hidden relative" style="min-height: 0; height: 100%;">
                         <iframe 
@@ -363,6 +432,22 @@
         .theme-dropdown .dropdown-content::-webkit-scrollbar-thumb:hover,
         .theme-dropdown ul[role="menu"]::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Code generation loader animations */
+        @keyframes progress {
+            0% {
+                width: 0%;
+                transform: translateX(0);
+            }
+            50% {
+                width: 70%;
+                transform: translateX(0);
+            }
+            100% {
+                width: 100%;
+                transform: translateX(100%);
+            }
         }
     </style>
     

@@ -367,6 +367,312 @@ class DockerPreviewService
     }
 
     /**
+     * Split code into multiple component blocks if multiple components are present.
+     */
+    private function splitMultipleComponents(string $code): array
+    {
+        $blocks = [];
+        
+        // Check if code contains multiple ===PHP=== markers
+        $phpMarkerCount = substr_count($code, '===PHP===');
+        
+        if ($phpMarkerCount <= 1) {
+            // Single component, return as-is
+            return [$code];
+        }
+        
+        // Split by ===PHP=== markers
+        $parts = preg_split('/===PHP===/', $code, -1, PREG_SPLIT_NO_EMPTY);
+        
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if (empty($part)) {
+                continue;
+            }
+            
+            // Reconstruct the component block with ===PHP=== marker
+            $block = '===PHP===' . "\n" . $part;
+            
+            // Ensure it ends with ===END=== if it has a Blade section
+            if (str_contains($block, '===BLADE===') && !str_contains($block, '===END===')) {
+                $block .= "\n===END===";
+            }
+            
+            $blocks[] = $block;
+        }
+        
+        return $blocks;
+    }
+
+    /**
+     * Extract all component class names from the generated code.
+     * Handles cases where multiple components are generated in one prompt.
+     */
+    private function extractAllComponents(string $code): array
+    {
+        $components = [];
+        
+        // Find all class declarations that extend Component
+        if (preg_match_all('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends\s+Component/s', $code, $matches)) {
+            $components = $matches[1];
+        }
+        
+        // Also check for class declarations in separate code blocks
+        // Look for patterns like "===PHP===" followed by class definitions
+        if (preg_match_all('/===PHP===\s*(?:.*?)class\s+([A-Z][a-zA-Z0-9]*)\s+extends\s+Component/s', $code, $matches)) {
+            $components = array_merge($components, $matches[1]);
+        }
+        
+        // Remove duplicates and return
+        return array_unique($components);
+    }
+
+    /**
+     * Extract route references from code (e.g., redirect()->to('/dashboard')).
+     */
+    private function extractRouteReferences(string $code): array
+    {
+        $routes = [];
+        
+        // Find redirect()->to('/path') patterns
+        if (preg_match_all("/redirect\(\)->to\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
+            $routes = array_merge($routes, $matches[1]);
+        }
+        
+        // Find redirect('/path') patterns
+        if (preg_match_all("/redirect\(['\"]([^'\"]+)['\"]\)/", $code, $matches)) {
+            $routes = array_merge($routes, $matches[1]);
+        }
+        
+        // Find route('name') patterns and resolve them (if we can)
+        // This is more complex, so we'll focus on direct paths for now
+        
+        // Remove duplicates and filter out empty routes
+        $routes = array_filter(array_unique($routes), function($route) {
+            return !empty($route) && $route !== '/';
+        });
+        
+        return array_values($routes);
+    }
+
+    /**
+     * Find which component should handle a given route path.
+     */
+    private function findComponentForRoute(string $routePath, array $components, string $containerId): ?string
+    {
+        // Remove leading slash and convert to component name format
+        $routeName = trim($routePath, '/');
+        
+        // Try to match route to component name
+        // e.g., /dashboard -> DashboardComponent
+        foreach ($components as $component) {
+            $kebabName = $this->toKebabCase($component);
+            if ($kebabName === $routeName || str_ends_with($kebabName, '-' . $routeName)) {
+                return $component;
+            }
+        }
+        
+        // Try to find component by checking if file exists with route name
+        // e.g., /dashboard -> DashboardComponent.php
+        $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+        $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+        
+        $checkResult = $this->runDockerCommand([
+            'exec', $containerId,
+            'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+        ]);
+        
+        if (trim($checkResult->output()) === 'exists') {
+            return $potentialComponent;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Create a minimal component for a route that was referenced but doesn't exist.
+     */
+    private function createMinimalComponentForRoute(Project $project, string $routePath, string $componentName): bool
+    {
+        try {
+            $kebabName = $this->toKebabCase($componentName);
+            $routeName = trim($routePath, '/');
+            
+            // Generate minimal component code
+            $componentCode = <<<PHP
+<?php
+
+namespace App\\Livewire;
+
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class {$componentName} extends Component
+{
+    use Toast;
+    
+    public function render()
+    {
+        return view('livewire.{$kebabName}');
+    }
+}
+PHP;
+
+            $viewCode = <<<BLADE
+<div>
+    <h1 class="text-3xl font-bold mb-4">{{ ucfirst('{$routeName}') }}</h1>
+    <p class="text-gray-600">Welcome to your dashboard.</p>
+</div>
+BLADE;
+
+            // Inject the component
+            $componentPath = "/var/www/html/app/Livewire/{$componentName}.php";
+            $viewPath = "/var/www/html/resources/views/livewire/{$kebabName}.blade.php";
+            
+            // Create component file
+            $escapedCode = escapeshellarg($componentCode);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "echo {$escapedCode} > {$componentPath}"
+            ]);
+            
+            // Create view directory if needed
+            $viewDir = dirname($viewPath);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "mkdir -p {$viewDir}"
+            ]);
+            
+            // Create view file
+            $escapedView = escapeshellarg($viewCode);
+            $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "echo {$escapedView} > {$viewPath}"
+            ]);
+            
+            // Track in project metadata
+            if (!$project->hasComponent($componentName)) {
+                $project->addComponent($componentName, $routePath, str_replace('/', '-', trim($routePath, '/')));
+            }
+            
+            Log::info('[DOCKER] Created minimal component for route', [
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Failed to create minimal component', [
+                'error' => $e->getMessage(),
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Add a route with a custom path (not based on component name).
+     */
+    private function addCustomRoute(string $containerId, string $componentName, string $routePath): bool
+    {
+        try {
+            $routeName = trim($routePath, '/');
+            $routeName = str_replace('/', '-', $routeName);
+            
+            // Read current web.php
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cat /var/www/html/routes/web.php'
+            ]);
+            
+            if ($readResult->failed()) {
+                Log::error('[DOCKER] Failed to read web.php for custom route', [
+                    'container_id' => $containerId,
+                    'error' => $readResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            $webPhpContent = $readResult->output();
+            
+            // Check if route already exists
+            $routeExists = str_contains($webPhpContent, "Route::get('{$routePath}'") || 
+                           str_contains($webPhpContent, "Route::get(\"{$routePath}\"");
+            
+            if ($routeExists) {
+                Log::info('[DOCKER] Custom route already exists', [
+                    'route' => $routePath,
+                    'component' => $componentName
+                ]);
+                return true;
+            }
+            
+            // Check if use statement exists
+            $useStatement = "use App\\Livewire\\{$componentName};";
+            $hasUseStatement = str_contains($webPhpContent, $useStatement);
+            
+            // Prepare route line
+            $routeLine = "Route::get('{$routePath}', {$componentName}::class)->name('{$routeName}');";
+            
+            // Build new content
+            $newContent = $webPhpContent;
+            
+            // Add use statement if not present
+            if (!$hasUseStatement) {
+                if (preg_match('/(use\s+[^;]+;[\s\n]*)+/', $webPhpContent, $matches)) {
+                    $lastUsePos = strrpos($webPhpContent, $matches[0]) + strlen($matches[0]);
+                    $newContent = substr_replace($webPhpContent, "\n{$useStatement}\n", $lastUsePos, 0);
+                } else {
+                    $phpTagPos = strpos($webPhpContent, '<?php');
+                    if ($phpTagPos !== false) {
+                        $insertPos = $phpTagPos + 5;
+                        $newContent = substr_replace($webPhpContent, "\n\n{$useStatement}\n", $insertPos, 0);
+                    }
+                }
+            }
+            
+            // Add route at the end of the file
+            $newContent = rtrim($newContent) . "\n{$routeLine}\n";
+            
+            // Write updated web.php
+            $escapedContent = escapeshellarg($newContent);
+            $writeResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "echo {$escapedContent} > /var/www/html/routes/web.php"
+            ]);
+            
+            if ($writeResult->failed()) {
+                Log::error('[DOCKER] Failed to write web.php for custom route', [
+                    'container_id' => $containerId,
+                    'error' => $writeResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            // Clear route cache
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan route:clear 2>&1'
+            ]);
+            
+            Log::info('[DOCKER] Custom route added', [
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception adding custom route', [
+                'error' => $e->getMessage(),
+                'route' => $routePath,
+                'component' => $componentName
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * Add a route for a Livewire component in the container's web.php.
      * Every component gets its own unique route based on its name.
      */
@@ -500,6 +806,14 @@ class DockerPreviewService
      */
     public function injectCode(Project $project, string $code, string $componentName): bool
     {
+        return $this->injectCodeInternal($project, $code, $componentName, $code);
+    }
+    
+    /**
+     * Internal method that handles code injection with access to original full code.
+     */
+    private function injectCodeInternal(Project $project, string $code, string $componentName, string $originalFullCode): bool
+    {
         try {
             if (!$project->container_id || !$this->isContainerRunning($project->container_id)) {
                 throw new \Exception("Container not running for project {$project->id}");
@@ -519,8 +833,95 @@ class DockerPreviewService
                 throw new \Exception("Generated code is not a valid Laravel Livewire component. Only Laravel Livewire components are supported.");
             }
             
-            // Step 2: Parse the code to extract class name, view name, and view content
-            Log::info('[DOCKER] Parsing component code', ['code_length' => strlen($code), 'code_preview' => substr($code, 0, 200)]);
+            // Step 2: Check if code contains multiple components
+            $componentBlocks = $this->splitMultipleComponents($code);
+            
+            // If multiple components found, process each one recursively
+            if (count($componentBlocks) > 1) {
+                Log::info('[DOCKER] Multiple components detected', ['count' => count($componentBlocks)]);
+                
+                $firstComponentName = $componentName;
+                $allProcessed = true;
+                $processedComponents = [];
+                
+                foreach ($componentBlocks as $index => $componentCode) {
+                    $parsed = $this->parseComponentCode($componentCode);
+                    $blockComponentName = $parsed['class_name'] ?? ($index === 0 ? $componentName : "Component" . ($index + 1));
+                    
+                    Log::info('[DOCKER] Processing component block', [
+                        'index' => $index,
+                        'component_name' => $blockComponentName
+                    ]);
+                    
+                    // Recursively call injectCodeInternal for each component (it will detect single component and process normally)
+                    $result = $this->injectCodeInternal(
+                        $project,
+                        $componentCode,
+                        $index === 0 ? $firstComponentName : $blockComponentName,
+                        $originalFullCode // Pass original full code for route extraction
+                    );
+                    
+                    if ($result) {
+                        $processedComponents[] = $blockComponentName;
+                    } else {
+                        $allProcessed = false;
+                        Log::warning('[DOCKER] Failed to process component', ['component' => $blockComponentName]);
+                    }
+                }
+                
+                // After processing all components, extract routes from the FULL original code
+                Log::info('[DOCKER] Extracting routes from full original code');
+                $allComponents = $this->extractAllComponents($originalFullCode);
+                $routeReferences = $this->extractRouteReferences($originalFullCode);
+                
+                Log::info('[DOCKER] Route extraction results', [
+                    'components_found' => $allComponents,
+                    'route_references' => $routeReferences
+                ]);
+                
+                // Add routes for all route references found
+                foreach ($routeReferences as $routePath) {
+                    $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
+                    
+                    if ($routeComponent) {
+                        Log::info('[DOCKER] Adding route for reference', [
+                            'route' => $routePath,
+                            'component' => $routeComponent
+                        ]);
+                        $this->addCustomRoute($project->container_id, $routeComponent, $routePath);
+                    } else {
+                        // Route component not found - try to create it or use a default
+                        Log::warning('[DOCKER] Route component not found, attempting to create', [
+                            'route' => $routePath
+                        ]);
+                        
+                        // Try to infer component name from route (e.g., /dashboard -> DashboardComponent)
+                        $routeName = trim($routePath, '/');
+                        $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+                        
+                        // Check if it exists
+                        $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        } else {
+                            Log::warning('[DOCKER] Could not find or create component for route', [
+                                'route' => $routePath,
+                                'attempted_component' => $potentialComponent
+                            ]);
+                        }
+                    }
+                }
+                
+                return $allProcessed;
+            }
+            
+            // Single component - proceed with normal flow
+            Log::info('[DOCKER] Parsing single component code', ['code_length' => strlen($code), 'code_preview' => substr($code, 0, 200)]);
             $parsed = $this->parseComponentCode($code);
             $actualClassName = $parsed['class_name'] ?? $componentName;
             
@@ -658,6 +1059,14 @@ class DockerPreviewService
                 // Remove ```html, ```blade, ```, and any leading/trailing whitespace
                 $finalViewContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $finalViewContent);
                 $finalViewContent = preg_replace('/\n?```\s*$/m', '', $finalViewContent);
+                
+                // CRITICAL: Remove code generation markers (===PHP===, ===BLADE===, ===END===)
+                $finalViewContent = preg_replace('/===PHP===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===BLADE===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===END===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===BLADE_VIEW===\s*/', '', $finalViewContent);
+                $finalViewContent = preg_replace('/===END_BLADE===\s*/', '', $finalViewContent);
+                
                 $finalViewContent = trim($finalViewContent);
                 
                 // CRITICAL: Remove any explanatory text that might appear in Blade files
@@ -779,10 +1188,12 @@ BLADE;
                 }
             }
             
-            // Step 11: Generate route for the component
-            Log::info('[DOCKER] Generating route for component', ['component_name' => $componentName]);
+            // Step 11: Extract all components and routes from the ORIGINAL full code (not just this component)
+            Log::info('[DOCKER] Extracting all components and routes from original full code');
+            $allComponents = $this->extractAllComponents($originalFullCode);
             
-            // Every component gets its own unique route based on component name
+            // Add route for the primary component
+            Log::info('[DOCKER] Generating route for primary component', ['component_name' => $componentName]);
             $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
             
             if ($routeAdded) {
@@ -808,6 +1219,92 @@ BLADE;
                     'route' => $route,
                     'is_update' => $componentExists
                 ]);
+            }
+            
+            // Step 12: Add routes for all other components found in the code
+            foreach ($allComponents as $foundComponent) {
+                if ($foundComponent !== $componentName) {
+                    Log::info('[DOCKER] Found additional component, adding route', [
+                        'component' => $foundComponent,
+                        'primary' => $componentName
+                    ]);
+                    
+                    // Check if component file exists in container
+                    $foundComponentPath = "/var/www/html/app/Livewire/{$foundComponent}.php";
+                    $checkResult = $this->runDockerCommand([
+                        'exec', $project->container_id,
+                        'sh', '-c', "test -f {$foundComponentPath} && echo 'exists' || echo 'missing'"
+                    ]);
+                    
+                    if (trim($checkResult->output()) === 'exists') {
+                        // Component exists, add route for it
+                        $this->addComponentRoute($project->container_id, $foundComponent);
+                        
+                        // Track it in project metadata if not already tracked
+                        if (!$project->hasComponent($foundComponent)) {
+                            $foundKebabName = $this->toKebabCase($foundComponent);
+                            $foundRoute = "/{$foundKebabName}";
+                            $project->addComponent($foundComponent, $foundRoute, $foundKebabName);
+                        }
+                    }
+                }
+            }
+            
+            // Step 13: Extract route references from ORIGINAL full code (not just this component)
+            // This ensures we catch routes referenced in other components
+            $routeReferences = $this->extractRouteReferences($originalFullCode);
+            
+            Log::info('[DOCKER] Extracted route references from full code', [
+                'routes' => $routeReferences,
+                'all_components' => $allComponents
+            ]);
+            
+            foreach ($routeReferences as $routePath) {
+                // Find which component should handle this route
+                $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
+                
+                if ($routeComponent) {
+                    Log::info('[DOCKER] Adding route reference', [
+                        'route' => $routePath,
+                        'component' => $routeComponent
+                    ]);
+                    
+                    // Add route with custom path if different from default
+                    $this->addCustomRoute($project->container_id, $routeComponent, $routePath);
+                } else {
+                    // Component not found in code - try to infer from route name
+                    $routeName = trim($routePath, '/');
+                    $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+                    
+                    Log::info('[DOCKER] Route component not found in code, checking if exists', [
+                        'route' => $routePath,
+                        'potential_component' => $potentialComponent
+                    ]);
+                    
+                    // Check if component file exists
+                    $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+                    $checkResult = $this->runDockerCommand([
+                        'exec', $project->container_id,
+                        'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+                    ]);
+                    
+                    if (trim($checkResult->output()) === 'exists') {
+                        Log::info('[DOCKER] Found component file, adding route', [
+                            'route' => $routePath,
+                            'component' => $potentialComponent
+                        ]);
+                        $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                    } else {
+                        // Component doesn't exist - create a minimal component for the route
+                        Log::info('[DOCKER] Component not found, creating minimal component for route', [
+                            'route' => $routePath,
+                            'component' => $potentialComponent
+                        ]);
+                        
+                        $this->createMinimalComponentForRoute($project, $routePath, $potentialComponent);
+                        $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                    }
+                }
             }
             
             Log::info("Successfully injected and validated code for project {$project->id}", [
