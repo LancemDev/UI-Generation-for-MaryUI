@@ -311,16 +311,11 @@ class CodeGenerationEngine extends Component
                 // Switch to code tab to show the generated code
                 $this->activeTab = 'preview';
                 
-                // Create preview
+                // Create preview (this will save the completed state internally)
                 Log::info('[CODE_GEN] Starting preview creation');
                 $this->createPreview();
                 
-                // Save completed generation state to database
-                $this->currentProject->completeGeneration(
-                    $this->componentName,
-                    $this->generatedCode,
-                    $this->previewUrl
-                );
+                // Note: completeGeneration() is now called inside createPreview() after success
                 
                 // Create success notification
                 NotificationService::success(
@@ -356,7 +351,7 @@ class CodeGenerationEngine extends Component
                     }
                 }
                 
-                // Update selected route
+                // Update selected route FIRST before refreshing iframe
                 $routes = $this->currentProject->getRoutes();
                 foreach ($routes as $route) {
                     if ($route['component'] === $this->componentName) {
@@ -366,6 +361,23 @@ class CodeGenerationEngine extends Component
                         break;
                     }
                 }
+                
+                // Switch to preview tab to show the result
+                $this->activeTab = 'preview';
+                
+                // Force UI refresh to show the new code and preview
+                $this->dispatch('$refresh');
+                
+                // Refresh iframe AFTER route is set, with a longer delay to ensure route is ready
+                $finalPreviewUrl = $this->previewUrl;
+                $this->js("
+                    setTimeout(() => {
+                        const iframe = document.getElementById('preview-iframe');
+                        if (iframe && '{$finalPreviewUrl}') {
+                            iframe.src = '{$finalPreviewUrl}';
+                        }
+                    }, 1000);
+                ");
                 
                 Log::info('[CODE_GEN] Success events dispatched', [
                     'component_name' => $this->componentName,
@@ -495,37 +507,83 @@ class CodeGenerationEngine extends Component
             Log::info('[CODE_GEN] Code injection result', ['success' => $success]);
             
                     if ($success) {
-                        $this->previewUrl = $previewUrl;
                         $this->previewReady = true;
                         $this->isGenerating = false; // Ensure generating flag is cleared
 
-                        // Update generation state with preview URL
+                        // Load project files first
+                        $this->loadProjectFiles();
+                
+                        // Auto-select the newly generated file if it exists
+                        $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                        if (in_array($generatedFilePath, $this->projectFiles)) {
+                            $this->selectFile($generatedFilePath);
+                            Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
+                        }
+                        
+                        // Set the route and build full preview URL BEFORE setting previewUrl
+                        $routes = $this->currentProject->getRoutes();
+                        $fullPreviewUrl = $previewUrl; // Default to base URL
+                        foreach ($routes as $route) {
+                            if ($route['component'] === $this->componentName) {
+                                $this->selectedRoute = $route['url'];
+                                $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
+                                $fullPreviewUrl = $baseUrl . $route['url'];
+                                break;
+                            }
+                        }
+                        
+                        // Now set the full preview URL with route included
+                        $this->previewUrl = $fullPreviewUrl;
+
+                        // Save completed generation state to database (with all data)
                         if ($this->currentProject) {
+                            $this->currentProject->completeGeneration(
+                                $this->componentName,
+                                $this->generatedCode,
+                                $fullPreviewUrl
+                            );
+                            // Also set preview_ready flag
                             $this->currentProject->setGenerationState([
-                                'preview_url' => $previewUrl,
                                 'preview_ready' => true,
                             ]);
                         }
-
-                        // Load project files
-                        $this->loadProjectFiles();
-                
-                // Auto-select the newly generated file if it exists
-                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
-                if (in_array($generatedFilePath, $this->projectFiles)) {
-                    $this->selectFile($generatedFilePath);
-                    Log::info('[CODE_GEN] Auto-selected generated file', ['file' => $generatedFilePath]);
-                }
                 
                 Log::info('[CODE_GEN] Preview ready', [
                     'preview_url' => $this->previewUrl,
                     'component_name' => $this->componentName,
                     'is_generating' => $this->isGenerating,
-                    'preview_ready' => $this->previewReady
+                    'preview_ready' => $this->previewReady,
+                    'selected_route' => $this->selectedRoute
                 ]);
                 
-                // Force Livewire to update the view
+                // Switch to preview tab
+                $this->activeTab = 'preview';
+                
+                // Force Livewire to update - ensure all state is set first
+                // Trigger a property update to force re-render
                 $this->dispatch('$refresh');
+                
+                // Use JavaScript to ensure UI updates and iframe loads
+                $finalPreviewUrl = $this->previewUrl;
+                $componentId = $this->getId();
+                $this->js("
+                    // Small delay to ensure Livewire has processed the state changes
+                    setTimeout(() => {
+                        // Force Livewire component to refresh
+                        const component = Livewire.find('{$componentId}');
+                        if (component) {
+                            component.\$refresh();
+                        }
+                        
+                        // Wait a bit more for route to be ready, then update iframe
+                        setTimeout(() => {
+                            const iframe = document.getElementById('preview-iframe');
+                            if (iframe && '{$finalPreviewUrl}') {
+                                iframe.src = '{$finalPreviewUrl}';
+                            }
+                        }, 1000);
+                    }, 200);
+                ");
                 
                 $this->success('Component generated, validated, and preview ready!');
             } else {
@@ -788,6 +846,69 @@ class CodeGenerationEngine extends Component
         }
         
         return $tree;
+    }
+    
+    /**
+     * Check generation status and update UI if generation completed.
+     * Called by wire:poll continuously to check for completion.
+     */
+    public function checkGenerationStatus(): void
+    {
+        if (!$this->currentProject) {
+            return;
+        }
+        
+        // Refresh the project model to get latest state from database
+        $this->currentProject->refresh();
+        
+        // Check if generation completed in database state
+        $state = $this->currentProject->getGenerationState();
+        $isGeneratingInState = $state['is_generating'] ?? false;
+        $hasCompleted = !empty($state['completed_at']) && !empty($state['generated_code']);
+        
+        // If state shows completion but UI hasn't updated yet, update UI
+        if ($hasCompleted && ($this->isGenerating || empty($this->generatedCode) || empty($this->previewUrl))) {
+            Log::info('[CODE_GEN] Polling detected completion, updating UI', [
+                'component_name' => $state['component_name'] ?? null,
+                'has_preview_url' => !empty($state['preview_url']),
+                'preview_ready' => !empty($state['preview_ready'])
+            ]);
+            
+            // Generation completed - update UI
+            $this->isGenerating = false;
+            $this->componentName = $state['component_name'] ?? '';
+            $this->generatedCode = $state['generated_code'] ?? '';
+            $this->previewUrl = $state['preview_url'] ?? '';
+            $this->previewReady = !empty($state['preview_ready']);
+            $this->activeTab = 'preview';
+            
+            // Load project files and select the generated file
+            $this->loadProjectFiles();
+            if ($this->componentName) {
+                $generatedFilePath = "/var/www/html/app/Livewire/{$this->componentName}.php";
+                if (in_array($generatedFilePath, $this->projectFiles)) {
+                    $this->selectFile($generatedFilePath);
+                }
+            }
+            
+            // Update route and build full preview URL
+            $routes = $this->currentProject->getRoutes();
+            foreach ($routes as $route) {
+                if ($route['component'] === $this->componentName) {
+                    $this->selectedRoute = $route['url'];
+                    if ($this->previewUrl) {
+                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . 
+                                   parse_url($this->previewUrl, PHP_URL_HOST) . ':' . 
+                                   parse_url($this->previewUrl, PHP_URL_PORT);
+                        $this->previewUrl = $baseUrl . $route['url'];
+                    }
+                    break;
+                }
+            }
+            
+            // Force UI refresh
+            $this->dispatch('$refresh');
+        }
     }
     
     public function selectFile(string $filePath)

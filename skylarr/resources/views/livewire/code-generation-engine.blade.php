@@ -1,4 +1,4 @@
-<div class="h-full flex flex-col">
+<div class="h-full flex flex-col" wire:poll.2s="checkGenerationStatus">
     {{-- Header with Toggle --}}
     <div class="p-4 border-b border-secondary-200">
         <div class="flex items-center justify-between">
@@ -35,10 +35,10 @@
     </div>
 
     {{-- Content Area --}}
-    <div class="flex-1 flex" style="min-height: 0; height: 100%;">
+    <div class="flex-1 flex" style="min-height: 0; height: 100%;" wire:key="content-area-{{ $componentName }}-{{ $isGenerating }}">
         {{-- Code Tab --}}
         @if($activeTab === 'code')
-            <div class="flex-1 flex p-4 gap-4" style="min-height: 0; overflow: hidden;">
+            <div class="flex-1 flex p-4 gap-4" style="min-height: 0; overflow: hidden;" wire:key="code-tab-{{ $selectedFilePath }}-{{ $componentName }}">
                 <div class="w-1/3 border-r border-gray-200 pr-4 overflow-y-auto" style="min-height: 0;">
                     <h4 class="font-semibold text-sm mb-2">Project Files</h4>
                     @if(count($projectFilesTree) > 0)
@@ -57,17 +57,42 @@
                     @endif
                 </div>
                 
-                <div class="flex-1 flex flex-col code-viewer-container">
+                <div class="flex-1 flex flex-col code-viewer-container" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}">
                     @if($generatedCode)
-                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4">
-                            <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10">
-                                @if($selectedFilePath)
-                                    <span>File: {{ basename($selectedFilePath) }}</span>
-                                @elseif($componentName)
-                                    <span>Generated: {{ $componentName }}</span>
-                                @endif
+                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative">
+                            <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10 flex items-center justify-between">
+                                <div>
+                                    @if($selectedFilePath)
+                                        <span>File: {{ basename($selectedFilePath) }}</span>
+                                    @elseif($componentName)
+                                        <span>Generated: {{ $componentName }}</span>
+                                    @endif
+                                </div>
+                                <button
+                                    type="button"
+                                    x-data="{ copied: false }"
+                                    x-on:click="
+                                        const codeId = 'code-content-{{ md5($selectedFilePath ?: $componentName) }}';
+                                        const codeContent = document.getElementById(codeId)?.textContent || '';
+                                        navigator.clipboard.writeText(codeContent).then(() => {
+                                            copied = true;
+                                            setTimeout(() => copied = false, 2000);
+                                        });
+                                    "
+                                    class="px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 flex items-center gap-1 transition-colors"
+                                    title="Copy code"
+                                >
+                                    <span x-show="!copied" class="flex items-center gap-1">
+                                        <x-icon name="o-clipboard" class="w-3 h-3" />
+                                        Copy
+                                    </span>
+                                    <span x-show="copied" class="flex items-center gap-1 text-green-400">
+                                        <x-icon name="o-check" class="w-3 h-3" />
+                                        Copied!
+                                    </span>
+                                </button>
                             </div>
-                            <pre class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
+                            <pre id="code-content-{{ md5($selectedFilePath ?: $componentName) }}" class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
                         </div>
                     @else
                         <div class="h-full flex items-center justify-center text-gray-400">
@@ -85,7 +110,7 @@
         {{-- Preview Tab --}}
         @if($activeTab === 'preview')
             @if($previewReady && $previewUrl)
-                <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;">
+                <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;" wire:key="preview-container-{{ $previewUrl }}-{{ $previewReady }}">
                     {{-- Preview Controls Bar --}}
                     <div class="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
                         <div class="flex items-center gap-3 flex-1">
