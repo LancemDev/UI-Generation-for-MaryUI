@@ -1526,10 +1526,16 @@ BLADE;
         $errors = [];
         
         try {
-            // Clear previous errors from log
+            // Clear previous errors from log and ensure proper permissions
             $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', 'echo "" > /var/www/html/storage/logs/laravel.log'
+                'sh', '-c', 'echo "" > /var/www/html/storage/logs/laravel.log 2>/dev/null || touch /var/www/html/storage/logs/laravel.log && echo "" > /var/www/html/storage/logs/laravel.log'
+            ]);
+            
+            // Ensure log file has correct permissions (www-data:www-data, 664)
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'chown www-data:www-data /var/www/html/storage/logs/laravel.log 2>/dev/null || true && chmod 664 /var/www/html/storage/logs/laravel.log 2>/dev/null || true'
             ]);
             
             // Get the route for this component

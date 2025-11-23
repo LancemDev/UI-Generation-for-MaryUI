@@ -171,12 +171,30 @@ class CodeGenerationEngine extends Component
     public function confirmOverwrite(): void
     {
         if ($this->pendingComponentName && $this->pendingPrompt) {
+            // Store values before clearing
+            $prompt = $this->pendingPrompt;
+            $componentName = $this->pendingComponentName;
+            $conversationHistory = $this->pendingConversationHistory;
+            
+            // Close modal first and clear pending state
             $this->showOverwriteConfirmModal = false;
-            $this->doGenerateCode($this->pendingPrompt, $this->pendingComponentName, $this->pendingConversationHistory);
             $this->pendingComponentName = null;
             $this->pendingPrompt = '';
             $this->pendingConversationHistory = [];
+            
+            // Use JavaScript to ensure modal closes, then start generation after a brief delay
+            // This allows the modal's wire:model to update before we start the generation process
+            $this->js("
+                setTimeout(() => {
+                    \$wire.doGenerateCodeDeferred(" . json_encode($prompt) . ", " . json_encode($componentName) . ", " . json_encode($conversationHistory) . ");
+                }, 200);
+            ");
         }
+    }
+    
+    public function doGenerateCodeDeferred(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
+    {
+        $this->doGenerateCode($prompt, $targetComponentName, $conversationHistory);
     }
     
     public function cancelOverwrite(): void
@@ -185,6 +203,9 @@ class CodeGenerationEngine extends Component
         $this->pendingComponentName = null;
         $this->pendingPrompt = '';
         $this->pendingConversationHistory = [];
+        
+        // Force Livewire to update the modal state
+        $this->dispatch('$refresh');
     }
     
     private function doGenerateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
