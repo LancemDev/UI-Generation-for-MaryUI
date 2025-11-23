@@ -1027,8 +1027,10 @@ BLADE;
     
     /**
      * Internal method that handles code injection with access to original full code.
+     * 
+     * @param bool $skipRouteRegistration If true, skip route registration (used when processing multiple components)
      */
-    private function injectCodeInternal(Project $project, string $code, string $componentName, string $originalFullCode): bool
+    private function injectCodeInternal(Project $project, string $code, string $componentName, string $originalFullCode, bool $skipRouteRegistration = false): bool
     {
         try {
             if (!$project->container_id || !$this->isContainerRunning($project->container_id)) {
@@ -1070,11 +1072,13 @@ BLADE;
                     ]);
                     
                     // Recursively call injectCodeInternal for each component (it will detect single component and process normally)
+                    // Skip route registration during recursive calls - we'll do it once after all components are processed
                     $result = $this->injectCodeInternal(
                         $project,
                         $componentCode,
                         $index === 0 ? $firstComponentName : $blockComponentName,
-                        $originalFullCode // Pass original full code for route extraction
+                        $originalFullCode, // Pass original full code for route extraction
+                        true // Skip route registration - we'll do it once after all components
                     );
                     
                     if ($result) {
@@ -1085,22 +1089,67 @@ BLADE;
                     }
                 }
                 
-                // After processing all components, extract routes from the FULL original code
-                Log::info('[DOCKER] Extracting routes from full original code');
+                // After processing all components, register routes ONCE from the FULL original code
+                // This is the ONLY place routes should be registered for multi-component scenarios
+                Log::info('[DOCKER] Registering routes from full original code (single pass)');
                 $allComponents = $this->extractAllComponents($originalFullCode);
                 $routeReferences = $this->extractRouteReferences($originalFullCode);
                 
                 Log::info('[DOCKER] Route extraction results', [
                     'components_found' => $allComponents,
-                    'route_references' => $routeReferences
+                    'route_references' => $routeReferences,
+                    'processed_components' => $processedComponents
                 ]);
                 
-                // Add routes for all route references found
+                // Step 1: Add default routes for all processed components
+                foreach ($processedComponents as $processedComponent) {
+                    Log::info('[DOCKER] Adding default route for processed component', [
+                        'component' => $processedComponent
+                    ]);
+                    $this->addComponentRoute($project->container_id, $processedComponent);
+                    
+                    // Ensure component is tracked in project metadata
+                    if (!$project->hasComponent($processedComponent)) {
+                        $kebabName = $this->toKebabCase($processedComponent);
+                        $route = "/{$kebabName}";
+                        $project->addComponent($processedComponent, $route, $kebabName);
+                    }
+                }
+                
+                // Step 2: Add routes for all other components found in the code (if any)
+                foreach ($allComponents as $foundComponent) {
+                    if (!in_array($foundComponent, $processedComponents)) {
+                        Log::info('[DOCKER] Found additional component in code, checking if exists', [
+                            'component' => $foundComponent
+                        ]);
+                        
+                        // Check if component file exists in container
+                        $foundComponentPath = "/var/www/html/app/Livewire/{$foundComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$foundComponentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            // Component exists, add route for it
+                            $this->addComponentRoute($project->container_id, $foundComponent);
+                            
+                            // Track it in project metadata if not already tracked
+                            if (!$project->hasComponent($foundComponent)) {
+                                $foundKebabName = $this->toKebabCase($foundComponent);
+                                $foundRoute = "/{$foundKebabName}";
+                                $project->addComponent($foundComponent, $foundRoute, $foundKebabName);
+                            }
+                        }
+                    }
+                }
+                
+                // Step 3: Add custom routes for route references found in code (e.g., redirect()->to('/dashboard'))
                 foreach ($routeReferences as $routePath) {
                     $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
                     
                     if ($routeComponent) {
-                        Log::info('[DOCKER] Adding route for reference', [
+                        Log::info('[DOCKER] Adding custom route for reference', [
                             'route' => $routePath,
                             'component' => $routeComponent
                         ]);
@@ -1125,10 +1174,13 @@ BLADE;
                         if (trim($checkResult->output()) === 'exists') {
                             $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
                         } else {
-                            Log::warning('[DOCKER] Could not find or create component for route', [
+                            // Create minimal component for the route
+                            Log::info('[DOCKER] Creating minimal component for route', [
                                 'route' => $routePath,
-                                'attempted_component' => $potentialComponent
+                                'component' => $potentialComponent
                             ]);
+                            $this->createMinimalComponentForRoute($project, $routePath, $potentialComponent);
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
                         }
                     }
                 }
@@ -1467,122 +1519,144 @@ BLADE;
             }
             
             // Step 11: Extract all components and routes from the ORIGINAL full code (not just this component)
-            Log::info('[DOCKER] Extracting all components and routes from original full code');
-            $allComponents = $this->extractAllComponents($originalFullCode);
-            
-            // Add route for the primary component
-            Log::info('[DOCKER] Generating route for primary component', ['component_name' => $componentName]);
-            $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
-            
-            if ($routeAdded) {
-                // Track component and route in project metadata (with code and view for versioning)
-                $kebabName = $this->toKebabCase($componentName);
-                // Always use component name for route - never use root route
-                $route = "/{$kebabName}";
-                $routeName = $kebabName;
+            // Only do route registration if not skipped (i.e., when processing single component or final pass)
+            if (!$skipRouteRegistration) {
+                Log::info('[DOCKER] Extracting all components and routes from original full code');
+                $allComponents = $this->extractAllComponents($originalFullCode);
                 
-                // Check if component already exists
-                $componentExists = $project->hasComponent($componentName);
+                // Add route for the primary component
+                Log::info('[DOCKER] Generating route for primary component', ['component_name' => $componentName]);
+                $routeAdded = $this->addComponentRoute($project->container_id, $componentName);
                 
-                $project->addComponent(
-                    $componentName, 
-                    $route, 
-                    $routeName,
-                    $cleanedCode, // Store code for versioning
-                    $finalViewContent // Store view for versioning
-                );
-                
-                Log::info('[DOCKER] Route added and tracked', [
-                    'component' => $componentName,
-                    'route' => $route,
-                    'is_update' => $componentExists
-                ]);
-            }
-            
-            // Step 12: Add routes for all other components found in the code
-            foreach ($allComponents as $foundComponent) {
-                if ($foundComponent !== $componentName) {
-                    Log::info('[DOCKER] Found additional component, adding route', [
-                        'component' => $foundComponent,
-                        'primary' => $componentName
-                    ]);
+                if ($routeAdded) {
+                    // Track component and route in project metadata (with code and view for versioning)
+                    $kebabName = $this->toKebabCase($componentName);
+                    // Always use component name for route - never use root route
+                    $route = "/{$kebabName}";
+                    $routeName = $kebabName;
                     
-                    // Check if component file exists in container
-                    $foundComponentPath = "/var/www/html/app/Livewire/{$foundComponent}.php";
-                    $checkResult = $this->runDockerCommand([
-                        'exec', $project->container_id,
-                        'sh', '-c', "test -f {$foundComponentPath} && echo 'exists' || echo 'missing'"
-                    ]);
+                    // Check if component already exists
+                    $componentExists = $project->hasComponent($componentName);
                     
-                    if (trim($checkResult->output()) === 'exists') {
-                        // Component exists, add route for it
-                        $this->addComponentRoute($project->container_id, $foundComponent);
+                    $project->addComponent(
+                        $componentName, 
+                        $route, 
+                        $routeName,
+                        $cleanedCode, // Store code for versioning
+                        $finalViewContent // Store view for versioning
+                    );
+                    
+                    Log::info('[DOCKER] Route added and tracked', [
+                        'component' => $componentName,
+                        'route' => $route,
+                        'is_update' => $componentExists
+                    ]);
+                }
+                
+                // Step 12: Add routes for all other components found in the code
+                foreach ($allComponents as $foundComponent) {
+                    if ($foundComponent !== $componentName) {
+                        Log::info('[DOCKER] Found additional component, adding route', [
+                            'component' => $foundComponent,
+                            'primary' => $componentName
+                        ]);
                         
-                        // Track it in project metadata if not already tracked
-                        if (!$project->hasComponent($foundComponent)) {
-                            $foundKebabName = $this->toKebabCase($foundComponent);
-                            $foundRoute = "/{$foundKebabName}";
-                            $project->addComponent($foundComponent, $foundRoute, $foundKebabName);
+                        // Check if component file exists in container
+                        $foundComponentPath = "/var/www/html/app/Livewire/{$foundComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$foundComponentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            // Component exists, add route for it
+                            $this->addComponentRoute($project->container_id, $foundComponent);
+                            
+                            // Track it in project metadata if not already tracked
+                            if (!$project->hasComponent($foundComponent)) {
+                                $foundKebabName = $this->toKebabCase($foundComponent);
+                                $foundRoute = "/{$foundKebabName}";
+                                $project->addComponent($foundComponent, $foundRoute, $foundKebabName);
+                            }
                         }
                     }
                 }
-            }
-            
-            // Step 13: Extract route references from ORIGINAL full code (not just this component)
-            // This ensures we catch routes referenced in other components
-            $routeReferences = $this->extractRouteReferences($originalFullCode);
-            
-            Log::info('[DOCKER] Extracted route references from full code', [
-                'routes' => $routeReferences,
-                'all_components' => $allComponents
-            ]);
-            
-            foreach ($routeReferences as $routePath) {
-                // Find which component should handle this route
-                $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
                 
-                if ($routeComponent) {
-                    Log::info('[DOCKER] Adding route reference', [
-                        'route' => $routePath,
-                        'component' => $routeComponent
-                    ]);
+                // Step 13: Extract route references from ORIGINAL full code (not just this component)
+                // This ensures we catch routes referenced in other components
+                $routeReferences = $this->extractRouteReferences($originalFullCode);
+                
+                Log::info('[DOCKER] Extracted route references from full code', [
+                    'routes' => $routeReferences,
+                    'all_components' => $allComponents
+                ]);
+                
+                foreach ($routeReferences as $routePath) {
+                    // Find which component should handle this route
+                    $routeComponent = $this->findComponentForRoute($routePath, $allComponents, $project->container_id);
                     
-                    // Add route with custom path if different from default
-                    $this->addCustomRoute($project->container_id, $routeComponent, $routePath);
-                } else {
-                    // Component not found in code - try to infer from route name
-                    $routeName = trim($routePath, '/');
-                    $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
-                    
-                    Log::info('[DOCKER] Route component not found in code, checking if exists', [
-                        'route' => $routePath,
-                        'potential_component' => $potentialComponent
-                    ]);
-                    
-                    // Check if component file exists
-                    $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
-                    $checkResult = $this->runDockerCommand([
-                        'exec', $project->container_id,
-                        'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
-                    ]);
-                    
-                    if (trim($checkResult->output()) === 'exists') {
-                        Log::info('[DOCKER] Found component file, adding route', [
+                    if ($routeComponent) {
+                        Log::info('[DOCKER] Adding route reference', [
                             'route' => $routePath,
-                            'component' => $potentialComponent
-                        ]);
-                        $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
-                    } else {
-                        // Component doesn't exist - create a minimal component for the route
-                        Log::info('[DOCKER] Component not found, creating minimal component for route', [
-                            'route' => $routePath,
-                            'component' => $potentialComponent
+                            'component' => $routeComponent
                         ]);
                         
-                        $this->createMinimalComponentForRoute($project, $routePath, $potentialComponent);
-                        $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        // Add route with custom path if different from default
+                        $this->addCustomRoute($project->container_id, $routeComponent, $routePath);
+                    } else {
+                        // Component not found in code - try to infer from route name
+                        $routeName = trim($routePath, '/');
+                        $potentialComponent = str_replace(' ', '', ucwords(str_replace('-', ' ', $routeName))) . 'Component';
+                        
+                        Log::info('[DOCKER] Route component not found in code, checking if exists', [
+                            'route' => $routePath,
+                            'potential_component' => $potentialComponent
+                        ]);
+                        
+                        // Check if component file exists
+                        $componentPath = "/var/www/html/app/Livewire/{$potentialComponent}.php";
+                        $checkResult = $this->runDockerCommand([
+                            'exec', $project->container_id,
+                            'sh', '-c', "test -f {$componentPath} && echo 'exists' || echo 'missing'"
+                        ]);
+                        
+                        if (trim($checkResult->output()) === 'exists') {
+                            Log::info('[DOCKER] Found component file, adding route', [
+                                'route' => $routePath,
+                                'component' => $potentialComponent
+                            ]);
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        } else {
+                            // Component doesn't exist - create a minimal component for the route
+                            Log::info('[DOCKER] Component not found, creating minimal component for route', [
+                                'route' => $routePath,
+                                'component' => $potentialComponent
+                            ]);
+                            
+                            $this->createMinimalComponentForRoute($project, $routePath, $potentialComponent);
+                            $this->addCustomRoute($project->container_id, $potentialComponent, $routePath);
+                        }
                     }
                 }
+            } else {
+                // Still track component in project metadata even if skipping route registration
+                $kebabName = $this->toKebabCase($componentName);
+                $route = "/{$kebabName}";
+                $routeName = $kebabName;
+                
+                if (!$project->hasComponent($componentName)) {
+                    $project->addComponent(
+                        $componentName, 
+                        $route, 
+                        $routeName,
+                        $cleanedCode, // Store code for versioning
+                        $finalViewContent // Store view for versioning
+                    );
+                }
+                
+                Log::info('[DOCKER] Component processed (route registration skipped)', [
+                    'component' => $componentName
+                ]);
             }
             
             Log::info("Successfully injected and validated code for project {$project->id}", [
