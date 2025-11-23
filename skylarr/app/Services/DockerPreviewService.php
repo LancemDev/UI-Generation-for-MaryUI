@@ -1430,9 +1430,11 @@ BLADE;
     public function readFileFromContainer(string $containerId, string $filePath): string
     {
         try {
+            // Properly escape the file path to handle spaces and special characters
+            $escapedPath = escapeshellarg($filePath);
             $result = $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', "cat {$filePath}"
+                'sh', '-c', "cat {$escapedPath}"
             ]);
             
             if ($result->successful()) {
@@ -2052,9 +2054,10 @@ BLADE;
             $layoutPath = '/var/www/html/resources/views/components/layouts/app.blade.php';
             
             // Read current layout file
+            $escapedLayoutPath = escapeshellarg($layoutPath);
             $readResult = $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', "cat {$layoutPath}"
+                'sh', '-c', "cat {$escapedLayoutPath}"
             ]);
             
             if ($readResult->failed()) {
@@ -2122,9 +2125,10 @@ BLADE;
             
             // Write updated content back
             $escapedContent = escapeshellarg($updatedContent);
+            $escapedLayoutPath = escapeshellarg($layoutPath);
             $writeResult = $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', "echo {$escapedContent} > {$layoutPath}"
+                'sh', '-c', "echo {$escapedContent} > {$escapedLayoutPath}"
             ]);
             
             if ($writeResult->failed()) {
@@ -2136,9 +2140,10 @@ BLADE;
             }
             
             // Ensure proper permissions for layout file
+            $escapedLayoutPath = escapeshellarg($layoutPath);
             $this->runDockerCommand([
                 'exec', $containerId,
-                'sh', '-c', "chown www-data:www-data {$layoutPath} 2>/dev/null || true && chmod 644 {$layoutPath} 2>/dev/null || true"
+                'sh', '-c', "chown www-data:www-data {$escapedLayoutPath} 2>/dev/null || true && chmod 644 {$escapedLayoutPath} 2>/dev/null || true"
             ]);
             
             // Ensure storage/framework/views directory is writable (for compiled Blade views)
