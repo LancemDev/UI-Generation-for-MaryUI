@@ -1,6 +1,30 @@
 <div>
 <style>
     [x-cloak] { display: none !important; }
+    
+    /* Make project dropdown scrollable */
+    .project-dropdown-menu {
+        max-height: 24rem; /* 96 * 0.25rem = 24rem */
+        overflow-y: auto;
+    }
+    
+    /* Ensure smooth scrolling */
+    .project-dropdown-menu::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .project-dropdown-menu::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .project-dropdown-menu::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+    }
+    
+    .project-dropdown-menu::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.3);
+    }
 </style>
 <x-nav sticky full-width class="bg-primary/90 text-base-100 border-b border-secondary/25 backdrop-blur supports-[backdrop-filter]:bg-primary/60">
  
@@ -21,29 +45,31 @@
     {{-- Project Selector Dropdown --}}
     @if($selectedProject)
         <x-dropdown 
-            class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary" 
+            class="btn-ghost btn-sm text-base-100/90 hover:text-base-100 hover:bg-secondary project-dropdown" 
             icon="o-folder"
             :label="$selectedProject->name"
             right
             wire:poll.5s="loadProjects"
         >
-            @if($projects && count($projects) > 0)
-                @foreach($projects as $project)
-                    <x-menu-item 
-                        :title="$project->name"
-                        :subtitle="$project->description ? \Illuminate\Support\Str::limit($project->description, 40) : null"
-                        :icon="$selectedProjectId == $project->id ? 'o-check-circle' : 'o-folder'"
-                        :class="$selectedProjectId == $project->id ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'"
-                        wire:click.stop="switchProject({{ $project->id }})"
-                    />
-                @endforeach
-            @endif
-            <x-menu-item 
-                title="Create New Project" 
-                icon="o-plus" 
-                class="text-blue-600 dark:text-blue-400"
-                wire:click.stop="openCreateProjectModal"
-            />
+            <div class="project-dropdown-menu">
+                @if($projects && count($projects) > 0)
+                    @foreach($projects as $project)
+                        <x-menu-item 
+                            :title="$project->name"
+                            :subtitle="$project->description ? \Illuminate\Support\Str::limit($project->description, 40) : null"
+                            :icon="$selectedProjectId == $project->id ? 'o-check-circle' : 'o-folder'"
+                            :class="$selectedProjectId == $project->id ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'"
+                            wire:click.stop="switchProject({{ $project->id }})"
+                        />
+                    @endforeach
+                @endif
+                <x-menu-item 
+                    title="Create New Project" 
+                    icon="o-plus" 
+                    class="text-blue-600 dark:text-blue-400"
+                    wire:click.stop="openCreateProjectModal"
+                />
+            </div>
         </x-dropdown>
     @else
         <x-button 
