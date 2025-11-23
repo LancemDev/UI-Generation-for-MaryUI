@@ -8,21 +8,37 @@
         overflow-y: auto;
     }
     
+    /* Target MaryUI dropdown menu container */
+    .project-dropdown [role="menu"],
+    .project-dropdown .dropdown-content,
+    .project-dropdown ul[role="menu"] {
+        max-height: 24rem;
+        overflow-y: auto;
+    }
+    
     /* Ensure smooth scrolling */
-    .project-dropdown-menu::-webkit-scrollbar {
+    .project-dropdown-menu::-webkit-scrollbar,
+    .project-dropdown [role="menu"]::-webkit-scrollbar,
+    .project-dropdown .dropdown-content::-webkit-scrollbar {
         width: 6px;
     }
     
-    .project-dropdown-menu::-webkit-scrollbar-track {
+    .project-dropdown-menu::-webkit-scrollbar-track,
+    .project-dropdown [role="menu"]::-webkit-scrollbar-track,
+    .project-dropdown .dropdown-content::-webkit-scrollbar-track {
         background: transparent;
     }
     
-    .project-dropdown-menu::-webkit-scrollbar-thumb {
+    .project-dropdown-menu::-webkit-scrollbar-thumb,
+    .project-dropdown [role="menu"]::-webkit-scrollbar-thumb,
+    .project-dropdown .dropdown-content::-webkit-scrollbar-thumb {
         background: rgba(0, 0, 0, 0.2);
         border-radius: 3px;
     }
     
-    .project-dropdown-menu::-webkit-scrollbar-thumb:hover {
+    .project-dropdown-menu::-webkit-scrollbar-thumb:hover,
+    .project-dropdown [role="menu"]::-webkit-scrollbar-thumb:hover,
+    .project-dropdown .dropdown-content::-webkit-scrollbar-thumb:hover {
         background: rgba(0, 0, 0, 0.3);
     }
 </style>
