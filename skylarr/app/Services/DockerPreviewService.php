@@ -1228,14 +1228,14 @@ BLADE;
                 
                 // Create backup directory if it doesn't exist
                 $backupDir = "/var/www/html/storage/app/component-backups";
-            $this->runDockerCommand([
-                'exec', $project->container_id,
+                $this->runDockerCommand([
+                    'exec', $project->container_id,
                     'sh', '-c', "mkdir -p {$backupDir}"
-            ]);
-            
+                ]);
+                
                 // Backup component file
                 $backupPath = "{$backupDir}/{$componentName}-" . date('Y-m-d_His') . '.php';
-            $this->runDockerCommand([
+                $this->runDockerCommand([
                     'exec', $project->container_id,
                     'sh', '-c', "cp {$componentPath} {$backupPath}"
                 ]);

@@ -236,8 +236,7 @@ class CodeGenerationEngine extends Component
         $this->pendingPrompt = '';
         $this->pendingConversationHistory = [];
         
-        // Force Livewire to update the modal state
-        $this->dispatch('$refresh');
+        // Livewire 3 automatically re-renders when properties change
     }
     
     private function doGenerateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
@@ -277,8 +276,8 @@ class CodeGenerationEngine extends Component
         $this->previewReady = false;
         $this->generatedCode = ''; // Clear previous code to show loader
         
-        // Force Livewire to update the view immediately
-        $this->dispatch('$refresh');
+        // Livewire 3 automatically re-renders when properties change
+        // No need for explicit refresh - property updates trigger re-renders
         
         // Clear any previous generation state and start new generation
         $this->currentProject->clearGenerationState();
@@ -369,8 +368,7 @@ class CodeGenerationEngine extends Component
                 // Switch to preview tab to show the result
                 $this->activeTab = 'preview';
                 
-                // Force UI refresh to show the new code and preview
-                $this->dispatch('$refresh');
+                // Livewire 3 automatically re-renders when properties change
                 
                 // Refresh iframe AFTER route is set, with a longer delay to ensure route is ready
                 $finalPreviewUrl = $this->previewUrl;
@@ -566,9 +564,8 @@ class CodeGenerationEngine extends Component
                 // Switch to preview tab
                 $this->activeTab = 'preview';
                 
-                // Force Livewire to update - ensure all state is set first
-                // Trigger a property update to force re-render
-                $this->dispatch('$refresh');
+                // Livewire 3 automatically re-renders when properties change
+                // Property updates above will trigger re-render automatically
                 
                 // Use JavaScript to ensure UI updates and iframe loads
                 $finalPreviewUrl = $this->previewUrl;
@@ -997,8 +994,7 @@ class CodeGenerationEngine extends Component
                 }
             }
             
-            // Force UI refresh
-            $this->dispatch('$refresh');
+            // Livewire 3 automatically re-renders when properties change
         }
     }
     
