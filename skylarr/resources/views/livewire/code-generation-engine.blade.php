@@ -123,6 +123,18 @@
                                     <code class="text-xs bg-white px-2 py-1 rounded border">{{ $previewUrl }}</code>
                                 </div>
                             @endif
+                            
+                            {{-- Theme Selector --}}
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-600">Theme:</span>
+                                <select 
+                                    wire:model.live="selectedTheme"
+                                    class="text-xs bg-white px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    @foreach($availableThemes as $theme)
+                                        <option value="{{ $theme }}">{{ ucfirst($theme) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                         <a 
                             href="{{ $previewUrl }}" 

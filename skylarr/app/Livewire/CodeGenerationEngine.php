@@ -28,11 +28,21 @@ class CodeGenerationEngine extends Component
     public string $selectedFile = '';
     public string $selectedFilePath = '';
     public string $selectedRoute = '';
+    public string $selectedTheme = 'light';
     public bool $showComponentSelectModal = false;
     public bool $showOverwriteConfirmModal = false;
     public ?string $pendingComponentName = null;
     public string $pendingPrompt = '';
     public array $pendingConversationHistory = [];
+    
+    // Available daisyUI themes
+    public array $availableThemes = [
+        'light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 
+        'retro', 'cyberpunk', 'valentine', 'halloween', 'garden', 'forest', 'aqua', 
+        'lofi', 'pastel', 'fantasy', 'wireframe', 'black', 'luxury', 'dracula', 
+        'cmyk', 'autumn', 'business', 'acid', 'lemonade', 'night', 'coffee', 
+        'winter', 'dim', 'nord', 'sunset', 'caramellatte', 'abyss', 'silk'
+    ];
     
     protected $listeners = [
         'codeGenerated' => 'handleCodeGenerated',
@@ -59,6 +69,12 @@ class CodeGenerationEngine extends Component
     {
         if (!$this->currentProject) {
             return;
+        }
+        
+        // Restore selected theme from project metadata if available
+        $metadata = $this->currentProject->metadata ?? [];
+        if (isset($metadata['selected_theme']) && in_array($metadata['selected_theme'], $this->availableThemes)) {
+            $this->selectedTheme = $metadata['selected_theme'];
         }
 
         $state = $this->currentProject->getGenerationState();
@@ -435,6 +451,20 @@ class CodeGenerationEngine extends Component
             
             Log::info('[CODE_GEN] Container ready', ['preview_url' => $previewUrl]);
             
+            // Apply selected theme to the container
+            if ($this->currentProject->container_id && $this->selectedTheme) {
+                try {
+                    $dockerService->updatePreviewTheme($this->currentProject->container_id, $this->selectedTheme);
+                    Log::info('[CODE_GEN] Theme applied to container', ['theme' => $this->selectedTheme]);
+                } catch (\Exception $e) {
+                    Log::warning('[CODE_GEN] Failed to apply theme to container', [
+                        'theme' => $this->selectedTheme,
+                        'error' => $e->getMessage()
+                    ]);
+                    // Don't fail the whole process if theme update fails
+                }
+            }
+            
             // Inject the generated code
             Log::info('[CODE_GEN] Injecting code into container', [
                 'component_name' => $this->componentName
@@ -511,6 +541,42 @@ class CodeGenerationEngine extends Component
     public function updatePreview()
     {
         $this->createPreview();
+    }
+    
+    public function updatedSelectedTheme($theme)
+    {
+        if (!$this->currentProject) {
+            return;
+        }
+        
+        // Save theme to project metadata
+        $metadata = $this->currentProject->metadata ?? [];
+        $metadata['selected_theme'] = $theme;
+        $this->currentProject->update(['metadata' => $metadata]);
+        
+        // Update theme in container if it exists
+        if ($this->currentProject->container_id) {
+            try {
+                $dockerService = app(DockerPreviewService::class);
+                $dockerService->updatePreviewTheme($this->currentProject->container_id, $theme);
+                
+                // Refresh the iframe to show the new theme
+                $this->js("
+                    const iframe = document.getElementById('preview-iframe');
+                    if (iframe) {
+                        iframe.src = iframe.src;
+                    }
+                ");
+                
+                Log::info('[CODE_GEN] Theme updated', ['theme' => $theme]);
+            } catch (\Exception $e) {
+                Log::error('[CODE_GEN] Failed to update theme', [
+                    'theme' => $theme,
+                    'error' => $e->getMessage()
+                ]);
+                $this->error('Failed to update theme: ' . $e->getMessage());
+            }
+        }
     }
     
     public function stopPreview()

@@ -1977,6 +1977,125 @@ BLADE;
     /**
      * Run a Docker command.
      */
+    /**
+     * Update the theme in the preview container's layout file.
+     */
+    public function updatePreviewTheme(string $containerId, string $theme): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                Log::error('[DOCKER] Container not running for theme update', ['container_id' => $containerId]);
+                return false;
+            }
+            
+            $layoutPath = '/var/www/html/resources/views/components/layouts/app.blade.php';
+            
+            // Read current layout file
+            $readResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "cat {$layoutPath}"
+            ]);
+            
+            if ($readResult->failed()) {
+                Log::error('[DOCKER] Failed to read layout file', [
+                    'container_id' => $containerId,
+                    'error' => $readResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            $layoutContent = $readResult->output();
+            
+            // Fix any corrupted layout files first (in case of previous regex issues)
+            // Check if the file has malformed syntax like: app()- data-theme="light">getLocale()
+            if (preg_match('/app\(\)-\s*data-theme/i', $layoutContent)) {
+                Log::warning('[DOCKER] Detected corrupted layout file, fixing...', ['container_id' => $containerId]);
+                // Restore the correct format - fix the broken Blade syntax
+                $layoutContent = preg_replace(
+                    '/app\(\)-\s*data-theme="[^"]*">getLocale\(\)/i',
+                    'app()->getLocale()',
+                    $layoutContent
+                );
+                // Also fix if data-theme got inserted in the middle of other attributes
+                $layoutContent = preg_replace(
+                    '/(lang="[^"]*")\s+data-theme="[^"]*"\s*>/i',
+                    '$1 data-theme="' . $theme . '">',
+                    $layoutContent
+                );
+            }
+            
+            // Update the data-theme attribute in the <html> tag
+            // Use a line-by-line approach to safely handle Blade syntax
+            
+            $lines = explode("\n", $layoutContent);
+            $updatedLines = [];
+            
+            foreach ($lines as $line) {
+                // Find the line with the <html> tag
+                if (preg_match('/<html/i', $line)) {
+                    // Remove any existing data-theme attribute from this line
+                    $line = preg_replace('/\s+data-theme\s*=\s*"[^"]*"/i', '', $line);
+                    
+                    // Add data-theme before the closing > of the <html> tag
+                    // Match: "> at the end (after last attribute's closing quote)
+                    if (preg_match('/"\s*>/', $line)) {
+                        // Insert data-theme before the closing >
+                        $line = preg_replace(
+                            '/("\s*>)/',
+                            '" data-theme="' . $theme . '">',
+                            $line,
+                            1
+                        );
+                    } else {
+                        // Fallback: insert before any > that's at the end of the line or followed by newline
+                        // But only if it's the <html> tag (starts with <html)
+                        if (preg_match('/^(<html[^>]*?)(\s*>)/', $line, $tagMatches)) {
+                            $line = $tagMatches[1] . ' data-theme="' . $theme . '"' . $tagMatches[2];
+                        }
+                    }
+                }
+                $updatedLines[] = $line;
+            }
+            
+            $updatedContent = implode("\n", $updatedLines);
+            
+            // Write updated content back
+            $escapedContent = escapeshellarg($updatedContent);
+            $writeResult = $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "echo {$escapedContent} > {$layoutPath}"
+            ]);
+            
+            if ($writeResult->failed()) {
+                Log::error('[DOCKER] Failed to write layout file', [
+                    'container_id' => $containerId,
+                    'error' => $writeResult->errorOutput()
+                ]);
+                return false;
+            }
+            
+            // Ensure proper permissions
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "chown www-data:www-data {$layoutPath} 2>/dev/null || true && chmod 644 {$layoutPath} 2>/dev/null || true"
+            ]);
+            
+            Log::info('[DOCKER] Theme updated successfully', [
+                'container_id' => $containerId,
+                'theme' => $theme
+            ]);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Exception updating theme', [
+                'container_id' => $containerId,
+                'theme' => $theme,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
     private function runDockerCommand(array $command): \Illuminate\Process\ProcessResult
     {
         $fullCommand = array_merge(['docker'], $command);
