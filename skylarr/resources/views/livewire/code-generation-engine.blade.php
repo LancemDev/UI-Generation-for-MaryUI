@@ -1,35 +1,84 @@
 <div class="h-full flex flex-col" wire:poll.2s="checkGenerationStatus">
-    {{-- Header with Toggle --}}
-    <div class="p-4 border-b border-secondary-200">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <h3 class="text-sm font-medium text-gray-900">Code & Preview</h3>
+    {{-- Header with Toggle and Controls --}}
+    <div class="px-4 py-2 border-b border-secondary-200">
+        <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 flex-1">
+                {{-- Toggle Buttons --}}
+                <div class="flex items-center bg-secondary-100 rounded-lg p-1">
+                    <button 
+                        wire:click="$set('activeTab', 'code')"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
+                        <x-icon name="o-code-bracket" class="w-4 h-4" />
+                    </button>
+                    <button 
+                        wire:click="$set('activeTab', 'preview')"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
+                        <x-icon name="o-eye" class="w-4 h-4" />
+                    </button>
+                </div>
+                
                 @if($componentName)
                     <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
                         {{ $componentName }}
                     </span>
                 @endif
+                
                 @if($isGenerating)
                     <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 animate-pulse">
                         Generating...
                     </span>
                 @endif
-            </div>
-            
-            {{-- Toggle Buttons --}}
-            <div class="flex items-center bg-secondary-100 rounded-lg p-1">
-                <button 
-                    wire:click="$set('activeTab', 'code')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'code' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
-                    <x-icon name="o-code-bracket" class="w-4 h-4 mr-1" />
-                    Code
-                </button>
-                <button 
-                    wire:click="$set('activeTab', 'preview')"
-                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $activeTab === 'preview' ? 'bg-white text-secondary-900 shadow-sm' : 'text-secondary-600 hover:text-secondary-900' }}">
-                    <x-icon name="o-eye" class="w-4 h-4 mr-1" />
-                    Preview
-                </button>
+                
+                {{-- Preview Controls (only show when preview is active) --}}
+                @if($activeTab === 'preview' && $previewReady && $previewUrl)
+                    @php
+                        $routes = $currentProject ? $currentProject->getRoutes() : [];
+                        // Format routes for MaryUI select component
+                        $formattedRoutesArray = [];
+                        if (is_array($routes) && count($routes) > 0) {
+                            foreach ($routes as $route) {
+                                if (isset($route['url']) && isset($route['component'])) {
+                                    $label = $route['url'] === '/' 
+                                        ? "Home (/) - {$route['component']}"
+                                        : "{$route['url']} - {$route['component']}";
+                                    $formattedRoutesArray[] = [
+                                        'id' => $route['url'],
+                                        'name' => $label,
+                                    ];
+                                }
+                            }
+                        }
+                    @endphp
+                    
+                    @if(count($formattedRoutesArray) > 0)
+                        <x-select 
+                            wire:model.live="selectedRoute" 
+                            :options="$formattedRoutesArray"
+                            icon="o-map-pin"
+                            inline
+                            class="text-xs"
+                        />
+                    @endif
+                    
+                    {{-- Theme Selector --}}
+                    <x-select 
+                        wire:model.live="selectedTheme" 
+                        :options="$availableThemes"
+                        icon="o-paint-brush"
+                        inline
+                        class="text-xs"
+                    />
+                    
+                    {{-- Open in New Window --}}
+                    <a 
+                        href="{{ $previewUrl }}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="btn btn-xs btn-primary flex items-center gap-1">
+                        <x-icon name="o-arrow-top-right-on-square" class="w-3 h-3" />
+                        <span class="hidden sm:inline">Open</span>
+                    </a>
+                @endif
             </div>
         </div>
     </div>
@@ -111,64 +160,6 @@
         @if($activeTab === 'preview')
             @if($previewReady && $previewUrl)
                 <div class="flex-1 flex flex-col" style="min-height: 0; height: 100%;" wire:key="preview-container-{{ $previewUrl }}-{{ $previewReady }}">
-                    {{-- Preview Controls Bar --}}
-                    <div class="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-                        <div class="flex items-center gap-3 flex-1">
-                            @php
-                                $routes = $currentProject ? $currentProject->getRoutes() : [];
-                                $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
-                            @endphp
-                            
-                            @if(count($routes) > 0)
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-600">Route:</span>
-                                    <select 
-                                        wire:model.live="selectedRoute"
-                                        x-data="{ baseUrl: '{{ $baseUrl }}' }"
-                                        x-on:change="
-                                            const newUrl = baseUrl + $event.target.value;
-                                            $wire.set('previewUrl', newUrl);
-                                            document.getElementById('preview-iframe').src = newUrl;
-                                        "
-                                        class="text-xs bg-white px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        @foreach($routes as $route)
-                                            <option value="{{ $route['url'] }}" {{ $selectedRoute === $route['url'] ? 'selected' : '' }}>
-                                                @if($route['url'] === '/')
-                                                    Home (/) - {{ $route['component'] }}
-                                                @else
-                                                    {{ $route['url'] }} - {{ $route['component'] }}
-                                                @endif
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @else
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-600">Preview URL:</span>
-                                    <code class="text-xs bg-white px-2 py-1 rounded border">{{ $previewUrl }}</code>
-                                </div>
-                            @endif
-                            
-                            {{-- Theme Selector --}}
-                            <x-select 
-                                label="Theme" 
-                                wire:model.live="selectedTheme" 
-                                :options="$availableThemes"
-                                icon="o-paint-brush"
-                                inline
-                                class="text-xs"
-                            />
-                        </div>
-                        <a 
-                            href="{{ $previewUrl }}" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            class="btn btn-sm btn-primary flex items-center gap-2">
-                            <x-icon name="o-arrow-top-right-on-square" class="w-4 h-4" />
-                            Open in New Window
-                        </a>
-                    </div>
-                    
                     <div class="flex-1 bg-white overflow-hidden relative" style="min-height: 0; height: 100%;">
                         <iframe 
                             id="preview-iframe"
@@ -176,7 +167,8 @@
                             class="w-full h-full border-0"
                             title="Live Preview"
                             style="width: 100%; height: 100%; min-height: 0;"
-                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox">
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                            wire:key="preview-iframe-{{ $previewUrl }}-{{ $selectedRoute }}">
                         </iframe>
                     </div>
                 </div>

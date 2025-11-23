@@ -937,6 +937,48 @@ class CodeGenerationEngine extends Component
         return $this->currentProject->getComponents();
     }
     
+    public function getFormattedRoutesProperty(): array
+    {
+        try {
+            if (!$this->currentProject) {
+                return [];
+            }
+            
+            $routes = $this->currentProject->getRoutes();
+            
+            // Ensure $routes is an array and not empty
+            if (!is_array($routes) || empty($routes)) {
+                return [];
+            }
+    
+            return collect($routes)
+                ->map(function ($route) {
+                    // Validate route structure
+                    if (!isset($route['url']) || !isset($route['component'])) {
+                        Log::warning('[CODE_GEN] Invalid route structure detected, skipping.', ['route' => $route]);
+                        return null; // Skip this route
+                    }
+                    $label = $route['url'] === '/' 
+                        ? "Home (/) - {$route['component']}"
+                        : "{$route['url']} - {$route['component']}";
+                    
+                    return [
+                        'id' => $route['url'],
+                        'name' => $label,
+                    ];
+                })
+                ->filter() // Remove any null entries from invalid routes
+                ->values()
+                ->toArray();
+        } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Error formatting routes for MaryUI', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return []; // Return empty array on error
+        }
+    }
+    
     public function render()
     {
         return view('livewire.code-generation-engine');
