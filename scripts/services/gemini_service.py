@@ -177,17 +177,25 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
 7. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
 8. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
 9. **MULTIPLE COMPONENTS - CRITICAL FOR DASHBOARDS** - When user requests a "dashboard with sidebar navigation" or "multi-page application":
-   - You MUST generate SEPARATE components for EACH sidebar menu item/page
-   - Each sidebar item should be its own component with its own route
-   - Example: If sidebar has "Dashboard", "Users", "Orders", "Settings" - generate 4 separate components:
-     * DashboardComponent (main dashboard with stats)
-     * UsersComponent (users management page)
-     * OrdersComponent (orders management page)
-     * SettingsComponent (settings page)
-   - Each component uses `<x-layouts.app-with-sidebar>` and contains its specific content
-   - Sidebar menu in layout should have `<x-menu-item>` with `link` attributes pointing to each route (e.g., link="/dashboard", link="/users", link="/orders")
-   - NEVER create a single component with all content - that's lazy and wrong
+   - ⚠️ CRITICAL: You MUST generate SEPARATE components for EACH sidebar menu item/page
+   - ⚠️ NEVER create a single component with all content bundled together - that is WRONG and LAZY
+   - Each sidebar item MUST be its own component with its own route
+   - Example: User says "dashboard with sidebar showing users, orders, and revenue"
+     * You MUST generate 4 separate components:
+       1. DashboardComponent (main dashboard with overview stats)
+       2. UsersComponent (users management page)
+       3. OrdersComponent (orders management page)  
+       4. RevenueComponent (revenue page)
+     * Each component uses `<x-layouts.app-with-sidebar>` and contains ONLY its specific content
+     * IMPORTANT: The sidebar menu in the layout component should list ALL routes for ALL components
+     * Each component's Blade view should include the full menu with all routes:
+       - <x-menu-item title="Dashboard" icon="o-sparkles" link="/dashboard-component" />
+       - <x-menu-item title="Users" icon="o-users" link="/users-component" />
+       - <x-menu-item title="Orders" icon="o-shopping-cart" link="/orders-component" />
+       - <x-menu-item title="Revenue" icon="o-currency-dollar" link="/revenue-component" />
+     * Routes use kebab-case of component name (DashboardComponent → /dashboard-component)
    - If user says "dashboard with sidebar showing X, Y, Z", create separate pages for X, Y, Z PLUS a main dashboard page
+   - OUTPUT FORMAT: Generate each component in sequence with ===PHP===, ===BLADE===, ===END=== markers
 10. **MULTIPLE COMPONENTS (GENERAL)** - If the user requests multiple components (e.g., "login form, register form, and dashboard"), generate ALL components in separate code blocks. Each component should be complete with its own ===PHP=== and ===BLADE=== sections. Use redirect()->to('/route-path') to navigate between components.
 11. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
 12. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
@@ -197,6 +205,132 @@ OUTPUT FORMAT - You MUST return code in this exact format:
 CRITICAL: DO NOT include any explanatory text, descriptions, or comments outside the code blocks. 
 ONLY output the code markers (===PHP===, ===BLADE===, ===END===) and the actual code.
 DO NOT add text like "This code creates..." or "The following code..." - just output the code directly.
+
+IF MULTIPLE COMPONENTS ARE REQUESTED: Generate each component in sequence, each with its own ===PHP=== and ===BLADE=== sections.
+
+EXAMPLE 1 - Dashboard with sidebar navigation:
+User prompt: "Create a dashboard with sidebar navigation showing statistics for users, orders, and revenue"
+
+YOU MUST GENERATE 4 COMPONENTS:
+===PHP===
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class DashboardComponent extends Component
+{{
+    use Toast;
+    public $usersCount = 1234;
+    public $ordersCount = 456;
+    public $revenue = 56789;
+    
+    public function render()
+    {{
+        return view('livewire.dashboard-component');
+    }}
+}}
+===BLADE===
+<x-layouts.app-with-sidebar>
+    <div class="p-6">
+        <x-card>
+            <x-slot:header>
+                <h2 class="text-2xl font-bold">Dashboard Overview</h2>
+            </x-slot:header>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <x-stat label="Users" value="{{ $usersCount }}" icon="o-users" />
+                <x-stat label="Orders" value="{{ $ordersCount }}" icon="o-shopping-cart" />
+                <x-stat label="Revenue" value="${{ number_format($revenue, 2) }}" icon="o-currency-dollar" />
+            </div>
+        </x-card>
+    </div>
+</x-layouts.app-with-sidebar>
+===END===
+===PHP===
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class UsersComponent extends Component
+{{
+    use Toast;
+    
+    public function render()
+    {{
+        return view('livewire.users-component');
+    }}
+}}
+===BLADE===
+<x-layouts.app-with-sidebar>
+    <div class="p-6">
+        <x-card title="Users Management">
+            <!-- Users content here -->
+        </x-card>
+    </div>
+</x-layouts.app-with-sidebar>
+===END===
+===PHP===
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class OrdersComponent extends Component
+{{
+    use Toast;
+    
+    public function render()
+    {{
+        return view('livewire.orders-component');
+    }}
+}}
+===BLADE===
+<x-layouts.app-with-sidebar>
+    <div class="p-6">
+        <x-card title="Orders Management">
+            <!-- Orders content here -->
+        </x-card>
+    </div>
+</x-layouts.app-with-sidebar>
+===END===
+===PHP===
+<?php
+namespace App\\Livewire;
+use Livewire\\Component;
+use Mary\\Traits\\Toast;
+
+class RevenueComponent extends Component
+{{
+    use Toast;
+    
+    public function render()
+    {{
+        return view('livewire.revenue-component');
+    }}
+}}
+===BLADE===
+<x-layouts.app-with-sidebar>
+    <div class="p-6">
+        <x-card title="Revenue">
+            <!-- Revenue content here -->
+        </x-card>
+    </div>
+</x-layouts.app-with-sidebar>
+===END===
+
+EXAMPLE 2 - Simple multiple components:
+If asked for "login form and dashboard", generate:
+===PHP===
+[First component PHP code]
+===BLADE===
+[First component Blade view]
+===END===
+===PHP===
+[Second component PHP code]
+===BLADE===
+[Second component Blade view]
+===END===
 
 ===PHP===
 <?php
