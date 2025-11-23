@@ -13,7 +13,7 @@
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body style="background-color: rgb(239, 150, 81);">
+<body>
 
     {{-- MAIN --}}
     <x-main full-width with-nav>
