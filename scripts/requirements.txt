@@ -1,4 +1,5 @@
 openai
+google-generativeai>=0.8.0
 fastapi[standard]
 uvicorn[standard]
 numpy

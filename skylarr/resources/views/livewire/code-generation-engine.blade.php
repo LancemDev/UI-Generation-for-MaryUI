@@ -137,9 +137,9 @@
                     @endif
                 </div>
                 
-                <div class="flex-1 flex flex-col code-viewer-container" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}">
+                <div class="flex-1 flex flex-col code-viewer-container" style="min-height: 0; height: 100%; overflow: hidden;" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}">
                     @if($generatedCode)
-                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative">
+                        <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative" style="height: 100%; overflow-y: auto; overflow-x: auto;">
                             <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10 flex items-center justify-between">
                                 <div>
                                     @if($selectedFilePath)
@@ -148,31 +148,55 @@
                                         <span>Generated: {{ $componentName }}</span>
                                     @endif
                                 </div>
-                                <button
-                                    type="button"
-                                    x-data="{ copied: false }"
-                                    x-on:click="
-                                        const codeId = 'code-content-{{ md5($selectedFilePath ?: $componentName) }}';
-                                        const codeContent = document.getElementById(codeId)?.textContent || '';
-                                        navigator.clipboard.writeText(codeContent).then(() => {
-                                            copied = true;
-                                            setTimeout(() => copied = false, 2000);
-                                        });
-                                    "
-                                    class="px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 flex items-center gap-1 transition-colors"
-                                    title="Copy code"
-                                >
-                                    <span x-show="!copied" class="flex items-center gap-1">
-                                        <x-icon name="o-clipboard" class="w-3 h-3" />
-                                        Copy
-                                    </span>
-                                    <span x-show="copied" class="flex items-center gap-1 text-green-400">
-                                        <x-icon name="o-check" class="w-3 h-3" />
-                                        Copied!
-                                    </span>
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        wire:click="saveEditedCode"
+                                        wire:loading.attr="disabled"
+                                        class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded border border-blue-500 flex items-center gap-1 transition-colors"
+                                        title="Save changes"
+                                    >
+                                        <span wire:loading.remove wire:target="saveEditedCode" class="flex items-center gap-1">
+                                            <x-icon name="o-check" class="w-3 h-3" />
+                                            Save
+                                        </span>
+                                        <span wire:loading wire:target="saveEditedCode" class="flex items-center gap-1">
+                                            <x-icon name="o-arrow-path" class="w-3 h-3 animate-spin" />
+                                            Saving...
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        x-data="{ copied: false }"
+                                        x-on:click="
+                                            const codeId = 'code-content-{{ md5($selectedFilePath ?: $componentName) }}';
+                                            const codeContent = document.getElementById(codeId)?.value || '';
+                                            navigator.clipboard.writeText(codeContent).then(() => {
+                                                copied = true;
+                                                setTimeout(() => copied = false, 2000);
+                                            });
+                                        "
+                                        class="px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 flex items-center gap-1 transition-colors"
+                                        title="Copy code"
+                                    >
+                                        <span x-show="!copied" class="flex items-center gap-1">
+                                            <x-icon name="o-clipboard" class="w-3 h-3" />
+                                            Copy
+                                        </span>
+                                        <span x-show="copied" class="flex items-center gap-1 text-green-400">
+                                            <x-icon name="o-check" class="w-3 h-3" />
+                                            Copied!
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
-                            <pre id="code-content-{{ md5($selectedFilePath ?: $componentName) }}" class="text-sm text-green-400 font-mono">{{ $generatedCode }}</pre>
+                            <textarea 
+                                id="code-content-{{ md5($selectedFilePath ?: $componentName) }}"
+                                wire:model.defer="generatedCode"
+                                class="w-full h-full bg-transparent text-sm text-green-400 font-mono border-0 outline-none resize-none p-0 m-0"
+                                style="min-height: calc(100% - 3rem); font-family: 'Courier New', monospace; white-space: pre; overflow-wrap: normal; tab-size: 4;"
+                                spellcheck="false"
+                            >{{ $generatedCode }}</textarea>
                         </div>
                     @else
                         <div class="h-full flex items-center justify-center text-gray-400">
@@ -279,8 +303,19 @@
         .code-viewer-scrollable {
             flex: 1 1 auto;
             min-height: 0;
-            overflow-y: auto;
-            overflow-x: auto;
+            height: 100%;
+            overflow-y: auto !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .code-viewer-scrollable textarea {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto !important;
+            overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
         }
         

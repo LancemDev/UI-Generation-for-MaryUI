@@ -2,22 +2,40 @@
 FastAPI application for serving static files and API endpoints for SKYLARR
 """
 
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
 
-# Import works both when executed as a package (python -m uvicorn scripts.main:app)
-# and when run directly (python scripts/main.py)
-try:
-    from .services.openai_service import generate_code, stream_chat  # type: ignore
-except Exception:  # pragma: no cover
-    from services.openai_service import generate_code, stream_chat  # type: ignore
+# Load environment variables
+_loaded = load_dotenv(find_dotenv(usecwd=True))
+if not _loaded:
+    load_dotenv(Path(__file__).resolve().parent / '.env')
+
+# Determine which AI provider to use (default: openai)
+AI_PROVIDER = os.getenv("AI_PROVIDER", "openai").lower()
+
+# Import the appropriate service based on AI_PROVIDER
+if AI_PROVIDER == "gemini":
+    try:
+        from .services.gemini_service import generate_code, stream_chat  # type: ignore
+    except Exception:  # pragma: no cover
+        from services.gemini_service import generate_code, stream_chat  # type: ignore
+    provider_name = "Gemini"
+else:
+    try:
+        from .services.openai_service import generate_code, stream_chat  # type: ignore
+    except Exception:  # pragma: no cover
+        from services.openai_service import generate_code, stream_chat  # type: ignore
+    provider_name = "OpenAI"
 
 app = FastAPI(
     title="Skylarr AI Backend",
     description=(
-        "Skylarr: AI assistant to help build dynamic Livewire frontends with MaryUI. "
-        "Backed by a GNN-powered scene-graph context and OpenAI streaming."
+        f"Skylarr: AI assistant to help build dynamic Livewire frontends with MaryUI. "
+        f"Backed by a GNN-powered scene-graph context and {provider_name} streaming."
     ),
     version="0.1.0",
 )

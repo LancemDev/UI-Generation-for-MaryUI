@@ -617,6 +617,59 @@ class CodeGenerationEngine extends Component
         $this->createPreview();
     }
     
+    public function saveEditedCode(): void
+    {
+        if (empty($this->generatedCode) || !$this->currentProject || empty($this->componentName)) {
+            $this->error('No code to save or component name missing.');
+            return;
+        }
+        
+        try {
+            Log::info('[CODE_GEN] Saving edited code', [
+                'component_name' => $this->componentName,
+                'project_id' => $this->currentProject->id
+            ]);
+            
+            $dockerService = app(DockerPreviewService::class);
+            
+            // Inject the edited code into the container
+            $success = $dockerService->injectCode(
+                $this->currentProject,
+                $this->generatedCode,
+                $this->componentName
+            );
+            
+            if ($success) {
+                // Update the generation state with the new code
+                $this->currentProject->setGenerationState([
+                    'generated_code' => $this->generatedCode,
+                ]);
+                
+                // Refresh the preview iframe
+                $this->js("
+                    setTimeout(() => {
+                        const iframe = document.getElementById('preview-iframe');
+                        if (iframe) {
+                            iframe.src = iframe.src;
+                        }
+                    }, 500);
+                ");
+                
+                $this->success('Code saved and preview updated!');
+                Log::info('[CODE_GEN] Edited code saved successfully');
+            } else {
+                $this->error('Failed to save code. Please check for syntax errors.');
+                Log::error('[CODE_GEN] Failed to save edited code');
+            }
+        } catch (\Exception $e) {
+            Log::error('[CODE_GEN] Exception while saving edited code', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            $this->error('Error saving code: ' . $e->getMessage());
+        }
+    }
+    
     public string $selectingTheme = '';
     
     public function selectTheme(string $theme): void
