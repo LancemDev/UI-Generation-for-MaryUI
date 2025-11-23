@@ -137,8 +137,8 @@
                     @endif
                 </div>
                 
-                <div class="flex-1 flex flex-col code-viewer-container" style="min-height: 0; height: 100%; overflow: hidden;" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}">
-                    @if($isGenerating)
+                <div class="flex-1 flex flex-col code-viewer-container" style="min-height: 0; height: 100%; overflow: hidden;" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}-{{ $isGenerating }}">
+                    @if($isGenerating || (empty($generatedCode) && !$previewReady))
                         {{-- Code Generation Loader --}}
                         <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg relative overflow-hidden">
                             {{-- Animated background pattern --}}
@@ -251,7 +251,7 @@
 
         {{-- Preview Tab --}}
         @if($activeTab === 'preview')
-            @if($isGenerating)
+            @if($isGenerating || (!$previewReady && empty($previewUrl)))
                 {{-- Preview Generation Loader --}}
                 <div class="flex-1 flex items-center justify-center bg-gray-50 relative overflow-hidden">
                     {{-- Animated background pattern --}}

@@ -275,6 +275,10 @@ class CodeGenerationEngine extends Component
         
         $this->isGenerating = true;
         $this->previewReady = false;
+        $this->generatedCode = ''; // Clear previous code to show loader
+        
+        // Force Livewire to update the view immediately
+        $this->dispatch('$refresh');
         
         // Clear any previous generation state and start new generation
         $this->currentProject->clearGenerationState();
@@ -508,7 +512,7 @@ class CodeGenerationEngine extends Component
             
                     if ($success) {
                         $this->previewReady = true;
-                        $this->isGenerating = false; // Ensure generating flag is cleared
+                        // Keep isGenerating true until everything is complete - loader will show
 
                         // Load project files first
                         $this->loadProjectFiles();
@@ -547,6 +551,9 @@ class CodeGenerationEngine extends Component
                                 'preview_ready' => true,
                             ]);
                         }
+                        
+                        // NOW clear the generating flag after everything is complete
+                        $this->isGenerating = false;
                 
                 Log::info('[CODE_GEN] Preview ready', [
                     'preview_url' => $this->previewUrl,
