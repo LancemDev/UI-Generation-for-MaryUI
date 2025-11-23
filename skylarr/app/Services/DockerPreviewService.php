@@ -1806,23 +1806,25 @@ BLADE;
         // Fix common patterns: $variable->property, {{ $variable->property }}, etc.
         foreach ($properties as $property) {
             // Pattern 1: {{ $var->property }} -> {{ $var?->property ?? '' }}
+            // Note: $1 captures the variable name (without $), so we need to add $ before it
+            // Using double quotes with escaped $ to properly reference backreference $1
             $fixed = preg_replace(
                 '/\{\{\s*\$(\w+)->' . preg_quote($property, '/') . '\s*\}\}/',
-                '{{ $$1?->' . $property . ' ?? \'\' }}',
+                "{{ \${1}?->{$property} ?? '' }}",
                 $fixed
             );
             
-            // Pattern 2: {{ $var->property }} in attributes -> {{ $var?->property ?? '' }}
+            // Pattern 2: $var->property in attributes -> $var?->property
             $fixed = preg_replace(
                 '/\$(\w+)->' . preg_quote($property, '/') . '/',
-                '$$1?->' . $property,
+                "\${1}?->{$property}",
                 $fixed
             );
             
             // Pattern 3: @if($var->property) -> @if($var?->property)
             $fixed = preg_replace(
                 '/@if\s*\(\s*\$(\w+)->' . preg_quote($property, '/') . '\s*\)/',
-                '@if($$1?->' . $property . ')',
+                "@if(\${1}?->{$property})",
                 $fixed
             );
         }
@@ -1831,14 +1833,14 @@ BLADE;
         // Pattern: {{ $user->name }} -> {{ $user?->name ?? '' }}
         $fixed = preg_replace(
             '/\{\{\s*\$(\w+)->(\w+)\s*\}\}/',
-            '{{ $$1?->$2 ?? \'\' }}',
+            "{{ \${1}?->\${2} ?? '' }}",
             $fixed
         );
         
         // Pattern: $var->prop in PHP code blocks
         $fixed = preg_replace(
             '/\$(\w+)->(\w+)(?!\?)/',
-            '$$1?->$2',
+            "\${1}?->\${2}",
             $fixed
         );
         
