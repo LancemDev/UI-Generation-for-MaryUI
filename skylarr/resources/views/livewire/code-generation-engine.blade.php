@@ -138,7 +138,7 @@
                 </div>
                 
                 <div class="flex-1 flex flex-col code-viewer-container" style="min-height: 0; height: 100%; overflow: hidden;" wire:key="code-viewer-{{ $componentName }}-{{ $selectedFilePath }}-{{ $isGenerating }}">
-                    @if($isGenerating || (empty($generatedCode) && !$previewReady))
+                    @if($isGenerating)
                         {{-- Code Generation Loader --}}
                         <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg relative overflow-hidden">
                             {{-- Animated background pattern --}}
@@ -173,6 +173,36 @@
                                     <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
                                         <div class="h-full bg-green-400 rounded-full animate-pulse" style="width: 60%; animation: progress 2s ease-in-out infinite;"></div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    @elseif(empty($generatedCode) && !$previewReady)
+                        {{-- Initial State - Encourage Prompt --}}
+                        <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg">
+                            <div class="text-center max-w-md px-6">
+                                <div class="mb-6 flex justify-center">
+                                    <x-icon name="o-sparkles" class="w-20 h-20 text-green-400 opacity-70" />
+                                </div>
+                                <h3 class="text-2xl font-semibold text-green-400 mb-3">Ready to Build!</h3>
+                                <p class="text-base text-gray-300 mb-2">Give us a prompt and we'll cook something amazing for you.</p>
+                                <p class="text-sm text-gray-400 mb-6">Describe what you want to build, and we'll generate beautiful Livewire components with MaryUI.</p>
+                                <div class="flex flex-col gap-2 text-left text-xs text-gray-500">
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Dashboard with sidebar navigation</span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Forms with validation</span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Data tables and lists</span>
+                                    </p>
+                                    <p class="flex items-center gap-2">
+                                        <x-icon name="o-check-circle" class="w-4 h-4 text-green-400" />
+                                        <span>Multi-page applications</span>
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -251,7 +281,7 @@
 
         {{-- Preview Tab --}}
         @if($activeTab === 'preview')
-            @if($isGenerating || (!$previewReady && empty($previewUrl)))
+            @if($isGenerating)
                 {{-- Preview Generation Loader --}}
                 <div class="flex-1 flex items-center justify-center bg-gray-50 relative overflow-hidden">
                     {{-- Animated background pattern --}}
@@ -279,6 +309,32 @@
                             <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
                             <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
                             <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
+                        </div>
+                    </div>
+                </div>
+            @elseif(!$previewReady && empty($previewUrl))
+                {{-- Initial State - Encourage Prompt --}}
+                <div class="flex-1 flex items-center justify-center bg-gray-50">
+                    <div class="text-center max-w-md px-6">
+                        <div class="mb-6 flex justify-center">
+                            <x-icon name="o-eye" class="w-20 h-20 text-blue-500 opacity-70" />
+                        </div>
+                        <h3 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-3">Ready to Preview!</h3>
+                        <p class="text-base text-gray-600 dark:text-gray-400 mb-2">Give us a prompt and we'll build something amazing for you.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-500 mb-6">Once you generate code, the live preview will appear here.</p>
+                        <div class="flex flex-col gap-2 text-left text-xs text-gray-500 dark:text-gray-400">
+                            <p class="flex items-center gap-2">
+                                <x-icon name="o-check-circle" class="w-4 h-4 text-blue-500" />
+                                <span>See your components in action</span>
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <x-icon name="o-check-circle" class="w-4 h-4 text-blue-500" />
+                                <span>Test different themes</span>
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <x-icon name="o-check-circle" class="w-4 h-4 text-blue-500" />
+                                <span>Navigate between routes</span>
+                            </p>
                         </div>
                     </div>
                 </div>

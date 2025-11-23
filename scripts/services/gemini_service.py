@@ -153,10 +153,30 @@ CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC C
 2. **USE MARYUI COMPONENTS** - Use proper MaryUI components (x-form, x-input, x-button, etc.) with proper styling
 3. **BEAUTIFUL, MODERN UI** - Create polished, professional-looking interfaces with proper spacing, colors, and layout
 4. **COMPLETE FUNCTIONALITY** - Include all necessary properties, methods, validation, and user interactions
-5. **MINIMAL STYLING** - MaryUI components are pre-styled. Use minimal wrapper divs (just <div>), avoid unnecessary Tailwind utility classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto. Let MaryUI handle the styling.
-6. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
-7. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
-8. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
+5. **MINIMAL STYLING - CRITICAL** - MaryUI components are pre-styled with daisyUI themes. Use ABSOLUTELY MINIMAL CSS:
+   - NO custom CSS classes unless absolutely necessary
+   - NO Tailwind utility classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto
+   - NO inline styles except for very specific cases
+   - Use ONLY MaryUI component attributes for styling (class="p-6" for padding is acceptable, but prefer MaryUI's built-in spacing)
+   - Let MaryUI and daisyUI handle ALL styling - they support theme switching automatically
+   - Themes are handled via data-theme attribute on HTML element - components automatically adapt
+6. **SHARED LAYOUT PATTERN - DASHBOARDS & MULTI-PAGE APPS** - For dashboards, admin panels, or multi-page applications:
+   - ALWAYS use the shared layout component: `<x-layouts.app-with-sidebar>`
+   - The layout provides: mobile navbar, collapsible sidebar, navigation menu, and content area
+   - Page components should ONLY contain their specific content wrapped in the layout:
+     ```blade
+     <x-layouts.app-with-sidebar>
+         <div class="p-6">
+             <!-- Page-specific content here -->
+         </div>
+     </x-layouts.app-with-sidebar>
+     ```
+   - DO NOT recreate sidebar/navbar in individual components - use the shared layout
+   - Navigation menu items should use `<x-menu-item>` with `link` attribute for routing
+   - Use `activate-by-route` on `<x-menu>` for automatic active state highlighting
+7. **NO PLACEHOLDERS** - Every element must be fully implemented, not just commented placeholders
+8. **ROUTE-AWARE** - Components will be automatically accessible at /component-name route. Design components to work standalone or as part of a larger application
+9. **HOLISTIC DESIGN** - Think about the complete user experience: navigation, forms, data display, feedback, error handling, loading states
 9. **REAL-WORLD READY** - Generate code that works in production, not just demos. Include proper validation, error handling, and user feedback
 
 OUTPUT FORMAT - You MUST return code in this exact format:
@@ -208,7 +228,17 @@ Blade files should ONLY contain HTML, Blade directives, and MaryUI components.
 
 MINIMALISM IS KEY: MaryUI components are already beautifully styled. DO NOT add unnecessary wrapper divs with Tailwind classes like min-h-screen, bg-gray-50, py-12, px-4, max-w-2xl, mx-auto, etc. Keep it simple - just use a basic <div> wrapper and let MaryUI handle the styling.
 
-Example of MINIMAL, CORRECT approach:
+FOR DASHBOARDS AND MULTI-PAGE APPS: ALWAYS use the shared layout component pattern:
+<x-layouts.app-with-sidebar>
+    <div class="p-6">
+        <!-- Page content here - use MaryUI components -->
+        <x-card title="Dashboard">
+            <x-stat label="Users" value="1,234" icon="o-users" />
+        </x-card>
+    </div>
+</x-layouts.app-with-sidebar>
+
+Example of MINIMAL, CORRECT approach for standalone components:
 <div>
     <x-button wire:click="openRegisterModal" label="Register"/>
     <x-button wire:click="openLoginModal" label="Login" />
