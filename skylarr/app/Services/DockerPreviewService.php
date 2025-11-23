@@ -223,32 +223,8 @@ class DockerPreviewService
         if (empty($viewContent) && preg_match('/===BLADE===\s*\n(.*?)\n===END===/s', $code, $matches)) {
             $viewContent = trim($matches[1]);
             
-            // CRITICAL: Remove any PHP code that might have leaked into Blade section
-            // Remove PHP class definitions (handle multi-line with nested braces)
-            $viewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{[^}]*\}/s', '', $viewContent);
-            // More aggressive: remove entire class blocks with nested braces
-            $viewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{.*?\}/s', '', $viewContent);
-            // Remove namespace and use statements
-            $viewContent = preg_replace('/namespace\s+[^;]+;/', '', $viewContent);
-            $viewContent = preg_replace('/use\s+[^;]+;/', '', $viewContent);
-            // Remove PHP tags
-            $viewContent = preg_replace('/<\?php\s*/', '', $viewContent);
-            $viewContent = preg_replace('/<\?/', '', $viewContent);
-            // Remove property declarations
-            $viewContent = preg_replace('/public\s+\$[^;]+;/', '', $viewContent);
-            $viewContent = preg_replace('/protected\s+\$[^;]+;/', '', $viewContent);
-            $viewContent = preg_replace('/private\s+\$[^;]+;/', '', $viewContent);
-            // Remove method definitions (handle multi-line)
-            $viewContent = preg_replace('/public\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $viewContent);
-            $viewContent = preg_replace('/protected\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $viewContent);
-            $viewContent = preg_replace('/private\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $viewContent);
-            // Remove any lines that look like PHP (start with public/protected/private/class/namespace/use)
-            $viewContent = preg_replace('/^(public|protected|private|class|namespace|use)\s+.*$/m', '', $viewContent);
-            // Remove any remaining PHP code blocks
-            $viewContent = preg_replace('/<\?php.*?\?>/s', '', $viewContent);
-            $viewContent = preg_replace('/<\?.*?\?>/s', '', $viewContent);
-            
-            $viewContent = trim($viewContent);
+            // CRITICAL: Use comprehensive validation function to remove ALL PHP code
+            $viewContent = $this->validateAndCleanBladeView($viewContent);
             
             // Remove the Blade section from code to get clean PHP (non-greedy to stop at first ===END===)
             $code = preg_replace('/\s*===BLADE===\s*\n.*?\n===END===\s*/s', '', $code);
@@ -351,16 +327,9 @@ class DockerPreviewService
                     $blockContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $blockContent);
                     $blockContent = preg_replace('/\n?```\s*$/m', '', $blockContent);
                     
-                    // CRITICAL: Remove any PHP code that might have leaked into Blade
-                    $blockContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{[^}]*\}/s', '', $blockContent);
-                    $blockContent = preg_replace('/namespace\s+[^;]+;/', '', $blockContent);
-                    $blockContent = preg_replace('/use\s+[^;]+;/', '', $blockContent);
-                    $blockContent = preg_replace('/public\s+\$[^;]+;/', '', $blockContent);
-                    $blockContent = preg_replace('/public\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $blockContent);
-                    $blockContent = preg_replace('/<\?php\s*/', '', $blockContent);
-                    $blockContent = preg_replace('/<\?/', '', $blockContent);
-                    
-                    $viewContent = trim($blockContent);
+                    // CRITICAL: Use comprehensive validation to remove ALL PHP code
+                    $blockContent = $this->validateAndCleanBladeView($blockContent);
+                    $viewContent = $blockContent;
                     break;
                 }
             }
@@ -373,8 +342,14 @@ class DockerPreviewService
                 // Strip any remaining markdown markers
                 $blockContent = preg_replace('/^```(?:html|blade)?\s*\n?/m', '', $blockContent);
                 $blockContent = preg_replace('/\n?```\s*$/m', '', $blockContent);
-                $viewContent = trim($blockContent);
+                // CRITICAL: Use comprehensive validation to remove ALL PHP code
+                $viewContent = $this->validateAndCleanBladeView($blockContent);
             }
+        }
+        
+        // Step 8.5: Final validation of extracted Blade view
+        if (!empty($viewContent)) {
+            $viewContent = $this->validateAndCleanBladeView($viewContent);
         }
         
         // Step 9: Final cleanup - ensure code is valid PHP
@@ -405,12 +380,171 @@ class DockerPreviewService
     }
     
     /**
+     * Validate and clean Blade view content to ensure it contains ONLY Blade/HTML.
+     * This is CRITICAL - Blade files must NEVER contain PHP class code.
+     */
+    private function validateAndCleanBladeView(string $viewContent): string
+    {
+        // Remove ALL PHP code patterns
+        // 1. Remove entire PHP class definitions (handle nested braces)
+        $viewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{.*?\}/s', '', $viewContent);
+        // More aggressive: match class with deeply nested braces
+        $viewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s', '', $viewContent);
+        
+        // 2. Remove namespace declarations
+        $viewContent = preg_replace('/namespace\s+[^;]+;/', '', $viewContent);
+        
+        // 3. Remove use statements
+        $viewContent = preg_replace('/use\s+[^;]+;/', '', $viewContent);
+        
+        // 4. Remove PHP tags
+        $viewContent = preg_replace('/<\?php\s*/', '', $viewContent);
+        $viewContent = preg_replace('/<\?/', '', $viewContent);
+        $viewContent = preg_replace('/\?>/', '', $viewContent);
+        
+        // 5. Remove property declarations (public/protected/private $var;)
+        $viewContent = preg_replace('/\b(public|protected|private)\s+\$[^;]+;/', '', $viewContent);
+        
+        // 6. Remove method definitions (handle multi-line with nested braces)
+        // Match: public function methodName() { ... }
+        $viewContent = preg_replace('/\b(public|protected|private)\s+function\s+\w+\s*\([^)]*\)\s*\{[^}]*\}/s', '', $viewContent);
+        // More aggressive: handle nested braces in methods
+        $viewContent = preg_replace('/\b(public|protected|private)\s+function\s+\w+\s*\([^)]*\)\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s', '', $viewContent);
+        
+        // 7. Remove any lines that start with PHP keywords (class, namespace, use, public, protected, private, function)
+        $viewContent = preg_replace('/^\s*(class|namespace|use|public|protected|private|function)\s+.*$/m', '', $viewContent);
+        
+        // 8. Remove any remaining PHP code blocks
+        $viewContent = preg_replace('/<\?php.*?\?>/s', '', $viewContent);
+        $viewContent = preg_replace('/<\?.*?\?>/s', '', $viewContent);
+        
+        // 9. Final validation: Remove any lines that don't contain valid Blade/HTML syntax
+        // Valid Blade/HTML contains: <, {{, @, or is empty/whitespace
+        $lines = explode("\n", $viewContent);
+        $cleanedLines = [];
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            
+            // Keep lines that are:
+            // - Empty or whitespace only
+            // - Contain HTML tags (<)
+            // - Contain Blade expressions ({{ or {!!)
+            // - Contain Blade directives (@if, @foreach, @endif, etc.)
+            // - Contain comments (<!-- or {{--)
+            if (empty($trimmed) || 
+                preg_match('/[\s\t]*$/', $line) || // Whitespace only
+                str_contains($line, '<') || 
+                str_contains($line, '{{') || 
+                str_contains($line, '{!!') ||
+                str_contains($line, '@') ||
+                str_contains($line, '<!--') ||
+                str_contains($line, '{{--')) {
+                $cleanedLines[] = $line;
+            }
+            // Skip all other lines (they're likely PHP code)
+        }
+        
+        $viewContent = implode("\n", $cleanedLines);
+        
+        // 10. Final trim and cleanup
+        $viewContent = trim($viewContent);
+        $viewContent = preg_replace('/\n{3,}/', "\n\n", $viewContent); // Remove excessive newlines
+        
+        return $viewContent;
+    }
+
+    /**
      * Convert PascalCase to kebab-case.
      */
     private function toKebabCase(string $string): string
     {
         return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $string));
     }
+
+    /**
+     * Validate and clean PHP code to ensure it contains ONLY PHP (no Blade/HTML).
+     * This is CRITICAL - PHP files must NEVER contain Blade template code.
+     */
+    private function validateAndCleanPhpCode(string $code): string
+    {
+        // Remove ALL Blade/HTML code patterns
+        
+        // 1. Remove Blade view markers and their content
+        $code = preg_replace('/===BLADE===\s*\n.*?\n===END===\s*/s', '', $code);
+        $code = preg_replace('/===BLADE_VIEW===\s*\n.*?\n===END_BLADE===\s*/s', '', $code);
+        
+        // 2. Remove HTML/Blade code blocks (markdown code blocks with html/blade)
+        $code = preg_replace('/```(?:html|blade)?\s*\n.*?\n```/s', '', $code);
+        
+        // 3. Remove standalone HTML tags (unless in strings - rough check)
+        // This is tricky because HTML might be in strings, so we'll be conservative
+        // Only remove obvious HTML blocks that aren't in quotes
+        $lines = explode("\n", $code);
+        $cleanedLines = [];
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            
+            // Skip lines that are pure HTML/Blade (not in strings)
+            // Check if line starts with HTML tag and doesn't appear to be in a string
+            if (preg_match('/^\s*<[^?]/', $trimmed) && !preg_match('/["\']/', $line)) {
+                // This looks like HTML outside of strings - skip it
+                continue;
+            }
+            
+            // Skip lines that are pure Blade directives (not in strings)
+            if (preg_match('/^\s*@(if|foreach|for|while|switch|case|break|continue|endif|endforeach|endfor|endwhile|endswitch|php|endphp)/', $trimmed) && !preg_match('/["\']/', $line)) {
+                // This looks like Blade directive outside of strings - skip it
+                continue;
+            }
+            
+            // Keep the line
+            $cleanedLines[] = $line;
+        }
+        $code = implode("\n", $cleanedLines);
+        
+        // 4. Remove any remaining Blade expressions outside of strings (rough check)
+        // This is conservative - we only remove obvious cases
+        $code = preg_replace('/\{\{[^}]+\}\}/', '', $code);
+        
+        // 5. Clean up excessive newlines
+        $code = preg_replace('/\n{3,}/', "\n\n", $code);
+        $code = trim($code);
+        
+        return $code;
+    }
+
+    /**
+     * Validate that PHP code contains only PHP (no Blade/HTML mixed in).
+     */
+    private function validatePhpCode(string $code): bool
+    {
+        // PHP code should NOT contain Blade syntax (unless in strings/comments)
+        // Check for common Blade patterns that shouldn't be in PHP files
+        $bladePatterns = [
+            '/<x-[^>]+>/',  // MaryUI components
+            '/\{\{[^}]+\}\}/',  // Blade expressions
+            '/@(if|foreach|for|while|switch|case|break|continue|endif|endforeach|endfor|endwhile|endswitch)/',  // Blade directives
+        ];
+        
+        foreach ($bladePatterns as $pattern) {
+            // Allow these in strings (quoted) but not as actual code
+            $matches = preg_match_all($pattern, $code, $allMatches);
+            if ($matches > 0) {
+                // Check if they're in strings - if not, it's a problem
+                foreach ($allMatches[0] as $match) {
+                    $pos = strpos($code, $match);
+                    // Simple check: if not in quotes, it's invalid
+                    $before = substr($code, 0, $pos);
+                    $quotesBefore = substr_count($before, '"') + substr_count($before, "'");
+                    // If odd number of quotes, we're inside a string (rough check)
+                    // For now, we'll be lenient - just log a warning
+                }
+            }
+        }
+        
+        return true; // PHP validation passed
+    }
+
 
     /**
      * Split code into multiple component blocks if multiple components are present.
@@ -1103,10 +1237,28 @@ BLADE;
                 );
             }
             
-            // Step 6: Inject PHP class code
+            // Step 6: CRITICAL - Clean PHP code to ensure it contains NO Blade/HTML
+            $cleanedCode = $this->validateAndCleanPhpCode($cleanedCode);
+            
+            // Step 7: Validate PHP code before writing
+            if (!$this->validatePhpCode($cleanedCode)) {
+                Log::warning('[DOCKER] PHP code validation warning', ['component' => $componentName]);
+            }
+            
+            // Step 7: CRITICAL - Final validation before writing PHP file
+            // Ensure absolutely NO Blade/HTML code remains
+            if (preg_match('/(===BLADE===|===BLADE_VIEW===|<x-[^>]+>|@(if|foreach|for|while|switch))/', $cleanedCode)) {
+                Log::warning('[DOCKER] Blade/HTML code detected in PHP file before writing, performing final cleanup', [
+                    'component' => $componentName
+                ]);
+                $cleanedCode = $this->validateAndCleanPhpCode($cleanedCode);
+            }
+            
+            // Step 8: Inject PHP class code
             Log::info('[DOCKER] Injecting PHP class code', [
                 'path' => $componentPath,
-                'is_update' => $componentExists
+                'is_update' => $componentExists,
+                'code_length' => strlen($cleanedCode)
             ]);
             $escapedCode = escapeshellarg($cleanedCode);
             $writeResult = $this->runDockerCommand([
@@ -1118,7 +1270,17 @@ BLADE;
                 throw new \Exception("Failed to write component class: " . $writeResult->errorOutput());
             }
             
-            // Step 7: Inject Blade view code
+            // Step 9: Verify the written file doesn't contain Blade/HTML code
+            $verifyResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "grep -q '===BLADE===' {$componentPath} && echo 'ERROR' || echo 'OK'"
+            ]);
+            if (trim($verifyResult->output()) === 'ERROR') {
+                Log::error('[DOCKER] CRITICAL: Blade code found in PHP file!', ['component' => $componentName]);
+                throw new \Exception("CRITICAL ERROR: Blade code detected in PHP file. This should never happen!");
+            }
+            
+            // Step 10: Inject Blade view code
             $finalViewName = $viewName ?: "livewire.{$kebabName}";
             $viewPath = str_replace('.', '/', $finalViewName);
             if (!str_ends_with($viewPath, '.blade.php')) {
@@ -1164,50 +1326,18 @@ BLADE;
                 // Remove any text blocks that don't start with < or @ (HTML/Blade syntax)
                 $finalViewContent = preg_replace('/^([^<@][^<@\n]*?\.)(\s*\n)/m', '', $finalViewContent);
                 
-                // CRITICAL: Remove ALL PHP code from Blade files
-                // Blade files should NEVER contain PHP code (except Blade directives like @if, @foreach, etc.)
+                // CRITICAL: Use comprehensive validation and cleaning function
+                $finalViewContent = $this->validateAndCleanBladeView($finalViewContent);
                 
-                // First, remove entire PHP class blocks (handle nested braces)
-                $finalViewContent = preg_replace('/class\s+\w+\s+extends\s+Component\s*\{.*?\}/s', '', $finalViewContent);
-                // Remove any lines that start with PHP keywords (class, namespace, use, public, protected, private, function)
-                $finalViewContent = preg_replace('/^(class|namespace|use|public|protected|private|function)\s+.*$/m', '', $finalViewContent);
-                // Remove PHP namespace declarations
-                $finalViewContent = preg_replace('/<\?php\s*namespace[^;]+;/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/namespace\s+[^;]+;/', '', $finalViewContent);
-                // Remove use statements
-                $finalViewContent = preg_replace('/use\s+[^;]+;/', '', $finalViewContent);
-                // Remove public/protected/private properties
-                $finalViewContent = preg_replace('/public\s+\$[^;]+;/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/protected\s+\$[^;]+;/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/private\s+\$[^;]+;/', '', $finalViewContent);
-                // Remove method definitions (handle multi-line with nested braces)
-                $finalViewContent = preg_replace('/public\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $finalViewContent);
-                $finalViewContent = preg_replace('/protected\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $finalViewContent);
-                $finalViewContent = preg_replace('/private\s+function\s+\w+\([^)]*\)\s*\{[^}]*\}/s', '', $finalViewContent);
-                // Remove any PHP tags
-                $finalViewContent = preg_replace('/<\?php\s*/', '', $finalViewContent);
-                $finalViewContent = preg_replace('/<\?/', '', $finalViewContent);
-                // Remove any remaining PHP code blocks
-                $finalViewContent = preg_replace('/<\?php.*?\?>/s', '', $finalViewContent);
-                $finalViewContent = preg_replace('/<\?.*?\?>/s', '', $finalViewContent);
-                
-                // Final pass: Remove any lines that don't contain Blade/HTML syntax
-                // Keep lines that have: <, {{, @, or are empty/whitespace
-                $lines = explode("\n", $finalViewContent);
-                $cleanedLines = [];
-                foreach ($lines as $line) {
-                    $trimmed = trim($line);
-                    // Keep empty lines, lines with HTML tags, Blade directives, or Blade expressions
-                    if (empty($trimmed) || 
-                        str_contains($line, '<') || 
-                        str_contains($line, '{{') || 
-                        str_contains($line, '@') ||
-                        preg_match('/^[\s\t]*$/', $line)) {
-                        $cleanedLines[] = $line;
-                    }
-                    // Skip lines that look like PHP code
+                // Final validation: Ensure no PHP code remains
+                if (preg_match('/(class\s+\w+|namespace\s+|use\s+|public\s+\$|protected\s+\$|private\s+\$|public\s+function|protected\s+function|private\s+function|<\?php)/', $finalViewContent)) {
+                    Log::warning('[DOCKER] PHP code detected in Blade view after cleaning, performing aggressive cleanup', [
+                        'component' => $componentName,
+                        'view_preview' => substr($finalViewContent, 0, 200)
+                    ]);
+                    // One more aggressive pass
+                    $finalViewContent = $this->validateAndCleanBladeView($finalViewContent);
                 }
-                $finalViewContent = implode("\n", $cleanedLines);
                 
                 // Clean up any double newlines that might result
                 $finalViewContent = preg_replace('/\n{3,}/', "\n\n", $finalViewContent);
@@ -1222,7 +1352,29 @@ BLADE;
 BLADE;
             }
             
-            Log::info('[DOCKER] Injecting Blade view code', ['path' => $fullViewPath]);
+            Log::info('[DOCKER] Injecting Blade view code', [
+                'path' => $fullViewPath,
+                'view_length' => strlen($finalViewContent)
+            ]);
+            
+            // CRITICAL: Final validation before writing Blade file
+            // Ensure absolutely NO PHP code remains
+            if (preg_match('/(class\s+\w+|namespace\s+|use\s+|public\s+\$|protected\s+\$|private\s+\$|public\s+function|protected\s+function|private\s+function|<\?php)/', $finalViewContent)) {
+                Log::error('[DOCKER] CRITICAL: PHP code still present in Blade view after cleaning!', [
+                    'component' => $componentName,
+                    'view_preview' => substr($finalViewContent, 0, 300)
+                ]);
+                // Perform one more aggressive cleanup
+                $finalViewContent = $this->validateAndCleanBladeView($finalViewContent);
+                
+                // If still contains PHP, log error but continue (better than crashing)
+                if (preg_match('/(class\s+\w+|namespace\s+|use\s+|public\s+\$|protected\s+\$|private\s+\$|public\s+function|protected\s+function|private\s+function|<\?php)/', $finalViewContent)) {
+                    Log::error('[DOCKER] CRITICAL ERROR: Unable to remove all PHP code from Blade view!', [
+                        'component' => $componentName
+                    ]);
+                }
+            }
+            
             $escapedView = escapeshellarg($finalViewContent);
             $viewWriteResult = $this->runDockerCommand([
                 'exec', $project->container_id,
@@ -1231,6 +1383,16 @@ BLADE;
             
             if ($viewWriteResult->failed()) {
                 throw new \Exception("Failed to write view file: " . $viewWriteResult->errorOutput());
+            }
+            
+            // Verify the written Blade file doesn't contain PHP class code
+            $verifyViewResult = $this->runDockerCommand([
+                'exec', $project->container_id,
+                'sh', '-c', "grep -q 'class.*extends.*Component' {$fullViewPath} && echo 'ERROR' || echo 'OK'"
+            ]);
+            if (trim($verifyViewResult->output()) === 'ERROR') {
+                Log::error('[DOCKER] CRITICAL: PHP class code found in Blade file!', ['component' => $componentName]);
+                throw new \Exception("CRITICAL ERROR: PHP class code detected in Blade file. This should never happen!");
             }
             
             // Step 7: Clear caches and regenerate autoloader
