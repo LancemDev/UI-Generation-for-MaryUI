@@ -61,25 +61,44 @@
                     @endif
                     
                     {{-- Theme Selector Dropdown --}}
-                    @php
-                        $currentThemeName = collect($availableThemes)->firstWhere('id', $selectedTheme)['name'] ?? ucfirst($selectedTheme ?? 'light');
-                    @endphp
-                    <x-dropdown 
-                        :label="$currentThemeName"
-                        icon="o-paint-brush"
-                        class="btn-xs btn-ghost"
-                        scroll
-                        max-height="max-h-64"
-                    >
+                    <div class="relative inline-block">
+                        <x-dropdown 
+                            :label="collect($availableThemes)->firstWhere('id', $selectedTheme)['name'] ?? ucfirst($selectedTheme ?? 'light')"
+                            icon="o-paint-brush"
+                            class="btn-xs btn-ghost theme-dropdown"
+                            scroll
+                            no-x-anchor
+                            wire:key="theme-dropdown-{{ $selectedTheme }}"
+                        >
                         @foreach($availableThemes as $theme)
-                            <x-menu-item 
-                                :title="$theme['name']"
-                                :icon="$selectedTheme === $theme['id'] ? 'o-check-circle' : 'o-paint-brush'"
-                                :class="$selectedTheme === $theme['id'] ? 'text-primary font-semibold' : ''"
-                                wire:click.stop="$set('selectedTheme', '{{ $theme['id'] }}')"
-                            />
+                            @php
+                                $isSelected = $selectedTheme === $theme['id'];
+                                $isSelecting = $selectingTheme === $theme['id'];
+                            @endphp
+                            @if($isSelecting)
+                                <x-menu-item 
+                                    :title="$theme['name']"
+                                    icon="o-check-circle"
+                                    :class="$isSelected ? 'text-primary font-semibold' : ''"
+                                    wire:click.stop="selectTheme('{{ $theme['id'] }}')"
+                                    spinner="selectTheme"
+                                />
+                            @elseif($isSelected)
+                                <x-menu-item 
+                                    :title="$theme['name']"
+                                    icon="o-check-circle"
+                                    class="text-primary font-semibold"
+                                    wire:click.stop="selectTheme('{{ $theme['id'] }}')"
+                                />
+                            @else
+                                <x-menu-item 
+                                    :title="$theme['name']"
+                                    wire:click.stop="selectTheme('{{ $theme['id'] }}')"
+                                />
+                            @endif
                         @endforeach
-                    </x-dropdown>
+                        </x-dropdown>
+                    </div>
                     
                     {{-- Open in New Window --}}
                     <a 
@@ -271,6 +290,44 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-wrap: break-word;
+        }
+        
+        /* Theme dropdown max height and scrollable */
+        .theme-dropdown [role="menu"],
+        .theme-dropdown .dropdown-content,
+        .theme-dropdown ul[role="menu"],
+        .theme-dropdown > div[role="menu"],
+        .theme-dropdown .menu,
+        .theme-dropdown ul.menu {
+            max-height: 6rem !important; /* 24 * 0.25rem = 6rem - very minimal height */
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        
+        /* Ensure smooth scrolling for theme dropdown */
+        .theme-dropdown [role="menu"]::-webkit-scrollbar,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .theme-dropdown [role="menu"]::-webkit-scrollbar-track,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar-track,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .theme-dropdown [role="menu"]::-webkit-scrollbar-thumb,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar-thumb,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        
+        .theme-dropdown [role="menu"]::-webkit-scrollbar-thumb:hover,
+        .theme-dropdown .dropdown-content::-webkit-scrollbar-thumb:hover,
+        .theme-dropdown ul[role="menu"]::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
         }
     </style>
     

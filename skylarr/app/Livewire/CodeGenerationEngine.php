@@ -617,6 +617,37 @@ class CodeGenerationEngine extends Component
         $this->createPreview();
     }
     
+    public string $selectingTheme = '';
+    
+    public function selectTheme(string $theme): void
+    {
+        if (!$this->currentProject) {
+            Log::warning('[CODE_GEN] Cannot select theme: no current project');
+            return;
+        }
+        
+        Log::info('[CODE_GEN] Selecting theme', [
+            'theme' => $theme,
+            'current_theme' => $this->selectedTheme,
+            'project_id' => $this->currentProject->id
+        ]);
+        
+        // Track which theme is being selected for spinner display
+        $this->selectingTheme = $theme;
+        
+        // Set the property - this will trigger updatedSelectedTheme automatically
+        $oldTheme = $this->selectedTheme;
+        $this->selectedTheme = $theme;
+        
+        // If the theme actually changed, explicitly call the update logic
+        if ($oldTheme !== $theme) {
+            $this->updatedSelectedTheme($theme);
+        }
+        
+        // Clear selecting state after a brief delay
+        $this->js("setTimeout(() => \$wire.set('selectingTheme', ''), 1000);");
+    }
+    
     public function updatedSelectedTheme($theme)
     {
         if (!$this->currentProject) {
