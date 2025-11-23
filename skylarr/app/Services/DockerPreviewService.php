@@ -70,6 +70,9 @@ class DockerPreviewService
             // Fix any PailServiceProvider issues in the new container
             $this->fixPailServiceProviderError($containerId);
             
+            // Ensure storage directories are writable
+            $this->ensureStoragePermissions($containerId);
+            
             Log::info("Successfully created container for project {$project->id}", [
                 'container_id' => $containerId,
                 'preview_url' => $previewUrl
@@ -100,6 +103,8 @@ class DockerPreviewService
                 $this->ensureAppKeyExists($project->container_id);
                 // Fix PailServiceProvider error if it exists in the running container
                 $this->fixPailServiceProviderError($project->container_id);
+                // Ensure storage permissions
+                $this->ensureStoragePermissions($project->container_id);
                 $project->touchLastAccessed();
                 return $project->preview_url;
             }
@@ -1978,6 +1983,49 @@ BLADE;
      * Run a Docker command.
      */
     /**
+     * Ensure storage directories have correct permissions for Laravel to write compiled views, logs, etc.
+     */
+    public function ensureStoragePermissions(string $containerId): bool
+    {
+        try {
+            if (!$this->isContainerRunning($containerId)) {
+                return false;
+            }
+            
+            // Set permissions for all storage directories
+            $storageDirs = [
+                '/var/www/html/storage/framework/views',
+                '/var/www/html/storage/framework/cache',
+                '/var/www/html/storage/framework/sessions',
+                '/var/www/html/storage/logs',
+            ];
+            
+            foreach ($storageDirs as $dir) {
+                // Create directory if it doesn't exist
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "mkdir -p {$dir} 2>/dev/null || true"
+                ]);
+                
+                // Set ownership and permissions
+                $this->runDockerCommand([
+                    'exec', $containerId,
+                    'sh', '-c', "chown -R www-data:www-data {$dir} 2>/dev/null || true && chmod -R 775 {$dir} 2>/dev/null || true"
+                ]);
+            }
+            
+            Log::info('[DOCKER] Storage permissions ensured', ['container_id' => $containerId]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('[DOCKER] Failed to ensure storage permissions', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
+    /**
      * Update the theme in the preview container's layout file.
      */
     public function updatePreviewTheme(string $containerId, string $theme): bool
@@ -2074,10 +2122,22 @@ BLADE;
                 return false;
             }
             
-            // Ensure proper permissions
+            // Ensure proper permissions for layout file
             $this->runDockerCommand([
                 'exec', $containerId,
                 'sh', '-c', "chown www-data:www-data {$layoutPath} 2>/dev/null || true && chmod 644 {$layoutPath} 2>/dev/null || true"
+            ]);
+            
+            // Ensure storage/framework/views directory is writable (for compiled Blade views)
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', "chown -R www-data:www-data /var/www/html/storage/framework/views 2>/dev/null || true && chmod -R 775 /var/www/html/storage/framework/views 2>/dev/null || true"
+            ]);
+            
+            // Clear view cache to force recompilation with new theme
+            $this->runDockerCommand([
+                'exec', $containerId,
+                'sh', '-c', 'cd /var/www/html && php artisan view:clear 2>/dev/null || true'
             ]);
             
             Log::info('[DOCKER] Theme updated successfully', [
