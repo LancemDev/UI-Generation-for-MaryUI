@@ -611,8 +611,10 @@ class ComponentName extends Component
     public $email = '';
     
     // Methods with toast feedback (toasts are automatic, no session needed)
+    // CRITICAL: ALL button handlers MUST exist and be safe - never cause errors
     public function submit()
     {{
+        // Only validate fields that exist in the component
         $this->validate([
             'name' => 'required',
             'email' => 'required|email',
@@ -620,7 +622,25 @@ class ComponentName extends Component
         
         // Save data...
         
+        // Always provide user feedback
         $this->success('Saved successfully!'); // Toast automatically shown
+    }}
+    
+    // Example safe handlers for buttons without real functionality:
+    public function handleClick()
+    {{
+        // If no functionality needed, at least show feedback
+        $this->info('Button clicked!');
+    }}
+    
+    public function openModal()
+    {{
+        $this->showModal = true; // Requires: public $showModal = false;
+    }}
+    
+    public function closeModal()
+    {{
+        $this->showModal = false;
     }}
     
     public function render()
@@ -845,10 +865,62 @@ FORBIDDEN:
 - Empty states without proper messaging
 - Missing error handling or user feedback
 
+⚠️ CRITICAL - ERROR-FREE BUTTON HANDLERS:
+ALL buttons and clickable elements MUST have proper handlers that NEVER cause errors:
+
+1. **Submit Buttons (wire:submit)**:
+   - MUST have a corresponding method in the PHP class
+   - The method MUST exist and be callable
+   - If no real functionality is needed, the method should at minimum:
+     * Show a success toast: $this->success('Action completed!')
+     * OR show an info message: $this->info('Feature coming soon!')
+   - Example safe handler:
+     ```php
+     public function submit()
+     {{
+         // Optional: Add validation if form has fields
+         // $this->validate(['field' => 'required']);
+         
+         // Always provide user feedback
+         $this->success('Form submitted successfully!');
+     }}
+     ```
+
+2. **Click Buttons (wire:click)**:
+   - MUST have a corresponding method in the PHP class
+   - The method MUST exist and be callable
+   - If no real functionality is needed, the method should:
+     * Toggle a modal/state: $this->showModal = !$this->showModal;
+     * OR show a toast: $this->info('Button clicked!');
+     * OR do nothing but exist: public function handleClick() {{ /* Safe no-op */ }}
+   - Example safe handlers:
+     ```php
+     public function openModal() {{ $this->showModal = true; }}
+     public function closeModal() {{ $this->showModal = false; }}
+     public function handleClick() {{ $this->info('Button clicked!'); }}
+     ```
+
+3. **Form Validation**:
+   - Only validate fields that actually exist in the component
+   - If a form has no fields, don't add validation rules
+   - Always provide user feedback after validation (success toast)
+
+4. **Modal Triggers**:
+   - Buttons that open/close modals MUST have corresponding boolean properties
+   - Example: wire:click="openModal" requires: public $showModal = false; and public function openModal() {{ $this->showModal = true; }}
+
+5. **NO-OP Handlers**:
+   - If a button doesn't need functionality, create an empty method that at least shows a toast
+   - NEVER leave buttons without handlers - this causes JavaScript errors
+   - Example: public function placeholder() {{ $this->info('Feature coming soon!'); }}
+
 REQUIRED:
 - Complete, beautiful Blade views with MaryUI components
 - Proper Tailwind CSS styling with responsive design
 - Full functionality (forms work, buttons have actions, validation, etc.)
+- **ALL buttons MUST have corresponding methods in PHP class - NO EXCEPTIONS**
+- **ALL wire:submit forms MUST have submit methods that at minimum show a toast**
+- **ALL wire:click buttons MUST have click handlers that exist and are safe**
 - Professional, polished appearance that looks production-ready
 - Use Mary\\Traits\\Toast in PHP class: use Mary\\Traits\\Toast; then $this->success('Message') - toasts are AUTOMATIC, no frontend code needed
 - Validation errors are AUTOMATICALLY displayed by Livewire/MaryUI - DO NOT add @error() directives or manual alert components
