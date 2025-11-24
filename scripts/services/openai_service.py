@@ -68,6 +68,117 @@ def _extract_feedback_context(messages: list[dict]) -> str:
     return ""
 
 
+def analyze_intent(prompt: str, messages: list[dict] | None = None) -> dict:
+    """
+    Use AI to analyze user intent and determine operation type and component names.
+    
+    Returns:
+        dict with:
+        - operation_type: "CREATE", "UPDATE", or "BOTH"
+        - target_components: list of existing component names to update (if any)
+        - new_components: list of new component names to create (if any)
+    """
+    client = _get_client()
+    selected_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    
+    # Build context from conversation history
+    context = ""
+    if messages:
+        # Extract component names mentioned in conversation
+        import re
+        mentioned_components = []
+        for msg in reversed(messages):
+            if msg.get('role') == 'assistant' and msg.get('content'):
+                content = msg['content']
+                # Look for component names in backticks
+                matches = re.findall(r'`([A-Z][a-zA-Z0-9]+)`', content)
+                mentioned_components.extend(matches)
+        
+        if mentioned_components:
+            context = f"Previously mentioned components: {', '.join(set(mentioned_components))}\n"
+    
+    intent_prompt = f"""{context}
+Analyze the user's request and determine:
+1. Operation type: CREATE (new component), UPDATE (modify existing), or BOTH
+2. Target components: Which existing components should be updated (if any)
+3. New components: What new components should be created (if any)
+
+User request: "{prompt}"
+
+Respond in JSON format:
+{{
+    "operation_type": "CREATE" | "UPDATE" | "BOTH",
+    "target_components": ["ComponentName1", "ComponentName2"],
+    "new_components": ["NewComponentName1", "NewComponentName2"],
+    "reasoning": "brief explanation"
+}}
+
+Examples:
+- "add another login form" → {{"operation_type": "CREATE", "target_components": [], "new_components": ["LoginFormComponent"]}}
+- "add 2 fields to register form" → {{"operation_type": "UPDATE", "target_components": ["RegisterFormComponent"], "new_components": []}}
+- "add 2 fields to register form and add another login form" → {{"operation_type": "BOTH", "target_components": ["RegisterFormComponent"], "new_components": ["LoginFormComponent"]}}
+- "create a dashboard" → {{"operation_type": "CREATE", "target_components": [], "new_components": ["DashboardComponent"]}}
+"""
+    
+    try:
+        response = client.chat.completions.create(
+            model=selected_model,
+            temperature=0.1,
+            max_tokens=200,
+            messages=[
+                {"role": "system", "content": "You are an expert at analyzing user intent for code generation. Respond ONLY with valid JSON."},
+                {"role": "user", "content": intent_prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+        
+        import json
+        result = json.loads(response.choices[0].message.content)
+        
+        # Validate and normalize
+        operation_type = result.get("operation_type", "CREATE").upper()
+        if operation_type not in ["CREATE", "UPDATE", "BOTH"]:
+            operation_type = "CREATE"
+        
+        return {
+            "operation_type": operation_type,
+            "target_components": result.get("target_components", []),
+            "new_components": result.get("new_components", []),
+            "reasoning": result.get("reasoning", "")
+        }
+    except Exception as e:
+        # Fallback to keyword-based detection
+        import re
+        prompt_lower = prompt.lower()
+        
+        has_create = any(kw in prompt_lower for kw in ["add another", "create", "new", "another"])
+        has_update = any(kw in prompt_lower for kw in ["add", "update", "modify", "change", "edit"]) and any(kw in prompt_lower for kw in ["field", "fields", "button", "input"])
+        
+        # Extract component names from conversation
+        target_components = []
+        if messages:
+            for msg in reversed(messages):
+                if msg.get('role') == 'assistant' and msg.get('content'):
+                    match = re.search(r'`([A-Z][a-zA-Z0-9]+)`', msg['content'])
+                    if match:
+                        target_components.append(match.group(1))
+                        break
+        
+        if has_create and has_update:
+            operation_type = "BOTH"
+        elif has_update and target_components:
+            operation_type = "UPDATE"
+        else:
+            operation_type = "CREATE"
+        
+        return {
+            "operation_type": operation_type,
+            "target_components": target_components if operation_type in ["UPDATE", "BOTH"] else [],
+            "new_components": [],
+            "reasoning": "Fallback keyword-based detection"
+        }
+
+
 def extract_component_name(prompt: str, code: str = "") -> str:
     """Extract a meaningful component name from prompt or code."""
     import re
@@ -114,7 +225,7 @@ def generate_code(
     model: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 4096,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict]:
     """
     Generate complete, production-ready Livewire component code with full Blade views.
     
@@ -128,8 +239,10 @@ def generate_code(
         max_tokens: Maximum tokens in the completion (increased for complete code).
 
     Returns:
-        Tuple of (combined_code_string, component_name) where combined_code_string contains
-        both PHP class and Blade view separated by markers.
+        Tuple of (combined_code_string, component_name, intent_info) where:
+        - combined_code_string contains both PHP class and Blade view separated by markers
+        - component_name is the primary component name
+        - intent_info is a dict with operation_type, target_components, new_components
     """
     from .gnn_service import get_gnn_service
     
@@ -143,7 +256,21 @@ def generate_code(
     # Extract feedback context from conversation history
     feedback_context = _extract_feedback_context(messages or [])
     
-    # Parse user intent from prompt and conversation history
+    # Analyze user intent using AI (with error handling)
+    try:
+        intent_info = analyze_intent(prompt, messages)
+    except Exception as e:
+        # If intent analysis fails, use fallback
+        import logging
+        logging.warning(f"Intent analysis failed: {e}. Using fallback.")
+        intent_info = {
+            "operation_type": "CREATE",
+            "target_components": [],
+            "new_components": [],
+            "reasoning": f"Intent analysis failed: {str(e)}"
+        }
+    
+    # Parse user intent from prompt and conversation history (keep for backward compatibility)
     import re
     
     # Detect follow-up keywords
@@ -839,7 +966,7 @@ ROUTING NOTE:
     else:
         component_name = extract_component_name(prompt, php_code or combined_code)
     
-    return combined_code, component_name
+    return combined_code, component_name, intent_info
 
 
 def stream_chat(

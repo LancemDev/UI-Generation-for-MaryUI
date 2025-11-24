@@ -127,13 +127,29 @@ class CodeGenerationEngine extends Component
                             
                             // Set default route to the generated component
                             $routes = $this->currentProject->getRoutes();
+                            $routeFound = false;
                             foreach ($routes as $route) {
                                 if ($route['component'] === $this->componentName) {
                                     $this->selectedRoute = $route['url'];
                                     $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
                                     $this->previewUrl = $baseUrl . $route['url'];
+                                    $routeFound = true;
                                     break;
                                 }
+                            }
+                            
+                            // If no route found, generate it from component name (kebab-case)
+                            if (!$routeFound && $this->componentName) {
+                                $kebabName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $this->componentName));
+                                $this->selectedRoute = "/{$kebabName}";
+                                if ($this->previewUrl) {
+                                    $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
+                                    $this->previewUrl = $baseUrl . $this->selectedRoute;
+                                }
+                                Log::info('[CODE_GEN] Route not found in project, using generated route', [
+                                    'component' => $this->componentName,
+                                    'route' => $this->selectedRoute
+                                ]);
                             }
                         }
                 
@@ -185,25 +201,8 @@ class CodeGenerationEngine extends Component
             return;
         }
         
-        // Check if this is a CREATE operation (user says "add another", "create", "new")
-        // vs UPDATE operation (user says "add field", "update", "modify" to existing)
-        $promptLower = strtolower($prompt);
-        $isCreateOperation = preg_match('/\b(add another|create|new|another)\b/', $promptLower);
-        $isUpdateOperation = preg_match('/\b(add|update|modify|change|edit)\b.*\b(field|fields|button|input|form)\b/', $promptLower);
-        
-        // If target component name is provided AND it's an UPDATE operation (not CREATE), auto-update without confirmation
-        if ($targetComponentName && !$isCreateOperation) {
-            $existingComponent = $this->currentProject->getComponent($targetComponentName);
-            if ($existingComponent) {
-                // Component exists and user wants to update it - auto-update without confirmation
-                Log::info('[CODE_GEN] Auto-updating existing component', [
-                    'component' => $targetComponentName,
-                    'prompt' => $prompt
-                ]);
-                // Continue to doGenerateCode - it will update the component
-            }
-        }
-        
+        // AI intent will be determined by the backend - we'll use it in doGenerateCode
+        // For now, just pass through - the AI Gateway will return intent information
         $this->doGenerateCode($prompt, $targetComponentName, $conversationHistory);
     }
     
@@ -356,14 +355,53 @@ class CodeGenerationEngine extends Component
             
             Log::info('[CODE_GEN] AI Gateway response received', [
                 'success' => $response['success'] ?? false,
-                'has_code' => isset($response['code'])
+                'has_code' => isset($response['code']),
+                'has_intent' => isset($response['intent'])
             ]);
             
             if ($response['success']) {
                 $this->generatedCode = $response['code'];
-                // Use target component name if provided, otherwise use AI-generated name
-                // For follow-ups, prefer the extracted name to ensure we update the same component
-                $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
+                
+                // Use AI intent to determine operation type and component names
+                $intent = $response['intent'] ?? [
+                    'operation_type' => 'CREATE',
+                    'target_components' => [],
+                    'new_components' => [],
+                    'reasoning' => 'No intent provided, using fallback'
+                ];
+                
+                $operationType = strtoupper($intent['operation_type'] ?? 'CREATE');
+                $targetComponents = $intent['target_components'] ?? [];
+                $newComponents = $intent['new_components'] ?? [];
+                
+                Log::info('[CODE_GEN] Using AI intent', [
+                    'operation_type' => $operationType,
+                    'target_components' => $targetComponents,
+                    'new_components' => $newComponents,
+                    'reasoning' => $intent['reasoning'] ?? ''
+                ]);
+                
+                // Determine primary component name based on intent
+                if ($operationType === 'UPDATE' && !empty($targetComponents)) {
+                    // UPDATE operation - use first target component
+                    $this->componentName = $targetComponents[0];
+                    Log::info('[CODE_GEN] UPDATE operation', ['component' => $this->componentName]);
+                } elseif ($operationType === 'BOTH' && !empty($targetComponents)) {
+                    // BOTH operation - update first target, then create new
+                    $this->componentName = $targetComponents[0];
+                    Log::info('[CODE_GEN] BOTH operation', [
+                        'update_component' => $this->componentName,
+                        'new_components' => $newComponents
+                    ]);
+                } elseif (!empty($newComponents)) {
+                    // CREATE operation - use first new component
+                    $this->componentName = $newComponents[0];
+                    Log::info('[CODE_GEN] CREATE operation', ['component' => $this->componentName]);
+                } else {
+                    // Fallback to AI-generated name or provided target
+                    $this->componentName = $targetComponentName ?? $response['component_name'] ?? 'GeneratedComponent';
+                    Log::info('[CODE_GEN] Using fallback component name', ['component' => $this->componentName]);
+                }
                 
                 Log::info('[CODE_GEN] Code generated successfully', [
                     'component_name' => $this->componentName,
@@ -415,13 +453,29 @@ class CodeGenerationEngine extends Component
                 
                 // Update selected route FIRST before refreshing iframe
                 $routes = $this->currentProject->getRoutes();
+                $routeFound = false;
                 foreach ($routes as $route) {
                     if ($route['component'] === $this->componentName) {
                         $this->selectedRoute = $route['url'];
                         $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
                         $this->previewUrl = $baseUrl . $route['url'];
+                        $routeFound = true;
                         break;
                     }
+                }
+                
+                // If no route found, generate it from component name (kebab-case)
+                if (!$routeFound && $this->componentName) {
+                    $kebabName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $this->componentName));
+                    $this->selectedRoute = "/{$kebabName}";
+                    if ($this->previewUrl) {
+                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . parse_url($this->previewUrl, PHP_URL_HOST) . ':' . parse_url($this->previewUrl, PHP_URL_PORT);
+                        $this->previewUrl = $baseUrl . $this->selectedRoute;
+                    }
+                    Log::info('[CODE_GEN] Route not found in project, using generated route', [
+                        'component' => $this->componentName,
+                        'route' => $this->selectedRoute
+                    ]);
                 }
                 
                 // Switch to preview tab to show the result
@@ -567,7 +621,25 @@ class CodeGenerationEngine extends Component
                 $this->componentName
             );
             
-            Log::info('[CODE_GEN] Code injection result', ['success' => $success]);
+            // CRITICAL: After injection, update componentName to match the ACTUAL component in the code
+            // The AI might say it's creating "ModalComponent" but the code might be for "RegisterFormComponent"
+            // We need to use the actual component name from the injected code, not the intent name
+            if ($success && $this->generatedCode) {
+                // Parse the actual component name from the generated code
+                if (preg_match('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends\s+Component/', $this->generatedCode, $matches)) {
+                    $actualComponentName = $matches[1];
+                    if ($actualComponentName !== $this->componentName) {
+                        Log::warning('[CODE_GEN] Component name mismatch detected', [
+                            'intent_component' => $this->componentName,
+                            'actual_component' => $actualComponentName,
+                            'action' => 'Updating componentName to match actual code'
+                        ]);
+                        $this->componentName = $actualComponentName;
+                    }
+                }
+            }
+            
+            Log::info('[CODE_GEN] Code injection result', ['success' => $success, 'component_name' => $this->componentName]);
             
                     if ($success) {
                         $this->previewReady = true;
@@ -586,13 +658,27 @@ class CodeGenerationEngine extends Component
                         // Set the route and build full preview URL BEFORE setting previewUrl
                         $routes = $this->currentProject->getRoutes();
                         $fullPreviewUrl = $previewUrl; // Default to base URL
+                        $routeFound = false;
                         foreach ($routes as $route) {
                             if ($route['component'] === $this->componentName) {
                                 $this->selectedRoute = $route['url'];
                                 $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
                                 $fullPreviewUrl = $baseUrl . $route['url'];
+                                $routeFound = true;
                                 break;
                             }
+                        }
+                        
+                        // If no route found, generate it from component name (kebab-case)
+                        if (!$routeFound && $this->componentName) {
+                            $kebabName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $this->componentName));
+                            $this->selectedRoute = "/{$kebabName}";
+                            $baseUrl = parse_url($previewUrl, PHP_URL_SCHEME) . '://' . parse_url($previewUrl, PHP_URL_HOST) . ':' . parse_url($previewUrl, PHP_URL_PORT);
+                            $fullPreviewUrl = $baseUrl . $this->selectedRoute;
+                            Log::info('[CODE_GEN] Route not found in project, using generated route', [
+                                'component' => $this->componentName,
+                                'route' => $this->selectedRoute
+                            ]);
                         }
                         
                         // Now set the full preview URL with route included
@@ -1056,7 +1142,17 @@ class CodeGenerationEngine extends Component
             $this->isGenerating = false;
             $this->componentName = $state['component_name'] ?? '';
             $this->generatedCode = $state['generated_code'] ?? '';
-            $this->previewUrl = $state['preview_url'] ?? '';
+            // Don't use stale previewUrl from state - rebuild it from current routes
+            $basePreviewUrl = $state['preview_url'] ?? '';
+            // Extract base URL (without route) from state if available
+            if ($basePreviewUrl) {
+                $parsed = parse_url($basePreviewUrl);
+                $basePreviewUrl = ($parsed['scheme'] ?? 'http') . '://' . ($parsed['host'] ?? '127.0.0.1') . ':' . ($parsed['port'] ?? '8000');
+            } else {
+                // Get base preview URL from project
+                $dockerService = app(DockerPreviewService::class);
+                $basePreviewUrl = $dockerService->getOrCreatePreviewContainer($this->currentProject);
+            }
             $this->previewReady = !empty($state['preview_ready']);
             $this->activeTab = 'preview';
             
@@ -1069,19 +1165,28 @@ class CodeGenerationEngine extends Component
                 }
             }
             
-            // Update route and build full preview URL
+            // Update route and build full preview URL (ALWAYS rebuild, don't trust stale state)
             $routes = $this->currentProject->getRoutes();
+            $routeFound = false;
             foreach ($routes as $route) {
                 if ($route['component'] === $this->componentName) {
                     $this->selectedRoute = $route['url'];
-                    if ($this->previewUrl) {
-                        $baseUrl = parse_url($this->previewUrl, PHP_URL_SCHEME) . '://' . 
-                                   parse_url($this->previewUrl, PHP_URL_HOST) . ':' . 
-                                   parse_url($this->previewUrl, PHP_URL_PORT);
-                        $this->previewUrl = $baseUrl . $route['url'];
-                    }
+                    $this->previewUrl = $basePreviewUrl . $route['url'];
+                    $routeFound = true;
                     break;
                 }
+            }
+            
+            // If no route found, generate it from component name (kebab-case)
+            if (!$routeFound && $this->componentName) {
+                $kebabName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $this->componentName));
+                $this->selectedRoute = "/{$kebabName}";
+                $this->previewUrl = $basePreviewUrl . $this->selectedRoute;
+                Log::info('[CODE_GEN] Route not found in project (polling), using generated route', [
+                    'component' => $this->componentName,
+                    'route' => $this->selectedRoute,
+                    'preview_url' => $this->previewUrl
+                ]);
             }
             
             // Livewire 3 automatically re-renders when properties change
@@ -1161,3 +1266,4 @@ class CodeGenerationEngine extends Component
         return view('livewire.code-generation-engine');
     }
 }
+

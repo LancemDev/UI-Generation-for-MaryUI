@@ -68,17 +68,31 @@ async def read_root():
 @app.post("/generate/code")
 async def post_generate_code(body: GenerateRequest):
     try:
-        code, component_name = generate_code(
+        result = generate_code(
             prompt=body.prompt,
             messages=body.messages or [],
             model=body.model,
             temperature=body.temperature,
             max_tokens=body.max_tokens,
         )
+        
+        # Handle both old format (2 values) and new format (3 values)
+        if len(result) == 3:
+            code, component_name, intent_info = result
+        else:
+            code, component_name = result
+            intent_info = {
+                "operation_type": "CREATE",
+                "target_components": [],
+                "new_components": [],
+                "reasoning": "Legacy response format"
+            }
+        
         return {
             "success": True,
             "code": code,
             "component_name": component_name,
+            "intent": intent_info,
             "message": "Code generated successfully"
         }
     except Exception as exc:

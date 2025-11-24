@@ -51,7 +51,7 @@ class AiGateway
      *
      * @param string $prompt
      * @param array<int, array{role:string, content:string, feedback?:string}> $conversationHistory Conversation history for context
-     * @return array{success: bool, code?: string, component_name?: string, message?: string}
+     * @return array{success: bool, code?: string, component_name?: string, intent?: array, message?: string}
      */
     public function generateCode(string $prompt, array $conversationHistory = []): array
     {
@@ -94,19 +94,31 @@ class AiGateway
             
             Log::info('[AI_GATEWAY] Response parsed', [
                 'has_code' => isset($data['code']),
-                'has_component_name' => isset($data['component_name'])
+                'has_component_name' => isset($data['component_name']),
+                'has_intent' => isset($data['intent'])
             ]);
             
             if (isset($data['code']) && isset($data['component_name'])) {
+                $intent = $data['intent'] ?? [
+                    'operation_type' => 'CREATE',
+                    'target_components' => [],
+                    'new_components' => [],
+                    'reasoning' => 'No intent provided'
+                ];
+                
                 Log::info('[AI_GATEWAY] Code generated successfully', [
                     'component_name' => $data['component_name'],
-                    'code_length' => strlen($data['code'])
+                    'code_length' => strlen($data['code']),
+                    'operation_type' => $intent['operation_type'] ?? 'CREATE',
+                    'target_components' => $intent['target_components'] ?? [],
+                    'new_components' => $intent['new_components'] ?? []
                 ]);
                 
                 return [
                     'success' => true,
                     'code' => $data['code'],
-                    'component_name' => $data['component_name']
+                    'component_name' => $data['component_name'],
+                    'intent' => $intent
                 ];
             }
 
