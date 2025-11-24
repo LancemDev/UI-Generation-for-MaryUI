@@ -143,31 +143,86 @@ def generate_code(
     # Extract feedback context from conversation history
     feedback_context = _extract_feedback_context(messages or [])
     
-    # Check if this is a follow-up request (updating existing component)
-    is_followup = False
+    # Parse user intent from prompt and conversation history
+    import re
+    
+    # Detect follow-up keywords
+    follow_up_keywords = ['add', 'update', 'modify', 'change', 'edit', 'remove', 'delete', 'field', 'fields']
+    prompt_lower = prompt.lower()
+    is_followup = any(keyword in prompt_lower for keyword in follow_up_keywords)
+    
+    # Extract component names from conversation history
     existing_component_name = None
+    mentioned_components = []
+    
     if messages:
         # Look for component names in conversation history
         for msg in reversed(messages):
             if msg.get('role') == 'assistant' and msg.get('content'):
                 content = msg['content']
                 # Extract component name from messages like "I've created the `ComponentName` component"
-                import re
                 match = re.search(r'`([A-Z][a-zA-Z0-9]+)`', content)
                 if match:
-                    existing_component_name = match.group(1)
-                    is_followup = True
-                    break
+                    comp_name = match.group(1)
+                    if comp_name not in mentioned_components:
+                        mentioned_components.append(comp_name)
+                    if not existing_component_name:
+                        existing_component_name = comp_name
                 # Also check for component names in code blocks or explicit mentions
-                match = re.search(r'(RegisterForm|LoginForm|UserForm|Dashboard|ComponentName)', content)
+                match = re.search(r'([A-Z][a-zA-Z0-9]+(?:Form|Component|Modal|Dashboard))', content)
                 if match:
-                    existing_component_name = match.group(1)
-                    is_followup = True
-                    break
+                    comp_name = match.group(1)
+                    if comp_name not in mentioned_components:
+                        mentioned_components.append(comp_name)
+                    if not existing_component_name:
+                        existing_component_name = comp_name
     
+    # Parse prompt for multiple operations
+    # Check if user wants to update existing AND create new
+    has_update_operation = any(keyword in prompt_lower for keyword in ['add', 'update', 'modify', 'change', 'edit'])
+    has_create_operation = any(keyword in prompt_lower for keyword in ['add another', 'create', 'new', 'another'])
+    
+    # Detect if user mentions specific component types
+    wants_register = 'register' in prompt_lower
+    wants_login = 'login' in prompt_lower
+    
+    # Build follow-up instruction
     followup_instruction = ""
     if is_followup and existing_component_name:
-        followup_instruction = f"""
+        # Check if this is a multi-operation request
+        if has_create_operation and has_update_operation:
+            # User wants to update existing AND create new
+            followup_instruction = f"""
+CRITICAL: This is a MULTI-OPERATION request:
+1. UPDATE the existing component "{existing_component_name}" - add/modify fields as requested
+2. CREATE a NEW separate component for the new form/component requested
+
+OPERATION 1 - UPDATE "{existing_component_name}":
+- You MUST use the EXACT same component class name: {existing_component_name}
+- UPDATE the existing component by adding/modifying fields, methods, or views as requested
+- Preserve existing functionality unless explicitly asked to change it
+
+OPERATION 2 - CREATE NEW COMPONENT:
+- Generate a SEPARATE, NEW component with its own class name
+- If user asks for "login form", create "LoginFormComponent" or "LoginComponent"
+- If user asks for "register form", create "RegisterFormComponent" or "RegisterComponent"
+- Each component should be complete and independent
+
+OUTPUT FORMAT: Generate BOTH components in sequence:
+===PHP===
+[UPDATE: {existing_component_name} class code]
+===BLADE===
+[UPDATE: {existing_component_name} view code]
+===END===
+===PHP===
+[NEW: NewComponentName class code]
+===BLADE===
+[NEW: NewComponentName view code]
+===END===
+"""
+        else:
+            # Single operation - just update existing
+            followup_instruction = f"""
 IMPORTANT: This is a FOLLOW-UP request to UPDATE an existing component named "{existing_component_name}".
 - You MUST use the EXACT same component class name: {existing_component_name}
 - UPDATE the existing component by adding/modifying fields, methods, or views as requested
@@ -196,12 +251,31 @@ Available MaryUI components include: x-form, x-input, x-textarea, x-select, x-ch
 {followup_instruction}
 {feedback_instruction}
 
-⚠️ CRITICAL: FOCUS ON THE USER'S CURRENT REQUEST - Generate EXACTLY what the user is asking for in their current prompt. 
-- If the user asks for "register form" or "login form" → Generate ONLY forms, NOT dashboards
-- If the user asks for "modal" → Generate ONLY modals with the requested content
-- DO NOT generate dashboards, sidebars, or multi-page apps unless the user explicitly requests them
-- DO NOT add extra features that weren't requested
-- Previous conversation history is for context only - focus on the CURRENT user request
+⚠️ CRITICAL: FOLLOW USER INSTRUCTIONS EXACTLY - Parse the user's request carefully and do EXACTLY what they ask:
+
+1. **READ THE PROMPT CAREFULLY** - Understand what the user wants:
+   - "add 2 fields to register form" = UPDATE existing RegisterFormComponent, add 2 fields
+   - "add another login form" = CREATE a NEW LoginFormComponent (separate component)
+   - "add 2 fields to register form AND add another login form" = BOTH operations:
+     * UPDATE RegisterFormComponent (add 2 fields)
+     * CREATE new LoginFormComponent (separate component)
+
+2. **MULTIPLE OPERATIONS** - If user requests multiple things:
+   - Generate SEPARATE components for each new component requested
+   - UPDATE existing components when user says "add", "update", "modify" to existing component
+   - DO NOT combine multiple components into one unless explicitly asked
+
+3. **COMPONENT NAMING**:
+   - For updates: Use the EXACT existing component name
+   - For new components: Use appropriate names (RegisterFormComponent, LoginFormComponent, etc.)
+   - DO NOT create generic names like "AuthComponent" when user asks for specific forms
+
+4. **FOCUS ON CURRENT REQUEST**:
+   - If user asks for "register form" or "login form" → Generate ONLY forms, NOT dashboards
+   - If user asks for "modal" → Generate ONLY modals with the requested content
+   - DO NOT generate dashboards, sidebars, or multi-page apps unless explicitly requested
+   - DO NOT add extra features that weren't requested
+   - Previous conversation history is for context only - focus on the CURRENT user request
 
 CRITICAL REQUIREMENTS - YOU MUST GENERATE COMPLETE, PRODUCTION-READY, HOLISTIC CODE:
 

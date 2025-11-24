@@ -185,16 +185,22 @@ class CodeGenerationEngine extends Component
             return;
         }
         
-        // If target component name is provided, check if it exists
-        if ($targetComponentName) {
+        // Check if this is a CREATE operation (user says "add another", "create", "new")
+        // vs UPDATE operation (user says "add field", "update", "modify" to existing)
+        $promptLower = strtolower($prompt);
+        $isCreateOperation = preg_match('/\b(add another|create|new|another)\b/', $promptLower);
+        $isUpdateOperation = preg_match('/\b(add|update|modify|change|edit)\b.*\b(field|fields|button|input|form)\b/', $promptLower);
+        
+        // If target component name is provided AND it's an UPDATE operation (not CREATE), auto-update without confirmation
+        if ($targetComponentName && !$isCreateOperation) {
             $existingComponent = $this->currentProject->getComponent($targetComponentName);
             if ($existingComponent) {
-                // Component exists - show confirmation
-                $this->pendingComponentName = $targetComponentName;
-                $this->pendingPrompt = $prompt;
-                $this->pendingConversationHistory = $conversationHistory;
-                $this->showOverwriteConfirmModal = true;
-                return;
+                // Component exists and user wants to update it - auto-update without confirmation
+                Log::info('[CODE_GEN] Auto-updating existing component', [
+                    'component' => $targetComponentName,
+                    'prompt' => $prompt
+                ]);
+                // Continue to doGenerateCode - it will update the component
             }
         }
         
@@ -242,25 +248,76 @@ class CodeGenerationEngine extends Component
     
     private function doGenerateCode(string $prompt, ?string $targetComponentName = null, array $conversationHistory = []): void
     {
-        // Extract component name from conversation history if not provided (for follow-up requests)
-        if (!$targetComponentName && !empty($conversationHistory)) {
-            foreach (array_reverse($conversationHistory) as $msg) {
-                if ($msg['role'] === 'assistant' && isset($msg['content'])) {
-                    // Try to extract component name from messages like "I've created the `ComponentName` component"
-                    if (preg_match("/`([A-Z][a-zA-Z0-9]+)`/", $msg['content'], $matches)) {
-                        $targetComponentName = $matches[1];
-                        Log::info('[CODE_GEN] Extracted component name from conversation history', [
-                            'component_name' => $targetComponentName
+        // Extract component name - PRIORITY: Check project components first, then conversation history
+        if (!$targetComponentName) {
+            // PRIORITY 1: Check actual project components (most reliable)
+            $components = $this->currentProject->getComponents();
+            if (!empty($components)) {
+                $lowerPrompt = strtolower($prompt);
+                
+                // Look for explicit component mentions in the prompt
+                foreach ($components as $component) {
+                    $componentName = strtolower($component['name']);
+                    $kebabName = strtolower($component['kebab_name'] ?? '');
+                    
+                    // Check if user mentions the component by name or type
+                    if (str_contains($lowerPrompt, $componentName) || 
+                        str_contains($lowerPrompt, $kebabName) ||
+                        (str_contains($lowerPrompt, 'register') && str_contains($componentName, 'register')) ||
+                        (str_contains($lowerPrompt, 'login') && str_contains($componentName, 'login'))) {
+                        $targetComponentName = $component['name'];
+                        Log::info('[CODE_GEN] Extracted component name from project components', [
+                            'component_name' => $targetComponentName,
+                            'prompt' => $prompt
                         ]);
                         break;
                     }
-                    // Also check for component names like "RegisterForm", "LoginForm", etc.
-                    if (preg_match("/([A-Z][a-zA-Z0-9]+Form|[A-Z][a-zA-Z0-9]+Component|[A-Z][a-zA-Z0-9]+Modal|[A-Z][a-zA-Z0-9]+Dashboard)/", $msg['content'], $matches)) {
-                        $targetComponentName = $matches[1];
-                        Log::info('[CODE_GEN] Extracted component name from conversation history', [
-                            'component_name' => $targetComponentName
-                        ]);
-                        break;
+                }
+                
+                // If no match found, check if this looks like a follow-up request
+                if (!$targetComponentName) {
+                    $followUpKeywords = ['add', 'update', 'modify', 'change', 'edit', 'remove', 'delete', 'field', 'fields'];
+                    $isFollowUp = false;
+                    foreach ($followUpKeywords as $keyword) {
+                        if (str_contains($lowerPrompt, $keyword)) {
+                            $isFollowUp = true;
+                            break;
+                        }
+                    }
+                    
+                    if ($isFollowUp && count($components) > 0) {
+                        // Use the most recently created component
+                        $lastComponent = end($components);
+                        if (isset($lastComponent['name'])) {
+                            $targetComponentName = $lastComponent['name'];
+                            Log::info('[CODE_GEN] Using most recent component for follow-up', [
+                                'component_name' => $targetComponentName
+                            ]);
+                        }
+                    }
+                }
+            }
+            
+            // PRIORITY 2: Check conversation history
+            if (!$targetComponentName && !empty($conversationHistory)) {
+                foreach (array_reverse($conversationHistory) as $msg) {
+                    if ($msg['role'] === 'assistant' && isset($msg['content'])) {
+                        // Try to extract component name from messages like "I've created the `ComponentName` component"
+                        if (preg_match("/`([A-Z][a-zA-Z0-9]+)`/", $msg['content'], $matches)) {
+                            $targetComponentName = $matches[1];
+                            Log::info('[CODE_GEN] Extracted component name from conversation history', [
+                                'component_name' => $targetComponentName
+                            ]);
+                            break;
+                        }
+                        // Also check for component names like "RegisterForm", "LoginForm", etc.
+                        if (preg_match("/([A-Z][a-zA-Z0-9]+Form|[A-Z][a-zA-Z0-9]+Component|[A-Z][a-zA-Z0-9]+Modal|[A-Z][a-zA-Z0-9]+Dashboard)/", $msg['content'], $matches)) {
+                            $targetComponentName = $matches[1];
+                            Log::info('[CODE_GEN] Extracted component name from conversation history', [
+                                'component_name' => $targetComponentName
+                            ]);
+                            break;
+                        }
                     }
                 }
             }

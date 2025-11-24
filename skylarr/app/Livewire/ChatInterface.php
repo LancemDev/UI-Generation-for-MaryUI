@@ -273,6 +273,70 @@ class ChatInterface extends Component
                 
                 // Extract component name from conversation history for follow-up requests
                 $extractedComponentName = $this->selectedComponentName;
+                
+                // PRIORITY 1: Check actual project components first (most reliable)
+                if (!$extractedComponentName && $this->projectId) {
+                    $components = $this->getComponentsProperty();
+                    if (!empty($components)) {
+                        // Parse user message to find which component they're referring to
+                        $lowerMessage = strtolower($userMessage);
+                        
+                        // Look for explicit component mentions in the message
+                        foreach ($components as $component) {
+                            $componentName = strtolower($component['name']);
+                            $kebabName = strtolower($component['kebab_name'] ?? '');
+                            
+                            // Check if user mentions the component by name or type
+                            if (str_contains($lowerMessage, $componentName) || 
+                                str_contains($lowerMessage, $kebabName) ||
+                                (str_contains($lowerMessage, 'register') && str_contains($componentName, 'register')) ||
+                                (str_contains($lowerMessage, 'login') && str_contains($componentName, 'login'))) {
+                                $extractedComponentName = $component['name'];
+                                break;
+                            }
+                        }
+                        
+                        // If no match found, check if this is a CREATE operation (add another, create, new)
+                        // vs UPDATE operation (add field, update, modify existing)
+                        if (!$extractedComponentName && count($components) > 0) {
+                            // Check if this is a CREATE operation - "add another", "create", "new"
+                            $createKeywords = ['add another', 'create', 'new', 'another'];
+                            $isCreateOperation = false;
+                            foreach ($createKeywords as $keyword) {
+                                if (str_contains($lowerMessage, $keyword)) {
+                                    $isCreateOperation = true;
+                                    break;
+                                }
+                            }
+                            
+                            // Only extract component name for UPDATE operations, not CREATE
+                            if (!$isCreateOperation) {
+                                // Check if this looks like an UPDATE (has words like "add field", "update", "modify")
+                                $updateKeywords = ['add', 'update', 'modify', 'change', 'edit', 'remove', 'delete'];
+                                $isUpdateOperation = false;
+                                foreach ($updateKeywords as $keyword) {
+                                    if (str_contains($lowerMessage, $keyword) && 
+                                        (str_contains($lowerMessage, 'field') || 
+                                         str_contains($lowerMessage, 'fields') ||
+                                         str_contains($lowerMessage, 'button') ||
+                                         str_contains($lowerMessage, 'input'))) {
+                                        $isUpdateOperation = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if ($isUpdateOperation) {
+                                    $lastComponent = end($components);
+                                    if (isset($lastComponent['name'])) {
+                                        $extractedComponentName = $lastComponent['name'];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // PRIORITY 2: Check conversation history for component names
                 if (!$extractedComponentName && count($history) > 2) {
                     // Look for component names in previous assistant messages
                     foreach (array_reverse($history) as $msg) {
@@ -286,19 +350,6 @@ class ChatInterface extends Component
                             if (preg_match("/([A-Z][a-zA-Z0-9]+Form|[A-Z][a-zA-Z0-9]+Component|[A-Z][a-zA-Z0-9]+Modal)/", $msg['content'], $matches)) {
                                 $extractedComponentName = $matches[1];
                                 break;
-                            }
-                        }
-                    }
-                    
-                    // If still not found, check the project's existing components
-                    // This helps with follow-up requests where the completion message hasn't been added yet
-                    if (!$extractedComponentName && $this->projectId) {
-                        $components = $this->getComponentsProperty();
-                        if (!empty($components)) {
-                            // Use the most recently created component (last in array)
-                            $lastComponent = end($components);
-                            if (isset($lastComponent['name'])) {
-                                $extractedComponentName = $lastComponent['name'];
                             }
                         }
                     }

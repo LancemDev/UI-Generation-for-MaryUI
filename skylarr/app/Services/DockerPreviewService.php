@@ -451,7 +451,13 @@ class DockerPreviewService
         
         $viewContent = implode("\n", $cleanedLines);
         
-        // 10. Final trim and cleanup
+        // 10. Remove isolated braces (leftover from removed PHP code)
+        // Remove standalone closing braces on their own line
+        $viewContent = preg_replace('/^\s*\}\s*$/m', '', $viewContent);
+        // Remove standalone opening braces on their own line (shouldn't be in Blade but clean it anyway)
+        $viewContent = preg_replace('/^\s*\{\s*$/m', '', $viewContent);
+        
+        // 11. Final trim and cleanup
         $viewContent = trim($viewContent);
         $viewContent = preg_replace('/\n{3,}/', "\n\n", $viewContent); // Remove excessive newlines
         
@@ -561,9 +567,71 @@ class DockerPreviewService
         // Check if code contains multiple ===PHP=== markers
         $phpMarkerCount = substr_count($code, '===PHP===');
         
-        if ($phpMarkerCount <= 1) {
+        // Also check if code contains multiple class definitions (even without proper markers)
+        $allComponents = $this->extractAllComponents($code);
+        
+        if ($phpMarkerCount <= 1 && count($allComponents) <= 1) {
             // Single component, return as-is
             return [$code];
+        }
+        
+        // If we have multiple components but only one ===PHP=== marker, 
+        // the AI likely generated them in one block - we need to split by class definitions
+        if ($phpMarkerCount <= 1 && count($allComponents) > 1) {
+            Log::info('[DOCKER] Multiple components detected without proper markers', [
+                'components' => $allComponents,
+                'php_markers' => $phpMarkerCount
+            ]);
+            
+            // Split by class definitions
+            $classPattern = '/(class\s+[A-Z][a-zA-Z0-9]*\s+extends\s+Component\s*\{)/s';
+            $classMatches = [];
+            preg_match_all($classPattern, $code, $classMatches, PREG_OFFSET_CAPTURE);
+            
+            if (count($classMatches[0]) > 1) {
+                // We have multiple class definitions - split them
+                for ($i = 0; $i < count($classMatches[0]); $i++) {
+                    $classStart = $classMatches[0][$i][1];
+                    $nextClassStart = ($i < count($classMatches[0]) - 1) 
+                        ? $classMatches[0][$i + 1][1] 
+                        : strlen($code);
+                    
+                    // Extract this component's code
+                    $componentCode = substr($code, $classStart, $nextClassStart - $classStart);
+                    
+                    // Find the class name
+                    if (preg_match('/class\s+([A-Z][a-zA-Z0-9]*)\s+extends/', $componentCode, $nameMatch)) {
+                        $className = $nameMatch[1];
+                        
+                        // Check if this component has a Blade section
+                        $hasBlade = str_contains($code, '===BLADE===') || str_contains($code, '<x-');
+                        
+                        // Reconstruct proper format
+                        $block = "===PHP===\n" . trim($componentCode);
+                        if ($hasBlade) {
+                            // Try to extract Blade view for this component
+                            // Look for Blade content after this class definition
+                            $bladeStart = strpos($code, '===BLADE===', $classStart);
+                            if ($bladeStart !== false && $bladeStart < $nextClassStart) {
+                                $bladeEnd = strpos($code, '===END===', $bladeStart);
+                                if ($bladeEnd !== false) {
+                                    $bladeContent = substr($code, $bladeStart, $bladeEnd - $bladeStart + 9);
+                                    $block .= "\n" . $bladeContent;
+                                }
+                            } else {
+                                // No explicit Blade marker, but might have Blade in the code
+                                $block .= "\n===BLADE===\n<div>\n    <!-- Component view -->\n</div>\n===END===";
+                            }
+                        }
+                        
+                        $blocks[] = $block;
+                    }
+                }
+                
+                if (count($blocks) > 0) {
+                    return $blocks;
+                }
+            }
         }
         
         // Split by ===PHP=== markers, but preserve the structure
