@@ -159,30 +159,10 @@
                                 
                                 {{-- Loading text with animation --}}
                                 <h3 class="text-xl font-semibold text-green-400 mb-2">
-                                    @if($generationStatus === 'generating')
-                                        Generating Code...
-                                    @elseif($generationStatus === 'validating')
-                                        Validating & Injecting Code...
-                                    @elseif($generationStatus === 'debugging')
-                                        Debugging Issues...
-                                    @elseif($generationStatus === 'fixing')
-                                        Fixing Bugs Automatically...
-                                    @else
-                                        Processing...
-                                    @endif
+                                    {{ ['queued' => 'Queued...', 'thinking' => 'Generating Code...', 'building' => 'Building Preview...', 'fixing' => 'Fixing Errors Automatically...'][$generationStatus] ?? 'Processing...' }}
                                 </h3>
                                 <p class="text-sm text-gray-400 mb-4">
-                                    @if($generationStatus === 'generating')
-                                        Creating your Livewire component with AI
-                                    @elseif($generationStatus === 'validating')
-                                        Checking code and setting up preview
-                                    @elseif($generationStatus === 'debugging')
-                                        Analyzing errors and preparing fixes
-                                    @elseif($generationStatus === 'fixing')
-                                        Auto-fixing detected issues
-                                    @else
-                                        Working on your component
-                                    @endif
+                                    {{ ['thinking' => 'Writing your Livewire components', 'building' => 'Rendering each component in the preview', 'fixing' => 'Sending render errors back to the model'][$generationStatus] ?? 'Working on your request' }}
                                 </p>
                                 
                                 {{-- Animated dots --}}
@@ -200,7 +180,7 @@
                                 </div>
                             </div>
                         </div>
-                    @elseif(empty($generatedCode) && !$previewReady)
+                    @elseif(empty($fileContent) && !$previewReady)
                         {{-- Initial State - Encourage Prompt --}}
                         <div class="h-full flex items-center justify-center bg-gray-900 rounded-lg">
                             <div class="text-center max-w-md px-6">
@@ -230,7 +210,7 @@
                                 </div>
                             </div>
                         </div>
-                    @elseif($generatedCode)
+                    @elseif($fileContent)
                         <div class="code-viewer-scrollable bg-gray-900 rounded-lg p-4 relative" style="height: 100%; overflow-y: auto; overflow-x: auto;">
                             <div class="mb-2 text-xs text-gray-400 sticky top-0 bg-gray-900 pb-2 z-10 flex items-center justify-between">
                                 <div>
@@ -284,11 +264,11 @@
                             </div>
                             <textarea 
                                 id="code-content-{{ md5($selectedFilePath ?: $componentName) }}"
-                                wire:model.defer="generatedCode"
+                                wire:model="fileContent"
                                 class="w-full h-full bg-transparent text-sm text-green-400 font-mono border-0 outline-none resize-none p-0 m-0"
                                 style="min-height: calc(100% - 3rem); font-family: 'Courier New', monospace; white-space: pre; overflow-wrap: normal; tab-size: 4;"
                                 spellcheck="false"
-                            >{{ $generatedCode }}</textarea>
+                            >{{ $fileContent }}</textarea>
                         </div>
                     @else
                         <div class="h-full flex items-center justify-center text-gray-400">
@@ -325,7 +305,7 @@
                         </div>
                         
                         {{-- Loading text --}}
-                        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Preparing Preview...</h3>
+                        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">{{ ['queued' => 'Queued...', 'thinking' => 'Generating Code...', 'building' => 'Building Preview...', 'fixing' => 'Fixing Errors Automatically...'][$generationStatus] ?? 'Preparing Preview...' }}</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Setting up your component preview</p>
                         
                         {{-- Animated dots --}}
@@ -386,17 +366,7 @@
                             </div>
                         </div>
                         <p class="text-sm font-medium text-gray-700">
-                            @if($generationStatus === 'generating')
-                                Generating code...
-                            @elseif($generationStatus === 'validating')
-                                Validating & injecting code...
-                            @elseif($generationStatus === 'debugging')
-                                Debugging issues...
-                            @elseif($generationStatus === 'fixing')
-                                Fixing bugs automatically...
-                            @else
-                                Processing...
-                            @endif
+                            {{ ['queued' => 'Queued...', 'thinking' => 'Generating code...', 'building' => 'Building preview...', 'fixing' => 'Fixing errors automatically...'][$generationStatus] ?? 'Processing...' }}
                         </p>
                         <p class="text-xs text-gray-500 mt-1">This may take a moment</p>
                     </div>
@@ -450,6 +420,15 @@
                         <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
                         <span>No Preview</span>
                     </div>
+                    @if(count($this->components) > 0)
+                        <x-button
+                            wire:click="updatePreview"
+                            icon="o-play"
+                            class="btn-xs btn-ghost"
+                            spinner="updatePreview">
+                            Start
+                        </x-button>
+                    @endif
                 @endif
             </div>
         </div>
@@ -548,25 +527,6 @@
             }
         }
     </style>
-    
-    {{-- Overwrite Confirmation Modal --}}
-    <x-modal wire:model="showOverwriteConfirmModal" wire:key="overwrite-modal-{{ $pendingComponentName }}" title="Overwrite Existing Component?">
-        <div class="space-y-4">
-            <p class="text-gray-700">
-                The component <strong>{{ $pendingComponentName }}</strong> already exists. 
-                Overwriting will replace the current code and create a backup version.
-            </p>
-            <p class="text-sm text-gray-500">
-                Previous versions will be saved in the component's version history (up to 10 versions).
-            </p>
-            <div class="flex justify-end gap-2 pt-4">
-                <x-button wire:click="cancelOverwrite" class="btn-ghost" wire:loading.attr="disabled">Cancel</x-button>
-                <x-button wire:click="confirmOverwrite" class="btn-warning" wire:loading.attr="disabled" spinner="confirmOverwrite">
-                    <x-icon name="o-exclamation-triangle" class="w-4 h-4 mr-2" />
-                    Overwrite Component
-                </x-button>
-            </div>
-        </div>
-    </x-modal>
+
     
 </div>

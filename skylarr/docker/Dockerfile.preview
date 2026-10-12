@@ -39,15 +39,12 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-pl
 # Restore original composer.json
 RUN mv composer.json.backup composer.json
 
-# Clear all Laravel caches to remove any dev service provider references
-# This is critical to prevent PailServiceProvider errors
-RUN rm -rf bootstrap/cache/*.php 2>/dev/null || true && \
-    rm -rf storage/framework/cache/* 2>/dev/null || true && \
-    php artisan config:clear 2>/dev/null || true && \
-    php artisan cache:clear 2>/dev/null || true && \
-    php artisan route:clear 2>/dev/null || true && \
-    php artisan view:clear 2>/dev/null || true && \
-    composer dump-autoload --no-dev --optimize --classmap-authoritative 2>/dev/null || true
+# Bake the package manifest from the no-dev vendor dir (dev providers like Pail
+# are absent), and keep PSR-4 fallback autoloading so components written at
+# runtime load without re-dumping the autoloader.
+RUN rm -f bootstrap/cache/*.php && \
+    php artisan package:discover --ansi && \
+    composer dump-autoload --no-dev --optimize
 
 # Install dependencies and build assets with Bun
 RUN bun install && bun run build

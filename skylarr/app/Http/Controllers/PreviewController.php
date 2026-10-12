@@ -16,65 +16,12 @@ class PreviewController extends Controller
     ) {}
 
     /**
-     * Create a new preview for a project.
+     * Write a component into a project's preview (starting the container if needed)
+     * and report whether it renders.
      */
     public function createPreview(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'project_id' => 'required|exists:projects,id',
-            'code' => 'required|string',
-            'component_name' => 'required|string|max:255'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $project = Project::where('user_id', Auth::id())
-                             ->findOrFail($request->project_id);
-
-            // Check if user can create more containers
-            if (!$this->dockerService->canUserCreateContainer(Auth::id())) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Maximum number of containers reached'
-                ], 429);
-            }
-
-            // Get or create container for the project
-            $previewUrl = $this->dockerService->getOrCreateProjectContainer($project);
-
-            // Inject the generated code
-            $success = $this->dockerService->injectCode(
-                $project,
-                $request->code,
-                $request->component_name
-            );
-
-            if (!$success) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to inject code into container'
-                ], 500);
-            }
-
-            return response()->json([
-                'success' => true,
-                'preview_url' => $previewUrl,
-                'project_id' => $project->id,
-                'component_name' => $request->component_name
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create preview: ' . $e->getMessage()
-            ], 500);
-        }
+        return $this->writeComponent($request);
     }
 
     /**
@@ -108,56 +55,40 @@ class PreviewController extends Controller
     }
 
     /**
-     * Update preview with new code.
+     * Replace a component's files in a running preview.
      */
     public function updatePreview(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'project_id' => 'required|exists:projects,id',
-            'code' => 'required|string',
-            'component_name' => 'required|string|max:255'
-        ]);
+        return $this->writeComponent($request);
+    }
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
+    private function writeComponent(Request $request): JsonResponse
+    {
+        $validated = Validator::make($request->all(), [
+            'project_id' => 'required|integer',
+            'component_name' => ['required', 'string', 'regex:' . DockerPreviewService::COMPONENT_NAME_PATTERN],
+            'php' => 'required|string',
+            'blade' => 'required|string',
+        ])->validate();
+
+        $project = Project::where('user_id', Auth::id())->findOrFail($validated['project_id']);
 
         try {
-            $project = Project::where('user_id', Auth::id())
-                             ->findOrFail($request->project_id);
-
-            // Inject the updated code
-            $success = $this->dockerService->injectCode(
-                $project,
-                $request->code,
-                $request->component_name
-            );
-
-            if (!$success) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to update preview'
-                ], 500);
-            }
-
-            // Update last accessed time
-            $project->touchLastAccessed();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Preview updated successfully',
-                'preview_url' => $project->preview_url
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update preview: ' . $e->getMessage()
-            ], 500);
+            $previewUrl = $this->dockerService->getOrCreateProjectContainer($project);
+            $this->dockerService->writeComponent($project, $validated['component_name'], $validated['php'], $validated['blade']);
+            $errors = $this->dockerService->validateComponent($project, $validated['component_name']);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+
+        $kebab = DockerPreviewService::kebab($validated['component_name']);
+        $project->addComponent($validated['component_name'], "/{$kebab}", $kebab, $validated['php'], $validated['blade']);
+
+        return response()->json([
+            'success' => $errors === [],
+            'preview_url' => "{$previewUrl}/{$kebab}",
+            'errors' => $errors,
+        ], $errors === [] ? 200 : 422);
     }
 
     /**
@@ -171,14 +102,7 @@ class PreviewController extends Controller
 
             if ($project->container_id) {
                 $this->dockerService->removeContainer($project->container_id);
-                
-                $project->update([
-                    'container_id' => null,
-                    'container_name' => null,
-                    'port' => null,
-                    'preview_url' => null,
-                    'status' => 'stopped'
-                ]);
+                $this->dockerService->detach($project);
             }
 
             return response()->json([

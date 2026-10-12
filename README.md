@@ -1,675 +1,148 @@
-# Graph-Guided Prompt-Based UI Generation for MaryUI (SKYLARR)
+# SKYLARR
 
-SKYLARR is an AI-powered UI generation platform that combines Laravel Livewire with MaryUI components, powered by Graph Neural Networks (GNN) and scene graphs for intelligent component generation. It provides real-time code generation with live preview capabilities through Docker containerization.
+SKYLARR turns chat messages into working Laravel Livewire components built with [MaryUI](https://mary-ui.com), and shows them running in a live, per-project preview.
 
-## Overview
+You describe what you want ("a users table with a delete button", "add a phone field to the signup form"). SKYLARR writes the PHP class and Blade view, runs them in an isolated container, fixes anything that fails to render, and shows the result next to the chat.
 
-SKYLARR enables developers to generate production-ready Laravel Livewire components using natural language prompts. The system uses OpenAI's GPT models enhanced with GNN context to understand component relationships and generate beautiful, minimal UI components using MaryUI.
+## How it works
 
-### Key Features
-
-* **AI-Powered Code Generation**: Generate complete Livewire components (PHP class + Blade view) using OpenAI with GNN-enhanced context
-* **Live Preview System**: Real-time preview of generated components in isolated Docker containers
-* **Multi-Project Support**: Each user can manage multiple projects with separate preview environments
-* **Streaming Chat Interface**: Real-time AI chat with automatic code generation triggers
-* **Conversational Code Generation**: Maintains conversation history for iterative refinement
-* **Social Authentication**: Google and GitHub OAuth integration
-* **Two-Factor Authentication**: Enhanced security with TOTP support
-* **Theme Selector**: Dynamic daisyUI theme switching for previews
-* **Auto-Error Detection & Correction**: Automatically detects and fixes common code errors
-* **Component Overwrite Protection**: Prevents accidental overwrites with confirmation modals
-
-### Architecture
-
-* **Laravel Frontend** (`skylarr/`): Livewire components, MaryUI styling, user management, project management
-* **Python Backend** (`scripts/`): FastAPI service with OpenAI integration and GNN context enhancement
-* **Docker Preview System**: Isolated containers for live component preview with automatic route management
-* **Database**: SQLite database for user projects, chat threads, component metadata, and notifications
-
-## Requirements
-
-* **Docker**: Required for preview containers (Docker Desktop or Docker Engine)
-* **Python 3.11+**: For the AI backend service (Python 3.13 recommended)
-* **Node.js 18+**: For Vite/Tailwind frontend build
-* **PHP 8.2+**: For Laravel application
-* **Composer**: PHP dependency manager
-* **OpenAI API Key**: For AI code generation (get from https://platform.openai.com/)
-* **Git**: For version control
-* **8GB+ RAM**: Recommended for running Docker containers and Laravel application
-
-## Local Setup
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/Graph-Guided-Prompt-Based-UI-Generation-for-MaryUI-using-Scene-Graphs-and-GNN.git
-cd Graph-Guided-Prompt-Based-UI-Generation-for-MaryUI-using-Scene-Graphs-and-GNN
+```
+Browser ── Livewire (skylarr/) ── queue ──> ProcessChatMessage job
+                                               │
+                                               ├─ 1. POST /generate ──> AI service (scripts/)
+                                               │       message + history + current component source
+                                               │       <── { reply, actions: [{op, component, php, blade}] }
+                                               │
+                                               ├─ 2. write files into the project's preview container
+                                               ├─ 3. render each component; on errors, send them back
+                                               │     to the model (up to AI_MAX_REPAIR_ATTEMPTS)
+                                               └─ 4. save reply + versions; UI polls and refreshes
 ```
 
-### 2. Python Backend Setup
+- **One model call per message.** The model returns structured JSON (strict JSON schema on OpenAI, response schema on Gemini). It decides whether to just answer, create components or update them. Nothing is parsed out of free text, and no keyword lists decide what you meant.
+- **Edits see the real code.** Updates are sent with the component's current PHP and Blade, read from the container, so your own edits in the code tab are kept.
+- **Grounded in the real MaryUI.** `scripts/knowledge/maryui_reference.json` is extracted from the MaryUI version the previews run: every component, its props and slots, and all 1,288 Heroicons. Each request gets the relevant usage guides and exact props. Unknown icons are swapped for the closest real one, and unknown tags are flagged.
+- **Verified before you see it.** Each generated component is linted and rendered over HTTP inside its container. Render errors (with the message from the Laravel log) go back to the model for a fix.
+- **Background processing.** Generation runs in a queued job, one per project at a time. The request returns immediately and the chat and preview poll for progress.
 
-**Create and activate virtual environment:**
+## Repository layout
+
+| Path | What it is |
+| --- | --- |
+| `skylarr/` | Laravel 12 + Livewire 3 app: auth, projects, chat, preview panel, queue jobs, evals |
+| `scripts/` | Python FastAPI AI service: prompt building, MaryUI retrieval, OpenAI/Gemini adapters |
+| `scripts/knowledge/` | MaryUI reference (generated) and hand-written usage guides |
+| `scripts/services/prompts/` | System and repair prompts, as plain files |
+| `preview-reference/` | The Laravel app baked into the preview image (`skylarr-preview`) |
+| `skylarr/evals/cases.json` | Prompts used to score generation quality |
+
+## Setup
+
+Requirements: PHP 8.2+, Composer, Node 18+, Python 3.11+, Docker, and an OpenAI or Gemini API key.
+
+### 1. AI service
 
 ```bash
 cd scripts
-python3.11 -m venv venv
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+cat > .env <<'EOF'
+AI_PROVIDER=openai            # or gemini
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4.1          # any model with structured outputs
+# GEMINI_API_KEY=...
+# GEMINI_MODEL=gemini-2.5-flash
+AI_SERVICE_TOKEN=change-me    # shared secret with Laravel
+EOF
+venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001
 ```
 
-**Note:** Ensure you have Python 3.11 or later installed. Check your version:
+`GET /health` reports the provider, model and MaryUI version.
 
-```bash
-python3 --version  # Should show 3.11.x or higher
-```
-
-**Activate virtual environment:**
-
-macOS/Linux:
-```bash
-source venv/bin/activate
-```
-
-Windows (Command Prompt):
-```bash
-venv\Scripts\activate.bat
-```
-
-Windows (PowerShell):
-```bash
-venv\Scripts\Activate.ps1
-```
-
-**Note:** You should see `(venv)` in your terminal prompt when activated.
-
-**Install dependencies:**
-
-```bash
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-```
-
-**Create environment file:**
-
-Create a `.env` file in the `scripts/` directory (or at repo root):
-
-```env
-OPENAI_API_KEY=sk-your-api-key-here
-OPENAI_MODEL=gpt-4o-mini
-```
-
-The service attempts to load the nearest `.env` and also falls back to `scripts/.env`.
-
-**Run the Python backend:**
-
-```bash
-# Option A (from scripts directory):
-python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
-
-# Option B (from repo root):
-python -m uvicorn scripts.main:app --reload --host 127.0.0.1 --port 8000
-
-# Option C (direct file run):
-python scripts/main.py
-```
-
-The server exposes:
-* `GET /` → Health check
-* `GET /health` → Service status
-* `POST /chat/stream` → Streams text chunks as they arrive from OpenAI
-* `POST /generate/code` → Generates Livewire component code with GNN context
-* `GET /gnn/summary` → Returns GNN graph summary
-
-### 3. Laravel Application Setup
-
-**Navigate to Laravel directory:**
+### 2. Laravel app
 
 ```bash
 cd skylarr
-```
-
-**Install PHP dependencies:**
-
-```bash
 composer install
-```
-
-**Create environment file:**
-
-```bash
-cp .env.example .env
-```
-
-**Generate application key:**
-
-```bash
-php artisan key:generate
-```
-
-**Configure environment variables:**
-
-Edit `skylarr/.env` and configure:
-
-```env
-# Application
-APP_URL=http://127.0.0.1:8001
-APP_NAME="SKYLARR"
-
-# Database (SQLite)
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-
-# AI Backend
-PY_BACKEND_URL=http://127.0.0.1:8000
-
-# OAuth (Google) - Optional
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://127.0.0.1:8001/auth/google/callback
-
-# OAuth (GitHub) - Optional
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_REDIRECT_URI=http://127.0.0.1:8001/auth/github/callback
-
-# Mail (for 2FA) - Optional
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=your_email@gmail.com
-MAIL_PASSWORD=your_app_password
-MAIL_ENCRYPTION=tls
-```
-
-**Run database migrations:**
-
-```bash
+cp .env.example .env && php artisan key:generate
+# set AI_SERVICE_TOKEN to the same value as scripts/.env
+# set SKYLARR_ADMIN_EMAILS to your email for container maintenance endpoints
 php artisan migrate
+npm install && npm run build
+composer dev     # web server, queue worker, scheduler, logs, Vite
 ```
 
-This creates:
-* `users` table (with 2FA and OAuth fields)
-* `projects` table (for project management)
-* `chat_threads` table (for chat persistence)
-* `chat_messages` table (for message history)
-* `notifications` table (for system notifications)
+A queue worker must be running, because generation happens in `ProcessChatMessage`. `composer dev` starts one. In production, run `php artisan queue:work --timeout=900` under a process supervisor, and the scheduler (`php artisan schedule:work` or cron).
 
-**Install Node.js dependencies and build assets:**
+`./start.sh` at the repo root starts the AI service and `composer dev` together.
 
-```bash
-npm install
-npm run build
-```
-
-**Run Laravel application:**
-
-```bash
-php artisan serve --host=127.0.0.1 --port=8001
-```
-
-### 4. Docker Preview System Setup
-
-**Build the preview Docker image:**
+### 3. Preview image
 
 ```bash
 cd skylarr
-chmod +x scripts/build-docker-preview.sh
 ./scripts/build-docker-preview.sh
 ```
 
-This creates a Docker image named `skylarr-preview:latest` that contains:
-* Laravel 12 with Livewire 3
-* MaryUI components
-* daisyUI themes (all 35 themes enabled)
-* Nginx web server
-* PHP 8.4-FPM
+Rebuild the image whenever `preview-reference/` or `skylarr/docker/` changes. Containers created from an older image should be stopped (`php artisan docker:cleanup-orphaned --all`) so projects restart on the new image.
 
-**Verify Docker is running:**
+## Preview containers
 
-```bash
-docker --version
-docker ps
-```
+Each project gets its own container from `skylarr-preview:latest`:
 
-**Test the preview image (optional):**
+- **Isolation and limits:** `--memory 512m --cpus 1 --pids-limit 256`, all capabilities dropped except the five nginx/php-fpm need, `no-new-privileges`, and the port bound to `127.0.0.1` only. All of these are configurable in `config/skylarr.php` / `.env`.
+- **No internet for generated code (recommended):** set `PREVIEW_NETWORK` to a Docker network whose egress you block at the host firewall. Published ports still work.
+- **Instant first preview:** `PREVIEW_POOL_SIZE` idle containers are kept warm (`preview:fill-pool` runs every five minutes). A new project claims one with an atomic rename.
+- **Routing without edits:** the preview app registers `/<kebab-name>` for every class in `app/Livewire`. Writing two files is all it takes; there are no route edits, cache clears or autoload dumps.
+- **Cleanup:** `preview:cleanup-idle` (hourly) stops containers of projects untouched for `PREVIEW_IDLE_HOURS`. When a project's container is recreated, its saved components are written back automatically.
+- **Admin-only maintenance:** `/api/preview/cleanup*`, `/api/preview/port/{port}` and `/api/preview/remove-all` need an email listed in `SKYLARR_ADMIN_EMAILS`.
 
-```bash
-docker run -d -p 8002:80 --name test-preview skylarr-preview:latest
-curl http://localhost:8002
-docker stop test-preview && docker rm test-preview
-```
-
-### 5. Verify Installation
-
-**Check Python backend:**
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Expected response:
-```json
-{"status": "healthy"}
-```
-
-**Check Laravel application:**
-
-Open http://127.0.0.1:8001 in your browser. You should see the SKYLARR login page.
-
-**Test code generation:**
-
-1. Create an account or log in
-2. Create a new project
-3. Open the chat interface
-4. Type: "create a registration form"
-5. Watch as the AI generates code and displays it in the preview
-
-## Project Structure
-
-```
-Graph-Guided-Prompt-Based-UI-Generation-for-MaryUI-using-Scene-Graphs-and-GNN/
-├── skylarr/                      # Laravel application
-│   ├── app/
-│   │   ├── Http/
-│   │   │   ├── Controllers/
-│   │   │   │   ├── PreviewController.php      # Preview proxy endpoints
-│   │   │   │   ├── ProjectController.php      # Project CRUD
-│   │   │   │   └── Auth/
-│   │   │   │       └── SocialAuthController.php  # OAuth integration
-│   │   ├── Livewire/
-│   │   │   ├── ChatInterface.php              # Chat component with code generation
-│   │   │   ├── CodeGenerationEngine.php       # Code generation & preview
-│   │   │   ├── CodeGenerator.php              # Main code generator page
-│   │   │   └── CustomComponents/
-│   │   │       └── NavigationBar.php           # Navigation with project selector
-│   │   ├── Models/
-│   │   │   ├── Project.php                    # Project model
-│   │   │   ├── ChatThread.php                 # Chat thread model
-│   │   │   ├── ChatMessage.php                # Chat message model
-│   │   │   └── Notification.php                # Notification model
-│   │   └── Services/
-│   │       ├── AiGateway.php                   # Communication with Python backend
-│   │       ├── DockerPreviewService.php        # Docker container management
-│   │       └── NotificationService.php         # Notification management
-│   ├── resources/
-│   │   ├── views/
-│   │   │   └── livewire/
-│   │   │       ├── chat-interface.blade.php    # Chat UI
-│   │   │       ├── code-generation-engine.blade.php  # Code & preview split view
-│   │   │       └── custom-components/
-│   │   │           └── navigation-bar.blade.php  # Navigation component
-│   │   ├── css/
-│   │   │   └── app.css                          # Tailwind + daisyUI config
-│   │   └── js/
-│   │       └── app.js                          # Frontend JavaScript
-│   ├── docker/
-│   │   ├── Dockerfile.preview                 # Preview container Dockerfile
-│   │   ├── nginx.conf                          # Nginx configuration
-│   │   └── start.sh                            # Container startup script
-│   ├── scripts/
-│   │   └── build-docker-preview.sh             # Docker image build script
-│   ├── database/
-│   │   └── migrations/                         # Database migrations
-│   └── routes/
-│       └── web.php                             # Application routes
-├── scripts/                                    # Python backend
-│   ├── main.py                                 # FastAPI app entrypoint
-│   ├── services/
-│   │   ├── openai_service.py                   # OpenAI client + streaming
-│   │   └── gnn_service.py                      # GNN data prep and context
-│   ├── data/
-│   │   └── maryui_gnn_data/                    # GNN graph data (pickle files)
-│   │       ├── adj_matrix.pkl                  # Adjacency matrix
-│   │       ├── components.pkl                  # Component data
-│   │       ├── maryui_graph.pkl                # Graph structure
-│   │       └── node_features.pkl               # Node features
-│   ├── core/
-│   │   ├── config.py                           # Configuration management
-│   │   ├── exceptions.py                       # Custom exceptions
-│   │   └── security.py                         # Security utilities
-│   ├── tests/                                  # Test suite
-│   │   ├── gnn_openai_test.py                  # GNN + OpenAI tests
-│   │   └── raw_pipeline.py                     # Pipeline tests
-│   └── requirements.txt                        # Python dependencies
-├── preview-reference/                          # Reference Laravel app for Docker
-│   ├── app/
-│   │   └── Livewire/                           # Generated components go here
-│   ├── resources/
-│   │   ├── views/
-│   │   │   └── components/
-│   │   │       └── layouts/
-│   │   │           └── app.blade.php           # Main layout with theme support
-│   │   ├── css/
-│   │   │   └── app.css                         # daisyUI themes config
-│   │   └── js/
-│   │       └── app.js                          # Livewire imports
-│   └── routes/
-│       └── web.php                             # Dynamic route registration
-└── README.md                                   # This file
-```
-
-## How the System Works
-
-### Chat and Code Generation Flow
-
-1. **User Input**: User types a message in the chat interface
-2. **Message Persistence**: Laravel saves the user message to `chat_messages` table
-3. **AI Processing**: `AiGateway` sends message history to Python backend `/chat/stream`
-4. **Streaming Response**: AI response streams back in real-time chunks via Server-Sent Events
-5. **Code Detection**: System detects code generation keywords (create, build, add, update, etc.)
-6. **Code Generation**: Triggers `/generate/code` endpoint with:
-   - User prompt
-   - Conversation history for context
-   - GNN-enhanced context for component relationships
-7. **Code Parsing**: Python backend parses generated code (PHP class + Blade view)
-8. **Code Validation**: Laravel validates syntax and structure
-9. **Preview Creation**: Docker container created/injected with generated code
-10. **Route Registration**: Dynamic routes created for component access
-11. **Live Preview**: User sees real-time preview in iframe with theme support
-
-### Docker Preview System
-
-1. **Container Creation**: Each project gets its own Docker container (max 5 per user)
-2. **Code Injection**: Generated Livewire components injected into container:
-   * PHP class file → `/var/www/html/app/Livewire/ComponentName.php`
-   * Blade view file → `/var/www/html/resources/views/livewire/component-name.blade.php`
-3. **Route Registration**: Dynamic routes created in `routes/web.php`:
-   * Format: `Route::get('/component-name', ComponentName::class);`
-   * No root route (`/`) - each component has unique route
-4. **Live Updates**: Real-time preview updates as code changes
-5. **Resource Management**: Automatic cleanup of inactive containers (24 hours)
-6. **Theme Support**: Dynamic theme switching via `data-theme` attribute
-
-### Multi-Project Architecture
-
-* **User Isolation**: Each user can have multiple projects
-* **Container Per Project**: Each project runs in its own Docker container
-* **Resource Limits**: Maximum 5 containers per user
-* **Automatic Cleanup**: Containers cleaned up after 24 hours of inactivity
-* **Port Management**: Automatic port assignment (8001-8010)
-
-### GNN Context Integration
-
-The system uses Graph Neural Networks to provide intelligent context:
-
-* **Component Relationships**: Understands MaryUI component dependencies
-* **Scene Graph Analysis**: Analyzes UI structure and relationships
-* **Context Injection**: Enhances AI prompts with relevant component information
-* **Smart Suggestions**: Provides better code generation based on component patterns
-* **Conversational Memory**: Maintains conversation history for iterative refinement
-
-### Error Detection & Auto-Correction
-
-The system automatically detects and fixes common errors:
-
-* **Null Property Access**: Converts `$var->property` to `$var?->property`
-* **Namespace in Blade**: Removes PHP namespace declarations from Blade files
-* **Missing Namespaces**: Adds proper namespaces to PHP classes
-* **Runtime Errors**: Detects errors via HTTP requests and Laravel logs
-* **AI-Powered Correction**: Re-generates code with error context if auto-fix fails
-
-## API Endpoints
-
-### Laravel API Routes
-
-* `GET /api/projects` → List user projects
-* `POST /api/projects` → Create new project
-* `GET /api/projects/{id}` → Get project details
-* `PUT /api/projects/{id}` → Update project
-* `DELETE /api/projects/{id}` → Delete project
-* `GET /preview/{projectId}` → Proxy preview requests (iframe support)
-* `POST /api/preview/create` → Create preview for project
-* `GET /api/preview/{project}/status` → Get preview status
-* `PUT /api/preview/update` → Update preview with new code
-* `DELETE /api/preview/{project}/stop` → Stop preview container
-
-### Python Backend Endpoints
-
-* `GET /` → Health check
-* `GET /health` → Service status
-* `POST /chat/stream` → Stream AI chat responses (Server-Sent Events)
-* `POST /generate/code` → Generate Livewire component code
-  * Request body:
-    ```json
-    {
-      "prompt": "create a registration form",
-      "messages": [{"role": "user", "content": "..."}],
-      "model": "gpt-4o-mini",
-      "temperature": 0.2,
-      "max_tokens": 4096
-    }
-    ```
-  * Response:
-    ```json
-    {
-      "success": true,
-      "code": "===PHP===...===BLADE===...===END===",
-      "component_name": "RegisterForm"
-    }
-    ```
-* `GET /gnn/summary` → Get GNN graph summary
-
-## Features in Detail
-
-### AI Code Generation
-
-* **Multi-Component Support**: Generate multiple connected components in one request
-* **Conversational Refinement**: Iteratively improve components through conversation
-* **GNN-Enhanced Context**: Better code generation through component relationship understanding
-* **Minimalist Approach**: Generates clean, minimal code using MaryUI's built-in styling
-* **Auto-Error Correction**: Automatically detects and fixes common errors
-
-### Live Preview System
-
-* **Isolated Containers**: Each preview runs in its own Docker container
-* **Real-Time Updates**: Preview updates automatically when code is generated
-* **Theme Support**: Switch between 35 daisyUI themes dynamically
-* **Route Management**: Automatic route creation and management
-* **Copy Code**: One-click code copying from the code viewer
-
-### Chat Interface
-
-* **Streaming Responses**: Real-time AI responses via Server-Sent Events
-* **Code Generation Triggers**: Automatic detection of code generation requests
-* **Conversation History**: Maintains full conversation context
-* **Message Persistence**: All messages saved to database
-* **Loading States**: Visual feedback during message sending and code generation
-
-### Project Management
-
-* **Multi-Project Support**: Create and manage multiple projects
-* **Project Switching**: Easy switching between projects via dropdown
-* **Container Tracking**: Automatic container lifecycle management
-* **Resource Limits**: Maximum 5 containers per user
-* **Auto-Cleanup**: Inactive containers cleaned up after 24 hours
-
-## Security Features
-
-### Authentication
-
-* **Social OAuth**: Google and GitHub login integration
-* **Two-Factor Authentication**: TOTP support with Google Authenticator
-* **Session Management**: Secure session handling with Laravel
-* **Password Hashing**: Bcrypt password hashing
-
-### Container Security
-
-* **Isolation**: Each preview runs in isolated Docker container
-* **Code Validation**: Generated code validated before execution
-* **Resource Limits**: Container resource usage monitored
-* **Network Isolation**: Containers have limited network access
-* **File Permissions**: Proper file ownership and permissions in containers
-
-## Troubleshooting
-
-### Common Issues
-
-**Docker Issues:**
-
-```bash
-# Check Docker status
-docker --version
-docker ps
-
-# Rebuild preview image
-cd skylarr
-./scripts/build-docker-preview.sh
-
-# Clean up containers
-docker system prune -f
-
-# Check container logs
-docker logs <container_id>
-
-# List all containers
-docker ps -a
-```
-
-**Python Backend Issues:**
-
-* Ensure `.env` exists with `OPENAI_API_KEY`
-* Check if port 8000 is available: `lsof -i :8000`
-* Verify Python dependencies are installed: `pip list`
-* Check Python version: `python3 --version` (should be 3.11+)
-* Activate virtual environment: `source scripts/venv/bin/activate`
-
-**Laravel Issues:**
-
-* Ensure `.env` is configured correctly
-* Run `php artisan migrate` to create tables
-* Check `PY_BACKEND_URL` matches Python backend port
-* Clear caches: `php artisan config:clear && php artisan cache:clear`
-* Check Laravel logs: `tail -f skylarr/storage/logs/laravel.log`
-
-**Preview Issues:**
-
-* Verify Docker is running: `docker ps`
-* Check container logs: `docker logs <container_id>`
-* Ensure ports 8001-8010 are available
-* Rebuild Docker image: `./scripts/build-docker-preview.sh`
-* Check file permissions in container
-
-**Code Generation Issues:**
-
-* Verify OpenAI API key is valid
-* Check Python backend is running: `curl http://127.0.0.1:8000/health`
-* Review Laravel logs for errors
-* Check Docker container logs for runtime errors
-* Verify GNN data files exist in `scripts/data/maryui_gnn_data/`
-
-**UI/Preview Not Updating:**
-
-* Clear browser cache
-* Check browser console for errors
-* Verify Livewire is working: Check for `wire:` attributes
-* Check if iframe is loading: Inspect network tab
-* Verify route is registered: Check `routes/web.php` in container
-
-### Performance Optimization
-
-* **Container Pooling**: Pre-create containers for faster response (future enhancement)
-* **Resource Monitoring**: Monitor Docker resource usage
-* **Cleanup Scheduling**: Set up automatic container cleanup
-* **Caching**: Implement Redis caching for better performance (future enhancement)
-* **Database Optimization**: Use PostgreSQL for production (instead of SQLite)
-
-## Development
-
-### Running Tests
-
-**Python Backend:**
-
-```bash
-cd scripts
-source venv/bin/activate
-python -m pytest tests/
-```
-
-**Laravel Application:**
+## Measuring quality
 
 ```bash
 cd skylarr
-php artisan test
+php artisan skylarr:eval                 # all cases
+php artisan skylarr:eval --case=users-table --keep
 ```
 
-### Code Style
+Each case in `evals/cases.json` runs through the real pipeline (AI service plus preview container). It is checked for render errors, how many components changed, create vs. update, and required or forbidden markup (for example, `x-table` must use `@scope`, not the non-existent `<x-table.th>`). The command prints the pass rate, render rate, average repair attempts and token usage, and writes a JSON report to `storage/app/evals/`. Run it before and after changing prompts, guides or models.
 
-**PHP (Laravel):**
+Thumbs up/down in the chat is saved on the message, together with the components it produced. The model sees it as context for the rest of the conversation. To turn it into regression cases:
 
 ```bash
-cd skylarr
-./vendor/bin/pint
+php artisan skylarr:export-feedback --rating=negative   # writes evals/feedback-cases.json for review
 ```
 
-**Python:**
+## Updating MaryUI
+
+After bumping MaryUI in `preview-reference/composer.json`:
 
 ```bash
-cd scripts
-source venv/bin/activate
-# Use black or flake8 (if configured)
+cd preview-reference && composer update robsontenorio/mary && cd ..
+php scripts/knowledge/extract_maryui.php preview-reference > scripts/knowledge/maryui_reference.json
+cd scripts && venv/bin/python -m pytest   # checks guides and icon lists still match the reference
 ```
 
-### Debugging
-
-**Enable Debug Mode:**
-
-In `skylarr/.env`:
-```env
-APP_DEBUG=true
-LOG_LEVEL=debug
-```
-
-**View Logs:**
+## Tests
 
 ```bash
-# Laravel logs
-tail -f skylarr/storage/logs/laravel.log
-
-# Docker container logs
-docker logs <container_id> -f
-
-# Python backend (if using uvicorn with --reload)
-# Logs appear in terminal
+cd scripts && venv/bin/python -m pytest
+cd skylarr && php artisan test
 ```
 
-## Contributing
+## Configuration reference
 
-We welcome contributions! Please follow these guidelines:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** with clear commit messages
-4. **Test your changes** thoroughly
-5. **Submit a pull request** with a detailed description
-
-### Code Style Guidelines
-
-* **PHP**: Follow PSR-12 coding standards
-* **Python**: Follow PEP 8 style guide
-* **JavaScript**: Use modern ES6+ syntax
-* **Blade Templates**: Use MaryUI components, keep it minimal
-* **Comments**: Explain **why**, not **what**
+| Variable | Where | Default | Purpose |
+| --- | --- | --- | --- |
+| `AI_PROVIDER` | scripts | `openai` | `openai` or `gemini` |
+| `OPENAI_MODEL` / `GEMINI_MODEL` | scripts | `gpt-4.1` / `gemini-2.5-flash` | Model used for generation |
+| `AI_MAX_OUTPUT_TOKENS` | scripts | `16000` | Output budget per call (multi-page requests need room) |
+| `AI_SERVICE_TOKEN` | both | empty | Shared secret; empty disables auth (local only) |
+| `AI_SERVICE_URL` | skylarr | `http://127.0.0.1:8001` | AI service address |
+| `AI_MAX_REPAIR_ATTEMPTS` | skylarr | `2` | Fix rounds when a component fails to render |
+| `SKYLARR_ADMIN_EMAILS` | skylarr | empty | Who may run container maintenance |
+| `PREVIEW_*` | skylarr | see `config/skylarr.php` | Image, limits, network, pool size, ports |
+| `DB_QUEUE_RETRY_AFTER` | skylarr | `960` | Must exceed the 900s job timeout |
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Acknowledgments
-
-* **Laravel**: The PHP framework for web artisans
-* **Livewire**: Full-stack framework for Laravel
-* **MaryUI**: Beautiful Laravel Blade UI components
-* **daisyUI**: Tailwind CSS component library
-* **OpenAI**: AI models for code generation
-* **FastAPI**: Modern Python web framework
-* **Docker**: Containerization platform
-
-## Support
-
-For issues, questions, or contributions:
-
-* **GitHub Issues**: [Create an issue](https://github.com/yourusername/Graph-Guided-Prompt-Based-UI-Generation-for-MaryUI-using-Scene-Graphs-and-GNN/issues)
-* **Documentation**: Check this README and code comments
-* **Logs**: Review Laravel and Docker logs for error details
-
----
-
-**Built with ❤️ using Laravel, Livewire, MaryUI, and OpenAI**
+MIT

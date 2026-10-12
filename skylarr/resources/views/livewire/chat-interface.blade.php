@@ -1,9 +1,7 @@
 <div 
     class="h-full flex flex-col bg-white" 
     style="height: 100%; display: flex; flex-direction: column;"
-    x-data=""
-    @code-generation-complete.window="$wire.addCodeGenerationMessage($event.detail)"
-    @code-generation-failed.window="$wire.addCodeGenerationErrorMessage($event.detail)"
+    @if($waiting) wire:poll.1500ms="refreshPending" @endif
 >
     {{-- Chat Messages Area - Scrollable --}}
     <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4" style="min-height: 0; flex: 1 1 auto;">
@@ -15,9 +13,9 @@
                             <span class="font-medium">{{ $m['role']==='user' ? 'You' : 'Skylarr' }}</span>
                             <span class="mx-2">•</span>
                             <span class="inline-flex items-center gap-1">
-                                @if ($m['status']==='streaming')
+                                @if (in_array($m['status'], \App\Livewire\ChatInterface::PENDING_STATUSES))
                                     <span class="size-2 rounded-full bg-blue-400 animate-pulse"></span>
-                                    <span>typing...</span>
+                                    <span>{{ ['queued' => 'queued', 'thinking' => 'thinking...', 'building' => 'building preview...', 'fixing' => 'fixing errors...'][$m['status']] }}</span>
                                 @elseif ($m['status']==='complete')
                                     <span class="size-2 rounded-full bg-green-400"></span>
                                     <span>sent</span>
@@ -30,8 +28,25 @@
                                 @endif
                             </span>
                         </div>
-                        <div class="whitespace-pre-wrap leading-relaxed text-sm {{ $m['role']==='user' ? 'text-white' : 'text-gray-800' }}">{!! nl2br(e($m['content'])) !!}</div>
-                        @if($m['role'] === 'assistant' && $m['status'] === 'complete' && str_contains($m['content'], 'Code generation complete'))
+                        @if($m['content'] === '' && in_array($m['status'], \App\Livewire\ChatInterface::PENDING_STATUSES))
+                            <div class="flex gap-1 py-1">
+                                <span class="size-2 rounded-full bg-gray-400 animate-bounce"></span>
+                                <span class="size-2 rounded-full bg-gray-400 animate-bounce" style="animation-delay: .15s"></span>
+                                <span class="size-2 rounded-full bg-gray-400 animate-bounce" style="animation-delay: .3s"></span>
+                            </div>
+                        @else
+                            <div class="whitespace-pre-wrap leading-relaxed text-sm {{ $m['role']==='user' ? 'text-white' : 'text-gray-800' }}">{{ $m['content'] }}</div>
+                        @endif
+                        @if(!empty($m['components']))
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                @foreach($m['components'] as $component)
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-600" title="{{ $component['summary'] }}">
+                                        {{ $component['op'] === 'create' ? '+' : '~' }} {{ $component['component'] }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+                        @if($m['role'] === 'assistant' && $m['status'] === 'complete' && !empty($m['components']))
                             <div class="mt-2 flex items-center gap-2 pt-2 border-t border-gray-200">
                                 <span class="text-xs text-gray-500">Was this helpful?</span>
                                 <div class="flex gap-1">
@@ -132,7 +147,7 @@
                         rows="4" 
                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl resize-none text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:border-gray-400"
                         style="min-height: 80px; max-height: 200px;"
-                        @if($isStreaming) disabled @endif
+                        @if($waiting) disabled @endif
                         x-on:keydown.enter.prevent="if (!event.shiftKey && $wire.message.trim()) { $wire.sendMessage(); }"
                     ></textarea>
                 </div>
@@ -143,7 +158,7 @@
                     wire:target="sendMessage"
                     class="chat-submit-btn btn btn-primary px-4 py-2 h-auto flex items-center gap-2 whitespace-nowrap"
                     style="visibility: visible !important; opacity: 1 !important; display: inline-flex !important;"
-                    :disabled="$isStreaming"
+                    @disabled($waiting)
                 >
                     <span wire:loading.remove wire:target="sendMessage">
                         <x-icon name="o-paper-airplane" class="w-4 h-4" />

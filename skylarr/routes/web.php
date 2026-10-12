@@ -48,11 +48,13 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('preview/{project}/stop', [PreviewController::class, 'stopPreview'])->name('preview.stop');
         Route::get('preview/containers', [PreviewController::class, 'getUserContainers'])->name('preview.containers');
         
-        // Admin cleanup (optional)
-        Route::post('preview/cleanup', [PreviewController::class, 'cleanupExpiredContainers'])->name('preview.cleanup');
-        Route::post('preview/cleanup-orphaned', [PreviewController::class, 'cleanupOrphanedContainers'])->name('preview.cleanup-orphaned');
-        Route::delete('preview/port/{port}', [PreviewController::class, 'removeContainerByPort'])->name('preview.remove-by-port');
-        Route::delete('preview/remove-all', [PreviewController::class, 'removeAllContainers'])->name('preview.remove-all');
+        // Container maintenance touches every user's previews: admins only.
+        Route::middleware('can:admin')->group(function () {
+            Route::post('preview/cleanup', [PreviewController::class, 'cleanupExpiredContainers'])->name('preview.cleanup');
+            Route::post('preview/cleanup-orphaned', [PreviewController::class, 'cleanupOrphanedContainers'])->name('preview.cleanup-orphaned');
+            Route::delete('preview/port/{port}', [PreviewController::class, 'removeContainerByPort'])->name('preview.remove-by-port');
+            Route::delete('preview/remove-all', [PreviewController::class, 'removeAllContainers'])->name('preview.remove-all');
+        });
     });
 });
 

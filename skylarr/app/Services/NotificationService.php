@@ -8,17 +8,19 @@ use Illuminate\Support\Facades\Auth;
 class NotificationService
 {
     /**
-     * Create a notification for the current user.
+     * Create a notification for a user (defaults to the authenticated user;
+     * queued jobs have no session, so they pass $userId explicitly).
      */
     public static function create(
         string $type,
         string $title,
         string $message,
         ?int $projectId = null,
-        array $metadata = []
+        array $metadata = [],
+        ?int $userId = null
     ): Notification {
         return Notification::create([
-            'user_id' => Auth::id(),
+            'user_id' => $userId ?? Auth::id(),
             'project_id' => $projectId,
             'type' => $type,
             'title' => $title,
@@ -34,9 +36,10 @@ class NotificationService
         string $title,
         string $message,
         ?int $projectId = null,
-        array $metadata = []
+        array $metadata = [],
+        ?int $userId = null
     ): Notification {
-        return self::create('success', $title, $message, $projectId, $metadata);
+        return self::create('success', $title, $message, $projectId, $metadata, $userId);
     }
 
     /**
@@ -46,9 +49,10 @@ class NotificationService
         string $title,
         string $message,
         ?int $projectId = null,
-        array $metadata = []
+        array $metadata = [],
+        ?int $userId = null
     ): Notification {
-        return self::create('error', $title, $message, $projectId, $metadata);
+        return self::create('error', $title, $message, $projectId, $metadata, $userId);
     }
 
     /**
@@ -58,9 +62,10 @@ class NotificationService
         string $title,
         string $message,
         ?int $projectId = null,
-        array $metadata = []
+        array $metadata = [],
+        ?int $userId = null
     ): Notification {
-        return self::create('warning', $title, $message, $projectId, $metadata);
+        return self::create('warning', $title, $message, $projectId, $metadata, $userId);
     }
 
     /**
@@ -70,9 +75,10 @@ class NotificationService
         string $title,
         string $message,
         ?int $projectId = null,
-        array $metadata = []
+        array $metadata = [],
+        ?int $userId = null
     ): Notification {
-        return self::create('info', $title, $message, $projectId, $metadata);
+        return self::create('info', $title, $message, $projectId, $metadata, $userId);
     }
 }
 
