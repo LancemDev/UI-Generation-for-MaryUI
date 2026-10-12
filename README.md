@@ -59,7 +59,8 @@ venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001
 
 # 2. Laravel app (new terminal)
 cd skylarr
-composer install && bun install && bun run build
+composer install
+bun install && bun run build      # or: npm install && npm run build
 cp .env.example .env && php artisan key:generate
 php artisan migrate
 composer dev                    # web, queue worker, scheduler, logs, Vite
@@ -173,7 +174,7 @@ cd scripts && venv/bin/python -m pytest   # guides and icon lists must still mat
 | `AI_SERVICE_TOKEN` | both | empty | Shared secret; empty disables auth (local only) |
 | `AI_SERVICE_URL` | skylarr | `http://127.0.0.1:8001` | AI service address |
 | `AI_MAX_REPAIR_ATTEMPTS` | skylarr | `2` | Fix rounds when a component fails to render |
-| `BROADCAST_CONNECTION` | skylarr | `log` | `reverb` enables pushed updates |
+| `BROADCAST_CONNECTION` | skylarr | `null` (`log` in `.env.example`) | `reverb` enables pushed updates |
 | `SKYLARR_ADMIN_EMAILS` | skylarr | empty | Who may run container maintenance |
 | `PREVIEW_PAUSE_MINUTES` | skylarr | `15` | Pause idle containers; `0` disables |
 | `PREVIEW_IDLE_HOURS` | skylarr | `24` | Remove idle containers |

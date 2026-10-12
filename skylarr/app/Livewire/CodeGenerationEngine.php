@@ -2,11 +2,13 @@
 
 namespace App\Livewire;
 
+use App\Jobs\ProcessChatMessage;
 use App\Models\Project;
 use App\Services\DockerPreviewService;
 use App\Services\GenerationPipeline;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -251,6 +253,15 @@ class CodeGenerationEngine extends Component
             return;
         }
 
+        // Hold the same lock as ProcessChatMessage so a restore and a generation
+        // never write the container or the version history at the same time.
+        $lock = Cache::lock(ProcessChatMessage::projectLock($this->currentProject->id)->getLockKey(null), 120);
+        if ($this->currentProject->fresh()->isGenerating() || !$lock->get()) {
+            $this->warning('A generation is running for this project. Try again when it finishes.');
+
+            return;
+        }
+
         try {
             $result = app(GenerationPipeline::class)->insertComponents($this->currentProject, [
                 $name => ['php' => $version['code'], 'blade' => $version['view_content'] ?? '<div></div>', 'summary' => 'Restored an earlier version'],
@@ -260,6 +271,8 @@ class CodeGenerationEngine extends Component
             $this->error('Could not restore: ' . $e->getMessage());
 
             return;
+        } finally {
+            $lock->release();
         }
 
         $this->currentProject->refresh();

@@ -72,3 +72,9 @@ def test_check_blade_accepts_camel_case_bound_props_and_spreads():
     kb = get_knowledge_base()
     assert kb.check_blade('<x-table :headers="$h" :rows="$r" :noHover="true" />') == ([], [])
     assert kb.check_blade("<x-table {{ $attributes }} />") == ([], [])
+
+
+def test_check_blade_accepts_short_attribute_syntax():
+    kb = get_knowledge_base()
+    assert kb.check_blade('<x-table :$headers :$rows />') == ([], [])
+    assert kb.check_blade('<x-table :$headers />')[0] == ["<x-table> is missing required prop(s): rows"]

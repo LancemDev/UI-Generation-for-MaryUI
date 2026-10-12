@@ -24,7 +24,7 @@ Artisan::command('preview:pause-idle', function (DockerPreviewService $preview) 
 Artisan::command('preview:stats', function (DockerPreviewService $preview) {
     $stats = $preview->containerStats();
     $this->table(['container', 'cpu', 'memory', 'memory %'], array_map('array_values', $stats));
-    $this->line(count($stats) . ' container(s). Use the peak memory here to tune PREVIEW_MEMORY.');
+    $this->line(count($stats) . ' container(s). This is a single sample: run it under real load before tuning PREVIEW_MEMORY.');
 })->purpose('Show live CPU and memory use of preview containers');
 
 Schedule::command('preview:cleanup-idle')->hourly();

@@ -37,7 +37,7 @@ def build_prompt(request: GenerateRequest, kb: KnowledgeBase, full_files_for: di
     the model is asked for complete files for those.
     """
 
-    with_source, names_only = select_components_for_context(request)
+    with_source, names_only = select_components_for_context(request, required=set(full_files_for or ()))
 
     used_tags: set[str] = set()
     for component in with_source:
@@ -55,12 +55,16 @@ def system_prompt(kb: KnowledgeBase) -> str:
 
 def select_components_for_context(
     request: GenerateRequest,
+    required: set[str] | None = None,
 ) -> tuple[list[ExistingComponent], list[ExistingComponent]]:
     """Pick which existing components get their full source in the prompt.
 
     Priority: the component the user selected, then ones named in the message,
-    then the most recently changed (Laravel sends them oldest first).
+    then the most recently changed (Laravel sends them oldest first). Components
+    in `required` (e.g. those asked for again as complete files) always get source.
     """
+
+    required = required or set()
 
     message = request.message.lower()
     focus = request.focus_component
@@ -80,7 +84,7 @@ def select_components_for_context(
         size = len(component.php) + len(component.blade)
         # In repair mode the failing components must be visible; errors are prefixed "Name: ...".
         failing = any(error.startswith(f"{component.name}:") for error in request.errors)
-        must_include = component.name == focus or failing
+        must_include = component.name == focus or failing or component.name in required
         if must_include or used + size <= SOURCE_BUDGET_CHARS:
             with_source.append(component)
             used += size

@@ -237,3 +237,54 @@ def test_reply_is_streamed_and_usage_and_timings_reported(fake_provider_factory)
     assert response.usage == {"input_tokens": 10, "cached_input_tokens": 4, "output_tokens": 1}
     assert set(response.timings) == {"model_ms", "total_ms"}
     assert provider.calls[0]["cache_key"] == "skylarr-generate"
+
+
+def test_failed_static_repair_keeps_the_generated_files(fake_provider_factory):
+    broken = {"op": "create", "component": "UserTable", "summary": "Table", "php": component_php("UserTable"),
+              "blade": '<div><x-table :headers="$headers" /></div>'}
+
+    class FailsOnRepair:
+        calls = 0
+
+        def generate(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls > 1:
+                raise ProviderError("rate limited")
+            return fake_provider_factory({"reply": "Built it.", "actions": [broken]}).generate(*args, **kwargs)
+
+    response = generate(GenerateRequest(message="users table"), FailsOnRepair(), get_knowledge_base(), get_settings())
+
+    assert response.actions[0].component == "UserTable"
+    assert any("Static repair call failed: rate limited" in w for w in response.warnings)
+    assert any("missing required prop(s): rows" in w for w in response.warnings)
+
+
+def test_cancelled_requests_make_no_further_model_calls(fake_provider_factory):
+    import threading
+
+    from core.exceptions import GenerationCancelled
+
+    cancelled = threading.Event()
+    provider = fake_provider_factory({"reply": "Hello there", "actions": []})
+
+    def on_reply(text):
+        cancelled.set()  # client disconnects mid-stream
+
+    with pytest.raises(GenerationCancelled):
+        generate(GenerateRequest(message="hi"), provider, get_knowledge_base(), get_settings(), on_reply=on_reply, cancelled=cancelled)
+    with pytest.raises(GenerationCancelled):
+        generate(GenerateRequest(message="hi"), provider, get_knowledge_base(), get_settings(), cancelled=cancelled)
+    assert len(provider.calls) == 1
+
+
+def test_full_file_retry_targets_always_get_their_source():
+    big_blade = "<div>" + "x" * SOURCE_BUDGET_CHARS + "</div>"
+    components = [
+        ExistingComponent(name=f"Page{i}", route=f"/page{i}", php=component_php(f"Page{i}"), blade=big_blade)
+        for i in range(3)
+    ]
+    request = GenerateRequest(message="change the header", components=components)
+    prompt = build_prompt(request, get_knowledge_base(), full_files_for={"Page0": "search text not found"})
+    content = prompt.messages[-1]["content"]
+    assert "### Page0 (route /page0)" in content
+    assert "Page0 (/page0)" not in content.split("Other components (source omitted):")[-1].split("\n")[0]

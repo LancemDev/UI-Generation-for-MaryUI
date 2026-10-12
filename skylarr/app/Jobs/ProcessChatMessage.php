@@ -56,7 +56,16 @@ class ProcessChatMessage implements ShouldQueue
     public function middleware(): array
     {
         // One generation per project at a time: they write to the same container.
-        return [(new WithoutOverlapping("project:{$this->projectId}"))->releaseAfter(5)->expireAfter($this->timeout + 60)];
+        return [self::projectLock($this->projectId)->releaseAfter(5)->expireAfter($this->timeout + 60)];
+    }
+
+    /**
+     * The per-project lock, shared by name with anything else that writes a
+     * project's components (see CodeGenerationEngine::restoreVersion).
+     */
+    public static function projectLock(int $projectId): WithoutOverlapping
+    {
+        return (new WithoutOverlapping("project:{$projectId}"))->shared();
     }
 
     public function handle(GenerationPipeline $pipeline): void

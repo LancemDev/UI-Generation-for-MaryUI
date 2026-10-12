@@ -9,6 +9,7 @@ Extra calls happen only when they are cheaper than the alternative:
 from __future__ import annotations
 
 import re
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -16,7 +17,7 @@ from dataclasses import dataclass, field
 from pydantic import ValidationError
 
 from core.config import Settings
-from core.exceptions import ProviderError
+from core.exceptions import GenerationCancelled, ProviderError
 from services.edits import EditError, apply_edits
 from services.knowledge import KnowledgeBase
 from services.prompt_builder import Prompt, build_prompt
@@ -49,17 +50,21 @@ class _Run:
 
     provider: Provider
     settings: Settings
+    cancelled: threading.Event | None = None
     usage: dict[str, int] = field(default_factory=dict)
     model_ms: float = 0.0
     calls: int = 0
     model: str = ""
 
     def call(self, prompt: Prompt, model: str, on_reply: ReplyCallback | None = None) -> ModelOutput:
+        self._check_cancelled()
         on_text = None
         if on_reply:
             extractor = ReplyExtractor()
 
             def on_text(chunk: str) -> None:
+                # Raising here unwinds the provider's streaming loop and closes its connection.
+                self._check_cancelled()
                 text = extractor.feed(chunk)
                 if text:
                     on_reply(text)
@@ -84,6 +89,10 @@ class _Run:
         except ValidationError as exc:
             raise ProviderError(f"Model output did not match the schema: {exc.errors()[:3]}") from exc
 
+    def _check_cancelled(self) -> None:
+        if self.cancelled and self.cancelled.is_set():
+            raise GenerationCancelled()
+
 
 def choose_model(request: GenerateRequest, settings: Settings) -> str:
     """Repairs and changes scoped to a selection are small, targeted jobs: use the fast model."""
@@ -97,16 +106,22 @@ def generate(
     kb: KnowledgeBase,
     settings: Settings,
     on_reply: ReplyCallback | None = None,
+    cancelled: threading.Event | None = None,
 ) -> GenerateResponse:
     started = time.perf_counter()
-    run = _Run(provider, settings)
+    run = _Run(provider, settings, cancelled)
 
     output = run.call(build_prompt(request, kb), choose_model(request, settings), on_reply)
     existing = {c.name: c for c in request.components}
     actions, warnings, failed = resolve_actions(output.actions, existing, kb)
 
     if failed:
-        retry = run.call(build_prompt(request, kb, full_files_for=failed), settings.main_model)
+        try:
+            retry = run.call(build_prompt(request, kb, full_files_for=failed), settings.main_model)
+        except ProviderError as exc:
+            # The changes that did apply are still worth returning.
+            retry = ModelOutput(reply="", actions=[])
+            warnings.append(f"Retrying with complete files failed: {exc}")
         wanted = [a for a in retry.actions if a.component in failed]
         more, more_warnings, still_failed = resolve_actions(wanted, existing, kb)
         actions = _merge(actions, more)
@@ -233,7 +248,11 @@ def _static_repair(
         components[action.component] = ExistingComponent(name=action.component, route=route, php=action.php, blade=action.blade)
     repair_request = request.model_copy(update={"components": list(components.values()), "errors": errors, "selection": None})
 
-    repair = run.call(build_prompt(repair_request, kb), run.settings.fast_model)
+    try:
+        repair = run.call(build_prompt(repair_request, kb), run.settings.fast_model)
+    except ProviderError as exc:
+        # Optional step: keep the generated files and let the render check and repair loop handle them.
+        return actions, warnings + check_warnings + errors + [f"Static repair call failed: {exc}"]
     touched = {a.component for a in actions}
     fixed, fix_warnings, failed = resolve_actions([a for a in repair.actions if a.component in touched], components, kb)
     actions = _merge(actions, fixed)

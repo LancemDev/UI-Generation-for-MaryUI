@@ -198,9 +198,11 @@ HTML_ATTRIBUTES = {
 
 
 def _attribute_prop(attribute: str) -> str:
-    """`:fooBar` / `foo-bar` / `::foo` -> `foo-bar`, the form props are listed in."""
+    """`:fooBar` / `foo-bar` / `::foo` / `:$fooBar` -> `foo-bar`, the form props are listed in."""
 
     name = attribute.lstrip(":")
+    if attribute.startswith(":") and name.startswith("$"):
+        name = name[1:]  # short syntax: :$rows binds $rows to the `rows` prop
     return re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower() if not name.startswith(("wire:", "x-", "@")) else name
 
 

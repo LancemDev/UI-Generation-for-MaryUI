@@ -65,7 +65,8 @@ foreach ($in['check'] ?? [] as $name => $check) {
     $tail = $size > $offset ? file_get_contents($log, false, null, $offset, 20000) : '';
     $out['checks'][$name] = ['status' => $status, 'log' => $tail];
 }
-echo json_encode($out);
+// Files and logs may hold invalid UTF-8; substitute it so the output stays valid JSON.
+echo json_encode($out, JSON_INVALID_UTF8_SUBSTITUTE);
 PHP;
 
     // ---------------------------------------------------------------------

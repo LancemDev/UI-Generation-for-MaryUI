@@ -9,15 +9,16 @@ from __future__ import annotations
 import json
 import queue
 import threading
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import anyio
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
 from core.config import get_settings
-from core.exceptions import ConfigurationError, ProviderError
+from core.exceptions import ConfigurationError, GenerationCancelled, ProviderError
 from core.security import require_service_token
 from services.generator import generate
 from services.knowledge import get_knowledge_base
@@ -75,6 +76,7 @@ def post_generate_stream(request: GenerateRequest) -> StreamingResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     events: queue.Queue[dict | None] = queue.Queue()
+    cancelled = threading.Event()
 
     def work() -> None:
         try:
@@ -84,8 +86,11 @@ def post_generate_stream(request: GenerateRequest) -> StreamingResponse:
                 get_knowledge_base(),
                 settings,
                 on_reply=lambda text: events.put({"type": "reply", "text": text}),
+                cancelled=cancelled,
             )
             events.put({"type": "done", "response": response.model_dump()})
+        except GenerationCancelled:
+            pass
         except ProviderError as exc:
             events.put({"type": "error", "status": 502, "detail": str(exc)})
         except Exception as exc:  # surfaced to Laravel instead of a broken stream
@@ -93,10 +98,16 @@ def post_generate_stream(request: GenerateRequest) -> StreamingResponse:
         finally:
             events.put(None)
 
-    def stream() -> Iterator[str]:
+    async def stream() -> AsyncIterator[str]:
         threading.Thread(target=work, daemon=True).start()
-        while (event := events.get()) is not None:
-            yield json.dumps(event) + "\n"
+        try:
+            # Async so a client disconnect cancels this loop (a sync generator would sit
+            # blocked in events.get() and never reach `finally`).
+            while (event := await anyio.to_thread.run_sync(events.get, abandon_on_cancel=True)) is not None:
+                yield json.dumps(event) + "\n"
+        finally:
+            # Stop further model calls once nobody is listening.
+            cancelled.set()
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
