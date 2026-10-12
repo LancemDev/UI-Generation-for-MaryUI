@@ -1,136 +1,55 @@
+"""Skylarr AI service: turns a chat message plus project context into Livewire components.
+
+Run from the scripts/ directory:
+    uvicorn main:app --host 127.0.0.1 --port 8001
 """
-FastAPI application for serving static files and API endpoints for SKYLARR
-"""
 
-import os
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from dotenv import load_dotenv, find_dotenv
-from pathlib import Path
+from __future__ import annotations
 
-# Load environment variables
-_loaded = load_dotenv(find_dotenv(usecwd=True))
-if not _loaded:
-    load_dotenv(Path(__file__).resolve().parent / '.env')
+from contextlib import asynccontextmanager
 
-# Determine which AI provider to use (default: openai)
-AI_PROVIDER = os.getenv("AI_PROVIDER", "openai").lower()
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
-# Import the appropriate service based on AI_PROVIDER
-if AI_PROVIDER == "gemini":
+from core.config import get_settings
+from core.exceptions import ConfigurationError, ProviderError
+from core.security import require_service_token
+from services.generator import generate
+from services.knowledge import get_knowledge_base
+from services.providers.base import make_provider
+from services.schema import GenerateRequest, GenerateResponse
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    get_knowledge_base()
+    yield
+
+
+app = FastAPI(title="Skylarr AI service", version="0.2.0", lifespan=lifespan)
+
+
+@app.get("/health")
+async def health() -> dict:
+    settings = get_settings()
+    model = settings.openai_model if settings.provider == "openai" else settings.gemini_model
+    return {"status": "ok", "provider": settings.provider, "model": model, "maryui": get_knowledge_base().mary_version}
+
+
+@app.post("/generate", response_model=GenerateResponse, dependencies=[Depends(require_service_token)])
+async def post_generate(request: GenerateRequest) -> GenerateResponse:
+    settings = get_settings()
     try:
-        from .services.gemini_service import generate_code, stream_chat  # type: ignore
-    except Exception:  # pragma: no cover
-        from services.gemini_service import generate_code, stream_chat  # type: ignore
-    provider_name = "Gemini"
-else:
-    try:
-        from .services.openai_service import generate_code, stream_chat  # type: ignore
-    except Exception:  # pragma: no cover
-        from services.openai_service import generate_code, stream_chat  # type: ignore
-    provider_name = "OpenAI"
-
-app = FastAPI(
-    title="Skylarr AI Backend",
-    description=(
-        f"Skylarr: AI assistant to help build dynamic Livewire frontends with MaryUI. "
-        f"Backed by a GNN-powered scene-graph context and {provider_name} streaming."
-    ),
-    version="0.1.0",
-)
-
-
-@app.on_event("startup")
-async def preload_gnn():
-    # Preload GNN once on startup so we don't rebuild on first request
-    try:
-        from .services.gnn_service import get_gnn_service
-        get_gnn_service()
-    except Exception:
-        # Optional; continue even if preload fails
-        pass
-
-
-class GenerateRequest(BaseModel):
-	prompt: str
-	messages: list[dict] | None = None  # Conversation history for context
-	model: str | None = None
-	temperature: float = 0.2
-	max_tokens: int = 1024
-
-
-@app.get("/")
-async def read_root():
-	return {"message": "Hello, World!"}
-
-
-@app.post("/generate/code")
-async def post_generate_code(body: GenerateRequest):
-    try:
-        result = generate_code(
-            prompt=body.prompt,
-            messages=body.messages or [],
-            model=body.model,
-            temperature=body.temperature,
-            max_tokens=body.max_tokens,
-        )
-        
-        # Handle both old format (2 values) and new format (3 values)
-        if len(result) == 3:
-            code, component_name, intent_info = result
-        else:
-            code, component_name = result
-            intent_info = {
-                "operation_type": "CREATE",
-                "target_components": [],
-                "new_components": [],
-                "reasoning": "Legacy response format"
-            }
-        
-        return {
-            "success": True,
-            "code": code,
-            "component_name": component_name,
-            "intent": intent_info,
-            "message": "Code generated successfully"
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "message": f"Error generating code: {str(exc)}"
-        }
-
-
-class ChatRequest(BaseModel):
-    messages: list[dict]
-    model: str | None = None
-    temperature: float = 0.2
-    max_tokens: int = 1024
-
-
-@app.post("/chat/stream")
-async def post_chat_stream(body: ChatRequest):
-    try:
-        def _gen():
-            for chunk in stream_chat(
-                messages=body.messages,
-                model=body.model,
-                temperature=body.temperature,
-                max_tokens=body.max_tokens,
-            ):
-                yield chunk
-
-        return StreamingResponse(_gen(), media_type="text/event-stream")
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        provider = make_provider(settings)
+        # Provider SDK calls are blocking; keep the event loop free for other requests.
+        return await run_in_threadpool(generate, request, provider, get_knowledge_base(), settings)
+    except ConfigurationError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 if __name__ == "__main__":
-    import uvicorn, os
-    # Enable auto-reload by using an import string. Works from repo root or scripts/ dir.
-    module_path = "scripts.main:app" if os.path.basename(os.getcwd()) != "scripts" else "main:app"
-    uvicorn.run(module_path, host="127.0.0.1", port=8001, reload=True)
+    import uvicorn
 
-
-# python main.py
+    uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)

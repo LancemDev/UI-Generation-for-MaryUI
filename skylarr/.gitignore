@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Temporary docker build context and exported user feedback
+/preview-base
+/evals/feedback-cases.json

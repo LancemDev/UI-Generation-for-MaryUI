@@ -1,0 +1,4967 @@
+{
+    "mary_version": "2.4.9",
+    "components": [
+        {
+            "tag": "x-accordion",
+            "class": "Accordion",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "no-join",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-alert",
+            "class": "Alert",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "description",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "shadow",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "dismissible",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "actions"
+            ],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-avatar",
+            "class": "Avatar",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "image",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "alt",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "placeholder",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "fallback-image",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "subtitle",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-badge",
+            "class": "Badge",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "value",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-breadcrumbs",
+            "class": "Breadcrumbs",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "items",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "separator",
+                    "type": "string",
+                    "default": "o-chevron-right"
+                },
+                {
+                    "name": "link-item-class",
+                    "type": "string",
+                    "default": "hover:underline text-sm"
+                },
+                {
+                    "name": "text-item-class",
+                    "type": "string",
+                    "default": "text-sm"
+                },
+                {
+                    "name": "icon-class",
+                    "type": "string",
+                    "default": "h-4 w-4"
+                },
+                {
+                    "name": "separator-class",
+                    "type": "string",
+                    "default": "h-3 w-3 mx-1 text-base-content/40"
+                },
+                {
+                    "name": "no-wire-navigate",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-button",
+            "class": "Button",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "spinner",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "link",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "external",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-wire-navigate",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "responsive",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "badge",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "badge-classes",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip-left",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip-bottom",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-calendar",
+            "class": "Calendar",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "months",
+                    "type": "int",
+                    "default": 1
+                },
+                {
+                    "name": "locale",
+                    "type": "string",
+                    "default": "en-EN"
+                },
+                {
+                    "name": "weekend-highlight",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "sunday-start",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "events",
+                    "type": "array",
+                    "default": "[]"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-card",
+            "class": "Card",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "subtitle",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "shadow",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "progress-indicator",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "body-class",
+                    "type": "string",
+                    "default": "null"
+                }
+            ],
+            "slots": [
+                "menu",
+                "actions",
+                "figure"
+            ],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-chart",
+            "class": "Chart",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-checkbox",
+            "class": "Checkbox",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "right",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-choices",
+            "class": "Choices",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "searchable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-progress",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "single",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "compact",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "compact-text",
+                    "type": "string",
+                    "default": "selected"
+                },
+                {
+                    "name": "allow-all",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "debounce",
+                    "type": "string",
+                    "default": "250ms"
+                },
+                {
+                    "name": "min-chars",
+                    "type": "int",
+                    "default": 0
+                },
+                {
+                    "name": "allow-all-text",
+                    "type": "string",
+                    "default": "Select all"
+                },
+                {
+                    "name": "remove-all-text",
+                    "type": "string",
+                    "default": "Remove all"
+                },
+                {
+                    "name": "search-function",
+                    "type": "string",
+                    "default": "search"
+                },
+                {
+                    "name": "option-value",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "option-label",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "option-sub-label",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "option-avatar",
+                    "type": "string",
+                    "default": "avatar"
+                },
+                {
+                    "name": "values-as-string",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "height",
+                    "type": "string",
+                    "default": "max-h-64"
+                },
+                {
+                    "name": "options",
+                    "type": "Illuminate\\Support\\Collection|array",
+                    "default": "[]"
+                },
+                {
+                    "name": "no-result-text",
+                    "type": "string",
+                    "default": "No results found."
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "item",
+                "selection",
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-choices-offline",
+            "class": "ChoicesOffline",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "searchable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "single",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "compact",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "compact-text",
+                    "type": "string",
+                    "default": "selected"
+                },
+                {
+                    "name": "allow-all",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "debounce",
+                    "type": "string",
+                    "default": "250ms"
+                },
+                {
+                    "name": "min-chars",
+                    "type": "int",
+                    "default": 0
+                },
+                {
+                    "name": "allow-all-text",
+                    "type": "string",
+                    "default": "Select all"
+                },
+                {
+                    "name": "remove-all-text",
+                    "type": "string",
+                    "default": "Remove all"
+                },
+                {
+                    "name": "option-value",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "option-label",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "option-sub-label",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "option-avatar",
+                    "type": "string",
+                    "default": "avatar"
+                },
+                {
+                    "name": "values-as-string",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "height",
+                    "type": "string",
+                    "default": "max-h-64"
+                },
+                {
+                    "name": "options",
+                    "type": "Illuminate\\Support\\Collection|array",
+                    "default": "[]"
+                },
+                {
+                    "name": "no-result-text",
+                    "type": "string",
+                    "default": "No results found."
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error label-text-alt p-1"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "item",
+                "selection",
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-code",
+            "class": "Code",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "language",
+                    "type": "string",
+                    "default": "javascript"
+                },
+                {
+                    "name": "light-theme",
+                    "type": "string",
+                    "default": "github_light_default"
+                },
+                {
+                    "name": "dark-theme",
+                    "type": "string",
+                    "default": "github_dark"
+                },
+                {
+                    "name": "light-class",
+                    "type": "string",
+                    "default": "light"
+                },
+                {
+                    "name": "dark-class",
+                    "type": "string",
+                    "default": "dark"
+                },
+                {
+                    "name": "height",
+                    "type": "string",
+                    "default": "200px"
+                },
+                {
+                    "name": "line-height",
+                    "type": "string",
+                    "default": "2"
+                },
+                {
+                    "name": "print-margin",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-collapse",
+            "class": "Collapse",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "collapse-plus-minus",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-icon",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "heading",
+                "content"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-colorpicker",
+            "class": "Colorpicker",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-datepicker",
+            "class": "DatePicker",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-datetime",
+            "class": "DateTime",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-diff",
+            "class": "Diff",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "old",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "new",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "file-name",
+                    "type": "string",
+                    "default": "payload.json"
+                },
+                {
+                    "name": "config",
+                    "type": "array",
+                    "default": "[]"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-drawer",
+            "class": "Drawer",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "right",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "subtitle",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "with-close-button",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "close-on-escape",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "without-trap-focus",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "without-backdrop-close",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "actions",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-dropdown",
+            "class": "Dropdown",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": "o-chevron-down"
+                },
+                {
+                    "name": "right",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "top",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-x-anchor",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "scroll",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "max-height",
+                    "type": "string",
+                    "default": "max-h-96"
+                }
+            ],
+            "slots": [
+                "trigger"
+            ],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-editor",
+            "class": "Editor",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "disk",
+                    "type": "string",
+                    "default": "public"
+                },
+                {
+                    "name": "folder",
+                    "type": "string",
+                    "default": "editor"
+                },
+                {
+                    "name": "gpl-license",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-errors",
+            "class": "Errors",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "description",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": "o-x-circle"
+                },
+                {
+                    "name": "only",
+                    "type": "array",
+                    "default": "[]"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-file",
+            "class": "File",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "hide-progress",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "crop-after-change",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "change-text",
+                    "type": "string",
+                    "default": "Change"
+                },
+                {
+                    "name": "crop-title-text",
+                    "type": "string",
+                    "default": "Crop image"
+                },
+                {
+                    "name": "crop-cancel-text",
+                    "type": "string",
+                    "default": "Cancel"
+                },
+                {
+                    "name": "crop-save-text",
+                    "type": "string",
+                    "default": "Crop"
+                },
+                {
+                    "name": "crop-config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "crop-mime-type",
+                    "type": "string",
+                    "default": "image/png"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-form",
+            "class": "Form",
+            "props": [
+                {
+                    "name": "no-separator",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "actions"
+            ],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-select-group",
+            "class": "SelectGroup",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "placeholder",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "placeholder-value",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "option-value",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "option-label",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "options",
+                    "type": "Illuminate\\Support\\Collection|array",
+                    "default": "[]"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-header",
+            "class": "Header",
+            "props": [
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "subtitle",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "progress-indicator",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "progress-indicator-class",
+                    "type": "string",
+                    "default": "progress-primary"
+                },
+                {
+                    "name": "with-anchor",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "size",
+                    "type": "string",
+                    "default": "text-2xl"
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-classes",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [
+                "middle",
+                "actions"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-hr",
+            "class": "Hr",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "target",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-icon",
+            "class": "Icon",
+            "props": [
+                {
+                    "name": "name",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-image-gallery",
+            "class": "ImageGallery",
+            "props": [
+                {
+                    "name": "images",
+                    "type": "array",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "with-arrows",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "with-indicators",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-image-library",
+            "class": "ImageLibrary",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hide-errors",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hide-progress",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "change-text",
+                    "type": "string",
+                    "default": "Change"
+                },
+                {
+                    "name": "crop-text",
+                    "type": "string",
+                    "default": "Crop"
+                },
+                {
+                    "name": "remove-text",
+                    "type": "string",
+                    "default": "Remove"
+                },
+                {
+                    "name": "crop-title-text",
+                    "type": "string",
+                    "default": "Crop image"
+                },
+                {
+                    "name": "crop-cancel-text",
+                    "type": "string",
+                    "default": "Cancel"
+                },
+                {
+                    "name": "crop-save-text",
+                    "type": "string",
+                    "default": "Crop"
+                },
+                {
+                    "name": "add-files-text",
+                    "type": "string",
+                    "default": "Add images"
+                },
+                {
+                    "name": "crop-config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "preview",
+                    "type": "Illuminate\\Support\\Collection",
+                    "default": "[]"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-input",
+            "class": "Input",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "money",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "locale",
+                    "type": "string",
+                    "default": "en-US"
+                },
+                {
+                    "name": "popover",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "popover-icon",
+                    "type": "string",
+                    "default": "o-question-mark-circle"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-kbd",
+            "class": "Kbd",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-list-item",
+            "class": "ListItem",
+            "props": [
+                {
+                    "name": "item",
+                    "type": "object|array",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "avatar",
+                    "type": "string",
+                    "default": "avatar"
+                },
+                {
+                    "name": "value",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "sub-value",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "no-separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-hover",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "link",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "fallback-avatar",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [
+                "actions"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-loading",
+            "class": "Loading",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-markdown",
+            "class": "Markdown",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "disk",
+                    "type": "string",
+                    "default": "public"
+                },
+                {
+                    "name": "folder",
+                    "type": "string",
+                    "default": "markdown"
+                },
+                {
+                    "name": "config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-modal",
+            "class": "Modal",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "subtitle",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "box-class",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "persistent",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "without-trap-focus",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "actions",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-menu",
+            "class": "Menu",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-classes",
+                    "type": "string",
+                    "default": "w-4 h-4"
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "activate-by-route",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "active-bg-color",
+                    "type": "string",
+                    "default": "bg-base-300"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-menu-item",
+            "class": "MenuItem",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-classes",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "spinner",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "link",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "route",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "route-params",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "external",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-wire-navigate",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "badge",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "badge-classes",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "active",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "separator",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hidden",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "disabled",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "exact",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-menu-separator",
+            "class": "MenuSeparator",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-classes",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-menu-sub",
+            "class": "MenuSub",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-classes",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "open",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hidden",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "disabled",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-menu-title",
+            "class": "MenuTitle",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-classes",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-main",
+            "class": "Main",
+            "props": [
+                {
+                    "name": "full-width",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "with-nav",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "collapse-text",
+                    "type": "string",
+                    "default": "Collapse"
+                },
+                {
+                    "name": "collapse-icon",
+                    "type": "string",
+                    "default": "o-bars-3-bottom-right"
+                },
+                {
+                    "name": "collapsible",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "sidebar",
+                "content",
+                "footer"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-nav",
+            "class": "Nav",
+            "props": [
+                {
+                    "name": "sticky",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "full-width",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "brand",
+                "actions"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-pagination",
+            "class": "Pagination",
+            "props": [
+                {
+                    "name": "rows",
+                    "type": "ArrayAccess|array",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "per-page-values",
+                    "type": "array",
+                    "default": "[10,20,50,100]"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-password",
+            "class": "Password",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "password-icon",
+                    "type": "string",
+                    "default": "o-eye-slash"
+                },
+                {
+                    "name": "password-visible-icon",
+                    "type": "string",
+                    "default": "o-eye"
+                },
+                {
+                    "name": "password-icon-tabindex",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "right",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "only-password",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-pin",
+            "class": "Pin",
+            "props": [
+                {
+                    "name": "size",
+                    "type": "int",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "numeric",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hide",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hide-type",
+                    "type": "string",
+                    "default": "disc"
+                },
+                {
+                    "name": "no-gap",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error text-xs pt-2"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-popover",
+            "class": "Popover",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "position",
+                    "type": "string",
+                    "default": "bottom"
+                },
+                {
+                    "name": "offset",
+                    "type": "string",
+                    "default": "10"
+                }
+            ],
+            "slots": [
+                "trigger",
+                "content"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-progress",
+            "class": "Progress",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "value",
+                    "type": "float",
+                    "default": 0
+                },
+                {
+                    "name": "max",
+                    "type": "float",
+                    "default": 100
+                },
+                {
+                    "name": "indeterminate",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-progress-radial",
+            "class": "ProgressRadial",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "value",
+                    "type": "float",
+                    "default": 0
+                },
+                {
+                    "name": "unit",
+                    "type": "string",
+                    "default": "%"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-radio",
+            "class": "Radio",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "option-value",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "option-label",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "option-hint",
+                    "type": "string",
+                    "default": "hint"
+                },
+                {
+                    "name": "options",
+                    "type": "Illuminate\\Support\\Collection|array",
+                    "default": "[]"
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-group",
+            "class": "Group",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "option-value",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "option-label",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "options",
+                    "type": "Illuminate\\Support\\Collection|array",
+                    "default": "[]"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-range",
+            "class": "Range",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "min",
+                    "type": "int",
+                    "default": 0
+                },
+                {
+                    "name": "max",
+                    "type": "int",
+                    "default": 100
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-rating",
+            "class": "Rating",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "total",
+                    "type": "int",
+                    "default": 5
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-select",
+            "class": "Select",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "placeholder",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "placeholder-value",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "option-value",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "option-label",
+                    "type": "string",
+                    "default": "name"
+                },
+                {
+                    "name": "options",
+                    "type": "Illuminate\\Support\\Collection|array",
+                    "default": "[]"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-signature",
+            "class": "Signature",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "height",
+                    "type": "string",
+                    "default": "250"
+                },
+                {
+                    "name": "clear-text",
+                    "type": "string",
+                    "default": "Clear"
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label text-xs pt-1"
+                },
+                {
+                    "name": "config",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "clear-btn-style",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error text-xs pt-1"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-spotlight",
+            "class": "Spotlight",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "shortcut",
+                    "type": "string",
+                    "default": "meta.g"
+                },
+                {
+                    "name": "search-text",
+                    "type": "string",
+                    "default": "Search ..."
+                },
+                {
+                    "name": "no-results-text",
+                    "type": "string",
+                    "default": "Nothing found."
+                },
+                {
+                    "name": "url",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "fallback-avatar",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "no-wire-navigate",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "append"
+            ],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-stat",
+            "class": "Stat",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "value",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "color",
+                    "type": "string",
+                    "default": ""
+                },
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "description",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip-left",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "tooltip-bottom",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-steps",
+            "class": "Steps",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "vertical",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "steps-color",
+                    "type": "string",
+                    "default": "step-neutral"
+                },
+                {
+                    "name": "stepper-classes",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-step",
+            "class": "Step",
+            "props": [
+                {
+                    "name": "step",
+                    "type": "int",
+                    "default": null
+                },
+                {
+                    "name": "text",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "step-classes",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "data-content",
+                    "type": "string",
+                    "default": null
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-swap",
+            "class": "Swap",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "true",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "false",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "true-icon",
+                    "type": "string",
+                    "default": "o-sun"
+                },
+                {
+                    "name": "false-icon",
+                    "type": "string",
+                    "default": "o-moon"
+                },
+                {
+                    "name": "icon-size",
+                    "type": "string",
+                    "default": "h-5 w-5"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-table",
+            "class": "Table",
+            "props": [
+                {
+                    "name": "headers",
+                    "type": "array",
+                    "default": null
+                },
+                {
+                    "name": "rows",
+                    "type": "ArrayAccess|array",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "striped",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "no-headers",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "selectable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "selectable-key",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "expandable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "expandable-key",
+                    "type": "string",
+                    "default": "id"
+                },
+                {
+                    "name": "link",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "with-pagination",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "per-page",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "per-page-values",
+                    "type": "array",
+                    "default": "[10,20,50,100]"
+                },
+                {
+                    "name": "sort-by",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "row-decoration",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "cell-decoration",
+                    "type": "array",
+                    "default": "[]"
+                },
+                {
+                    "name": "show-empty-text",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "container-class",
+                    "type": "string",
+                    "default": "overflow-x-auto"
+                },
+                {
+                    "name": "no-hover",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "expandableCondition",
+                "emptyText",
+                "actions",
+                "tr",
+                "cell",
+                "expansion",
+                "empty",
+                "footer"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-tab",
+            "class": "Tab",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "disabled",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hidden",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-tabs",
+            "class": "Tabs",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "selected",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label-class",
+                    "type": "string",
+                    "default": "font-semibold pb-1"
+                },
+                {
+                    "name": "active-class",
+                    "type": "string",
+                    "default": "border-b-[length:var(--border)] border-b-base-content/50"
+                },
+                {
+                    "name": "label-div-class",
+                    "type": "string",
+                    "default": "border-b-[length:var(--border)] border-b-base-content/10 flex overflow-x-auto"
+                },
+                {
+                    "name": "tabs-class",
+                    "type": "string",
+                    "default": "relative w-full"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-tags",
+            "class": "Tags",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon-right",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "clearable",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "prefix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "suffix",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [
+                "prepend",
+                "append"
+            ],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-textarea",
+            "class": "Textarea",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "inline",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": true
+        },
+        {
+            "tag": "x-timeline-item",
+            "class": "TimelineItem",
+            "props": [
+                {
+                    "name": "title",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "subtitle",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "description",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "icon",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "pending",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "last",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-theme-toggle",
+            "class": "ThemeToggle",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "value",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "light",
+                    "type": "string",
+                    "default": "Light"
+                },
+                {
+                    "name": "dark",
+                    "type": "string",
+                    "default": "Dark"
+                },
+                {
+                    "name": "light-theme",
+                    "type": "string",
+                    "default": "light"
+                },
+                {
+                    "name": "dark-theme",
+                    "type": "string",
+                    "default": "dark"
+                },
+                {
+                    "name": "light-class",
+                    "type": "string",
+                    "default": "light"
+                },
+                {
+                    "name": "dark-class",
+                    "type": "string",
+                    "default": "dark"
+                },
+                {
+                    "name": "with-label",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-toast",
+            "class": "Toast",
+            "props": [
+                {
+                    "name": "position",
+                    "type": "string",
+                    "default": "toast-top toast-end"
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-toggle",
+            "class": "Toggle",
+            "props": [
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "label",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "right",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "hint",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "hint-class",
+                    "type": "string",
+                    "default": "fieldset-label"
+                },
+                {
+                    "name": "error-field",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "error-class",
+                    "type": "string",
+                    "default": "text-error"
+                },
+                {
+                    "name": "omit-error",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "first-error-only",
+                    "type": "bool",
+                    "default": false
+                }
+            ],
+            "slots": [],
+            "uses_default_slot": false
+        },
+        {
+            "tag": "x-carousel",
+            "class": "Carousel",
+            "props": [
+                {
+                    "name": "slides",
+                    "type": "array",
+                    "default": null
+                },
+                {
+                    "name": "id",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "without-indicators",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "without-arrows",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "autoplay",
+                    "type": "bool",
+                    "default": false
+                },
+                {
+                    "name": "interval",
+                    "type": "int",
+                    "default": 2000
+                }
+            ],
+            "slots": [
+                "content"
+            ],
+            "uses_default_slot": false
+        }
+    ],
+    "heroicons": [
+        "c-academic-cap",
+        "c-adjustments-horizontal",
+        "c-adjustments-vertical",
+        "c-archive-box",
+        "c-archive-box-arrow-down",
+        "c-archive-box-x-mark",
+        "c-arrow-down",
+        "c-arrow-down-circle",
+        "c-arrow-down-left",
+        "c-arrow-down-on-square",
+        "c-arrow-down-on-square-stack",
+        "c-arrow-down-right",
+        "c-arrow-down-tray",
+        "c-arrow-left",
+        "c-arrow-left-circle",
+        "c-arrow-left-end-on-rectangle",
+        "c-arrow-left-start-on-rectangle",
+        "c-arrow-long-down",
+        "c-arrow-long-left",
+        "c-arrow-long-right",
+        "c-arrow-long-up",
+        "c-arrow-path",
+        "c-arrow-path-rounded-square",
+        "c-arrow-right",
+        "c-arrow-right-circle",
+        "c-arrow-right-end-on-rectangle",
+        "c-arrow-right-start-on-rectangle",
+        "c-arrow-top-right-on-square",
+        "c-arrow-trending-down",
+        "c-arrow-trending-up",
+        "c-arrow-turn-down-left",
+        "c-arrow-turn-down-right",
+        "c-arrow-turn-left-down",
+        "c-arrow-turn-left-up",
+        "c-arrow-turn-right-down",
+        "c-arrow-turn-right-up",
+        "c-arrow-turn-up-left",
+        "c-arrow-turn-up-right",
+        "c-arrow-up",
+        "c-arrow-up-circle",
+        "c-arrow-up-left",
+        "c-arrow-up-on-square",
+        "c-arrow-up-on-square-stack",
+        "c-arrow-up-right",
+        "c-arrow-up-tray",
+        "c-arrow-uturn-down",
+        "c-arrow-uturn-left",
+        "c-arrow-uturn-right",
+        "c-arrow-uturn-up",
+        "c-arrows-pointing-in",
+        "c-arrows-pointing-out",
+        "c-arrows-right-left",
+        "c-arrows-up-down",
+        "c-at-symbol",
+        "c-backspace",
+        "c-backward",
+        "c-banknotes",
+        "c-bars-2",
+        "c-bars-3",
+        "c-bars-3-bottom-left",
+        "c-bars-3-bottom-right",
+        "c-bars-3-center-left",
+        "c-bars-4",
+        "c-bars-arrow-down",
+        "c-bars-arrow-up",
+        "c-battery-0",
+        "c-battery-100",
+        "c-battery-50",
+        "c-beaker",
+        "c-bell",
+        "c-bell-alert",
+        "c-bell-slash",
+        "c-bell-snooze",
+        "c-bold",
+        "c-bolt",
+        "c-bolt-slash",
+        "c-book-open",
+        "c-bookmark",
+        "c-bookmark-slash",
+        "c-bookmark-square",
+        "c-briefcase",
+        "c-bug-ant",
+        "c-building-library",
+        "c-building-office",
+        "c-building-office-2",
+        "c-building-storefront",
+        "c-cake",
+        "c-calculator",
+        "c-calendar",
+        "c-calendar-date-range",
+        "c-calendar-days",
+        "c-camera",
+        "c-chart-bar",
+        "c-chart-bar-square",
+        "c-chart-pie",
+        "c-chat-bubble-bottom-center",
+        "c-chat-bubble-bottom-center-text",
+        "c-chat-bubble-left",
+        "c-chat-bubble-left-ellipsis",
+        "c-chat-bubble-left-right",
+        "c-chat-bubble-oval-left",
+        "c-chat-bubble-oval-left-ellipsis",
+        "c-check",
+        "c-check-badge",
+        "c-check-circle",
+        "c-chevron-double-down",
+        "c-chevron-double-left",
+        "c-chevron-double-right",
+        "c-chevron-double-up",
+        "c-chevron-down",
+        "c-chevron-left",
+        "c-chevron-right",
+        "c-chevron-up",
+        "c-chevron-up-down",
+        "c-circle-stack",
+        "c-clipboard",
+        "c-clipboard-document",
+        "c-clipboard-document-check",
+        "c-clipboard-document-list",
+        "c-clock",
+        "c-cloud",
+        "c-cloud-arrow-down",
+        "c-cloud-arrow-up",
+        "c-code-bracket",
+        "c-code-bracket-square",
+        "c-cog",
+        "c-cog-6-tooth",
+        "c-cog-8-tooth",
+        "c-command-line",
+        "c-computer-desktop",
+        "c-cpu-chip",
+        "c-credit-card",
+        "c-cube",
+        "c-cube-transparent",
+        "c-currency-bangladeshi",
+        "c-currency-dollar",
+        "c-currency-euro",
+        "c-currency-pound",
+        "c-currency-rupee",
+        "c-currency-yen",
+        "c-cursor-arrow-rays",
+        "c-cursor-arrow-ripple",
+        "c-device-phone-mobile",
+        "c-device-tablet",
+        "c-divide",
+        "c-document",
+        "c-document-arrow-down",
+        "c-document-arrow-up",
+        "c-document-chart-bar",
+        "c-document-check",
+        "c-document-currency-bangladeshi",
+        "c-document-currency-dollar",
+        "c-document-currency-euro",
+        "c-document-currency-pound",
+        "c-document-currency-rupee",
+        "c-document-currency-yen",
+        "c-document-duplicate",
+        "c-document-magnifying-glass",
+        "c-document-minus",
+        "c-document-plus",
+        "c-document-text",
+        "c-ellipsis-horizontal",
+        "c-ellipsis-horizontal-circle",
+        "c-ellipsis-vertical",
+        "c-envelope",
+        "c-envelope-open",
+        "c-equals",
+        "c-exclamation-circle",
+        "c-exclamation-triangle",
+        "c-eye",
+        "c-eye-dropper",
+        "c-eye-slash",
+        "c-face-frown",
+        "c-face-smile",
+        "c-film",
+        "c-finger-print",
+        "c-fire",
+        "c-flag",
+        "c-folder",
+        "c-folder-arrow-down",
+        "c-folder-minus",
+        "c-folder-open",
+        "c-folder-plus",
+        "c-forward",
+        "c-funnel",
+        "c-gif",
+        "c-gift",
+        "c-gift-top",
+        "c-globe-alt",
+        "c-globe-americas",
+        "c-globe-asia-australia",
+        "c-globe-europe-africa",
+        "c-h1",
+        "c-h2",
+        "c-h3",
+        "c-hand-raised",
+        "c-hand-thumb-down",
+        "c-hand-thumb-up",
+        "c-hashtag",
+        "c-heart",
+        "c-home",
+        "c-home-modern",
+        "c-identification",
+        "c-inbox",
+        "c-inbox-arrow-down",
+        "c-inbox-stack",
+        "c-information-circle",
+        "c-italic",
+        "c-key",
+        "c-language",
+        "c-lifebuoy",
+        "c-light-bulb",
+        "c-link",
+        "c-link-slash",
+        "c-list-bullet",
+        "c-lock-closed",
+        "c-lock-open",
+        "c-magnifying-glass",
+        "c-magnifying-glass-circle",
+        "c-magnifying-glass-minus",
+        "c-magnifying-glass-plus",
+        "c-map",
+        "c-map-pin",
+        "c-megaphone",
+        "c-microphone",
+        "c-minus",
+        "c-minus-circle",
+        "c-moon",
+        "c-musical-note",
+        "c-newspaper",
+        "c-no-symbol",
+        "c-numbered-list",
+        "c-paint-brush",
+        "c-paper-airplane",
+        "c-paper-clip",
+        "c-pause",
+        "c-pause-circle",
+        "c-pencil",
+        "c-pencil-square",
+        "c-percent-badge",
+        "c-phone",
+        "c-phone-arrow-down-left",
+        "c-phone-arrow-up-right",
+        "c-phone-x-mark",
+        "c-photo",
+        "c-play",
+        "c-play-circle",
+        "c-play-pause",
+        "c-plus",
+        "c-plus-circle",
+        "c-power",
+        "c-presentation-chart-bar",
+        "c-presentation-chart-line",
+        "c-printer",
+        "c-puzzle-piece",
+        "c-qr-code",
+        "c-question-mark-circle",
+        "c-queue-list",
+        "c-radio",
+        "c-receipt-percent",
+        "c-receipt-refund",
+        "c-rectangle-group",
+        "c-rectangle-stack",
+        "c-rocket-launch",
+        "c-rss",
+        "c-scale",
+        "c-scissors",
+        "c-server",
+        "c-server-stack",
+        "c-share",
+        "c-shield-check",
+        "c-shield-exclamation",
+        "c-shopping-bag",
+        "c-shopping-cart",
+        "c-signal",
+        "c-signal-slash",
+        "c-slash",
+        "c-sparkles",
+        "c-speaker-wave",
+        "c-speaker-x-mark",
+        "c-square-2-stack",
+        "c-square-3-stack-3d",
+        "c-squares-2x2",
+        "c-squares-plus",
+        "c-star",
+        "c-stop",
+        "c-stop-circle",
+        "c-strikethrough",
+        "c-sun",
+        "c-swatch",
+        "c-table-cells",
+        "c-tag",
+        "c-ticket",
+        "c-trash",
+        "c-trophy",
+        "c-truck",
+        "c-tv",
+        "c-underline",
+        "c-user",
+        "c-user-circle",
+        "c-user-group",
+        "c-user-minus",
+        "c-user-plus",
+        "c-users",
+        "c-variable",
+        "c-video-camera",
+        "c-video-camera-slash",
+        "c-view-columns",
+        "c-viewfinder-circle",
+        "c-wallet",
+        "c-wifi",
+        "c-window",
+        "c-wrench",
+        "c-wrench-screwdriver",
+        "c-x-circle",
+        "c-x-mark",
+        "m-academic-cap",
+        "m-adjustments-horizontal",
+        "m-adjustments-vertical",
+        "m-archive-box",
+        "m-archive-box-arrow-down",
+        "m-archive-box-x-mark",
+        "m-arrow-down",
+        "m-arrow-down-circle",
+        "m-arrow-down-left",
+        "m-arrow-down-on-square",
+        "m-arrow-down-on-square-stack",
+        "m-arrow-down-right",
+        "m-arrow-down-tray",
+        "m-arrow-left",
+        "m-arrow-left-circle",
+        "m-arrow-left-end-on-rectangle",
+        "m-arrow-left-on-rectangle",
+        "m-arrow-left-start-on-rectangle",
+        "m-arrow-long-down",
+        "m-arrow-long-left",
+        "m-arrow-long-right",
+        "m-arrow-long-up",
+        "m-arrow-path",
+        "m-arrow-path-rounded-square",
+        "m-arrow-right",
+        "m-arrow-right-circle",
+        "m-arrow-right-end-on-rectangle",
+        "m-arrow-right-on-rectangle",
+        "m-arrow-right-start-on-rectangle",
+        "m-arrow-small-down",
+        "m-arrow-small-left",
+        "m-arrow-small-right",
+        "m-arrow-small-up",
+        "m-arrow-top-right-on-square",
+        "m-arrow-trending-down",
+        "m-arrow-trending-up",
+        "m-arrow-turn-down-left",
+        "m-arrow-turn-down-right",
+        "m-arrow-turn-left-down",
+        "m-arrow-turn-left-up",
+        "m-arrow-turn-right-down",
+        "m-arrow-turn-right-up",
+        "m-arrow-turn-up-left",
+        "m-arrow-turn-up-right",
+        "m-arrow-up",
+        "m-arrow-up-circle",
+        "m-arrow-up-left",
+        "m-arrow-up-on-square",
+        "m-arrow-up-on-square-stack",
+        "m-arrow-up-right",
+        "m-arrow-up-tray",
+        "m-arrow-uturn-down",
+        "m-arrow-uturn-left",
+        "m-arrow-uturn-right",
+        "m-arrow-uturn-up",
+        "m-arrows-pointing-in",
+        "m-arrows-pointing-out",
+        "m-arrows-right-left",
+        "m-arrows-up-down",
+        "m-at-symbol",
+        "m-backspace",
+        "m-backward",
+        "m-banknotes",
+        "m-bars-2",
+        "m-bars-3",
+        "m-bars-3-bottom-left",
+        "m-bars-3-bottom-right",
+        "m-bars-3-center-left",
+        "m-bars-4",
+        "m-bars-arrow-down",
+        "m-bars-arrow-up",
+        "m-battery-0",
+        "m-battery-100",
+        "m-battery-50",
+        "m-beaker",
+        "m-bell",
+        "m-bell-alert",
+        "m-bell-slash",
+        "m-bell-snooze",
+        "m-bold",
+        "m-bolt",
+        "m-bolt-slash",
+        "m-book-open",
+        "m-bookmark",
+        "m-bookmark-slash",
+        "m-bookmark-square",
+        "m-briefcase",
+        "m-bug-ant",
+        "m-building-library",
+        "m-building-office",
+        "m-building-office-2",
+        "m-building-storefront",
+        "m-cake",
+        "m-calculator",
+        "m-calendar",
+        "m-calendar-date-range",
+        "m-calendar-days",
+        "m-camera",
+        "m-chart-bar",
+        "m-chart-bar-square",
+        "m-chart-pie",
+        "m-chat-bubble-bottom-center",
+        "m-chat-bubble-bottom-center-text",
+        "m-chat-bubble-left",
+        "m-chat-bubble-left-ellipsis",
+        "m-chat-bubble-left-right",
+        "m-chat-bubble-oval-left",
+        "m-chat-bubble-oval-left-ellipsis",
+        "m-check",
+        "m-check-badge",
+        "m-check-circle",
+        "m-chevron-double-down",
+        "m-chevron-double-left",
+        "m-chevron-double-right",
+        "m-chevron-double-up",
+        "m-chevron-down",
+        "m-chevron-left",
+        "m-chevron-right",
+        "m-chevron-up",
+        "m-chevron-up-down",
+        "m-circle-stack",
+        "m-clipboard",
+        "m-clipboard-document",
+        "m-clipboard-document-check",
+        "m-clipboard-document-list",
+        "m-clock",
+        "m-cloud",
+        "m-cloud-arrow-down",
+        "m-cloud-arrow-up",
+        "m-code-bracket",
+        "m-code-bracket-square",
+        "m-cog",
+        "m-cog-6-tooth",
+        "m-cog-8-tooth",
+        "m-command-line",
+        "m-computer-desktop",
+        "m-cpu-chip",
+        "m-credit-card",
+        "m-cube",
+        "m-cube-transparent",
+        "m-currency-bangladeshi",
+        "m-currency-dollar",
+        "m-currency-euro",
+        "m-currency-pound",
+        "m-currency-rupee",
+        "m-currency-yen",
+        "m-cursor-arrow-rays",
+        "m-cursor-arrow-ripple",
+        "m-device-phone-mobile",
+        "m-device-tablet",
+        "m-divide",
+        "m-document",
+        "m-document-arrow-down",
+        "m-document-arrow-up",
+        "m-document-chart-bar",
+        "m-document-check",
+        "m-document-currency-bangladeshi",
+        "m-document-currency-dollar",
+        "m-document-currency-euro",
+        "m-document-currency-pound",
+        "m-document-currency-rupee",
+        "m-document-currency-yen",
+        "m-document-duplicate",
+        "m-document-magnifying-glass",
+        "m-document-minus",
+        "m-document-plus",
+        "m-document-text",
+        "m-ellipsis-horizontal",
+        "m-ellipsis-horizontal-circle",
+        "m-ellipsis-vertical",
+        "m-envelope",
+        "m-envelope-open",
+        "m-equals",
+        "m-exclamation-circle",
+        "m-exclamation-triangle",
+        "m-eye",
+        "m-eye-dropper",
+        "m-eye-slash",
+        "m-face-frown",
+        "m-face-smile",
+        "m-film",
+        "m-finger-print",
+        "m-fire",
+        "m-flag",
+        "m-folder",
+        "m-folder-arrow-down",
+        "m-folder-minus",
+        "m-folder-open",
+        "m-folder-plus",
+        "m-forward",
+        "m-funnel",
+        "m-gif",
+        "m-gift",
+        "m-gift-top",
+        "m-globe-alt",
+        "m-globe-americas",
+        "m-globe-asia-australia",
+        "m-globe-europe-africa",
+        "m-h1",
+        "m-h2",
+        "m-h3",
+        "m-hand-raised",
+        "m-hand-thumb-down",
+        "m-hand-thumb-up",
+        "m-hashtag",
+        "m-heart",
+        "m-home",
+        "m-home-modern",
+        "m-identification",
+        "m-inbox",
+        "m-inbox-arrow-down",
+        "m-inbox-stack",
+        "m-information-circle",
+        "m-italic",
+        "m-key",
+        "m-language",
+        "m-lifebuoy",
+        "m-light-bulb",
+        "m-link",
+        "m-link-slash",
+        "m-list-bullet",
+        "m-lock-closed",
+        "m-lock-open",
+        "m-magnifying-glass",
+        "m-magnifying-glass-circle",
+        "m-magnifying-glass-minus",
+        "m-magnifying-glass-plus",
+        "m-map",
+        "m-map-pin",
+        "m-megaphone",
+        "m-microphone",
+        "m-minus",
+        "m-minus-circle",
+        "m-minus-small",
+        "m-moon",
+        "m-musical-note",
+        "m-newspaper",
+        "m-no-symbol",
+        "m-numbered-list",
+        "m-paint-brush",
+        "m-paper-airplane",
+        "m-paper-clip",
+        "m-pause",
+        "m-pause-circle",
+        "m-pencil",
+        "m-pencil-square",
+        "m-percent-badge",
+        "m-phone",
+        "m-phone-arrow-down-left",
+        "m-phone-arrow-up-right",
+        "m-phone-x-mark",
+        "m-photo",
+        "m-play",
+        "m-play-circle",
+        "m-play-pause",
+        "m-plus",
+        "m-plus-circle",
+        "m-plus-small",
+        "m-power",
+        "m-presentation-chart-bar",
+        "m-presentation-chart-line",
+        "m-printer",
+        "m-puzzle-piece",
+        "m-qr-code",
+        "m-question-mark-circle",
+        "m-queue-list",
+        "m-radio",
+        "m-receipt-percent",
+        "m-receipt-refund",
+        "m-rectangle-group",
+        "m-rectangle-stack",
+        "m-rocket-launch",
+        "m-rss",
+        "m-scale",
+        "m-scissors",
+        "m-server",
+        "m-server-stack",
+        "m-share",
+        "m-shield-check",
+        "m-shield-exclamation",
+        "m-shopping-bag",
+        "m-shopping-cart",
+        "m-signal",
+        "m-signal-slash",
+        "m-slash",
+        "m-sparkles",
+        "m-speaker-wave",
+        "m-speaker-x-mark",
+        "m-square-2-stack",
+        "m-square-3-stack-3d",
+        "m-squares-2x2",
+        "m-squares-plus",
+        "m-star",
+        "m-stop",
+        "m-stop-circle",
+        "m-strikethrough",
+        "m-sun",
+        "m-swatch",
+        "m-table-cells",
+        "m-tag",
+        "m-ticket",
+        "m-trash",
+        "m-trophy",
+        "m-truck",
+        "m-tv",
+        "m-underline",
+        "m-user",
+        "m-user-circle",
+        "m-user-group",
+        "m-user-minus",
+        "m-user-plus",
+        "m-users",
+        "m-variable",
+        "m-video-camera",
+        "m-video-camera-slash",
+        "m-view-columns",
+        "m-viewfinder-circle",
+        "m-wallet",
+        "m-wifi",
+        "m-window",
+        "m-wrench",
+        "m-wrench-screwdriver",
+        "m-x-circle",
+        "m-x-mark",
+        "o-academic-cap",
+        "o-adjustments-horizontal",
+        "o-adjustments-vertical",
+        "o-archive-box",
+        "o-archive-box-arrow-down",
+        "o-archive-box-x-mark",
+        "o-arrow-down",
+        "o-arrow-down-circle",
+        "o-arrow-down-left",
+        "o-arrow-down-on-square",
+        "o-arrow-down-on-square-stack",
+        "o-arrow-down-right",
+        "o-arrow-down-tray",
+        "o-arrow-left",
+        "o-arrow-left-circle",
+        "o-arrow-left-end-on-rectangle",
+        "o-arrow-left-on-rectangle",
+        "o-arrow-left-start-on-rectangle",
+        "o-arrow-long-down",
+        "o-arrow-long-left",
+        "o-arrow-long-right",
+        "o-arrow-long-up",
+        "o-arrow-path",
+        "o-arrow-path-rounded-square",
+        "o-arrow-right",
+        "o-arrow-right-circle",
+        "o-arrow-right-end-on-rectangle",
+        "o-arrow-right-on-rectangle",
+        "o-arrow-right-start-on-rectangle",
+        "o-arrow-small-down",
+        "o-arrow-small-left",
+        "o-arrow-small-right",
+        "o-arrow-small-up",
+        "o-arrow-top-right-on-square",
+        "o-arrow-trending-down",
+        "o-arrow-trending-up",
+        "o-arrow-turn-down-left",
+        "o-arrow-turn-down-right",
+        "o-arrow-turn-left-down",
+        "o-arrow-turn-left-up",
+        "o-arrow-turn-right-down",
+        "o-arrow-turn-right-up",
+        "o-arrow-turn-up-left",
+        "o-arrow-turn-up-right",
+        "o-arrow-up",
+        "o-arrow-up-circle",
+        "o-arrow-up-left",
+        "o-arrow-up-on-square",
+        "o-arrow-up-on-square-stack",
+        "o-arrow-up-right",
+        "o-arrow-up-tray",
+        "o-arrow-uturn-down",
+        "o-arrow-uturn-left",
+        "o-arrow-uturn-right",
+        "o-arrow-uturn-up",
+        "o-arrows-pointing-in",
+        "o-arrows-pointing-out",
+        "o-arrows-right-left",
+        "o-arrows-up-down",
+        "o-at-symbol",
+        "o-backspace",
+        "o-backward",
+        "o-banknotes",
+        "o-bars-2",
+        "o-bars-3",
+        "o-bars-3-bottom-left",
+        "o-bars-3-bottom-right",
+        "o-bars-3-center-left",
+        "o-bars-4",
+        "o-bars-arrow-down",
+        "o-bars-arrow-up",
+        "o-battery-0",
+        "o-battery-100",
+        "o-battery-50",
+        "o-beaker",
+        "o-bell",
+        "o-bell-alert",
+        "o-bell-slash",
+        "o-bell-snooze",
+        "o-bold",
+        "o-bolt",
+        "o-bolt-slash",
+        "o-book-open",
+        "o-bookmark",
+        "o-bookmark-slash",
+        "o-bookmark-square",
+        "o-briefcase",
+        "o-bug-ant",
+        "o-building-library",
+        "o-building-office",
+        "o-building-office-2",
+        "o-building-storefront",
+        "o-cake",
+        "o-calculator",
+        "o-calendar",
+        "o-calendar-date-range",
+        "o-calendar-days",
+        "o-camera",
+        "o-chart-bar",
+        "o-chart-bar-square",
+        "o-chart-pie",
+        "o-chat-bubble-bottom-center",
+        "o-chat-bubble-bottom-center-text",
+        "o-chat-bubble-left",
+        "o-chat-bubble-left-ellipsis",
+        "o-chat-bubble-left-right",
+        "o-chat-bubble-oval-left",
+        "o-chat-bubble-oval-left-ellipsis",
+        "o-check",
+        "o-check-badge",
+        "o-check-circle",
+        "o-chevron-double-down",
+        "o-chevron-double-left",
+        "o-chevron-double-right",
+        "o-chevron-double-up",
+        "o-chevron-down",
+        "o-chevron-left",
+        "o-chevron-right",
+        "o-chevron-up",
+        "o-chevron-up-down",
+        "o-circle-stack",
+        "o-clipboard",
+        "o-clipboard-document",
+        "o-clipboard-document-check",
+        "o-clipboard-document-list",
+        "o-clock",
+        "o-cloud",
+        "o-cloud-arrow-down",
+        "o-cloud-arrow-up",
+        "o-code-bracket",
+        "o-code-bracket-square",
+        "o-cog",
+        "o-cog-6-tooth",
+        "o-cog-8-tooth",
+        "o-command-line",
+        "o-computer-desktop",
+        "o-cpu-chip",
+        "o-credit-card",
+        "o-cube",
+        "o-cube-transparent",
+        "o-currency-bangladeshi",
+        "o-currency-dollar",
+        "o-currency-euro",
+        "o-currency-pound",
+        "o-currency-rupee",
+        "o-currency-yen",
+        "o-cursor-arrow-rays",
+        "o-cursor-arrow-ripple",
+        "o-device-phone-mobile",
+        "o-device-tablet",
+        "o-divide",
+        "o-document",
+        "o-document-arrow-down",
+        "o-document-arrow-up",
+        "o-document-chart-bar",
+        "o-document-check",
+        "o-document-currency-bangladeshi",
+        "o-document-currency-dollar",
+        "o-document-currency-euro",
+        "o-document-currency-pound",
+        "o-document-currency-rupee",
+        "o-document-currency-yen",
+        "o-document-duplicate",
+        "o-document-magnifying-glass",
+        "o-document-minus",
+        "o-document-plus",
+        "o-document-text",
+        "o-ellipsis-horizontal",
+        "o-ellipsis-horizontal-circle",
+        "o-ellipsis-vertical",
+        "o-envelope",
+        "o-envelope-open",
+        "o-equals",
+        "o-exclamation-circle",
+        "o-exclamation-triangle",
+        "o-eye",
+        "o-eye-dropper",
+        "o-eye-slash",
+        "o-face-frown",
+        "o-face-smile",
+        "o-film",
+        "o-finger-print",
+        "o-fire",
+        "o-flag",
+        "o-folder",
+        "o-folder-arrow-down",
+        "o-folder-minus",
+        "o-folder-open",
+        "o-folder-plus",
+        "o-forward",
+        "o-funnel",
+        "o-gif",
+        "o-gift",
+        "o-gift-top",
+        "o-globe-alt",
+        "o-globe-americas",
+        "o-globe-asia-australia",
+        "o-globe-europe-africa",
+        "o-h1",
+        "o-h2",
+        "o-h3",
+        "o-hand-raised",
+        "o-hand-thumb-down",
+        "o-hand-thumb-up",
+        "o-hashtag",
+        "o-heart",
+        "o-home",
+        "o-home-modern",
+        "o-identification",
+        "o-inbox",
+        "o-inbox-arrow-down",
+        "o-inbox-stack",
+        "o-information-circle",
+        "o-italic",
+        "o-key",
+        "o-language",
+        "o-lifebuoy",
+        "o-light-bulb",
+        "o-link",
+        "o-link-slash",
+        "o-list-bullet",
+        "o-lock-closed",
+        "o-lock-open",
+        "o-magnifying-glass",
+        "o-magnifying-glass-circle",
+        "o-magnifying-glass-minus",
+        "o-magnifying-glass-plus",
+        "o-map",
+        "o-map-pin",
+        "o-megaphone",
+        "o-microphone",
+        "o-minus",
+        "o-minus-circle",
+        "o-minus-small",
+        "o-moon",
+        "o-musical-note",
+        "o-newspaper",
+        "o-no-symbol",
+        "o-numbered-list",
+        "o-paint-brush",
+        "o-paper-airplane",
+        "o-paper-clip",
+        "o-pause",
+        "o-pause-circle",
+        "o-pencil",
+        "o-pencil-square",
+        "o-percent-badge",
+        "o-phone",
+        "o-phone-arrow-down-left",
+        "o-phone-arrow-up-right",
+        "o-phone-x-mark",
+        "o-photo",
+        "o-play",
+        "o-play-circle",
+        "o-play-pause",
+        "o-plus",
+        "o-plus-circle",
+        "o-plus-small",
+        "o-power",
+        "o-presentation-chart-bar",
+        "o-presentation-chart-line",
+        "o-printer",
+        "o-puzzle-piece",
+        "o-qr-code",
+        "o-question-mark-circle",
+        "o-queue-list",
+        "o-radio",
+        "o-receipt-percent",
+        "o-receipt-refund",
+        "o-rectangle-group",
+        "o-rectangle-stack",
+        "o-rocket-launch",
+        "o-rss",
+        "o-scale",
+        "o-scissors",
+        "o-server",
+        "o-server-stack",
+        "o-share",
+        "o-shield-check",
+        "o-shield-exclamation",
+        "o-shopping-bag",
+        "o-shopping-cart",
+        "o-signal",
+        "o-signal-slash",
+        "o-slash",
+        "o-sparkles",
+        "o-speaker-wave",
+        "o-speaker-x-mark",
+        "o-square-2-stack",
+        "o-square-3-stack-3d",
+        "o-squares-2x2",
+        "o-squares-plus",
+        "o-star",
+        "o-stop",
+        "o-stop-circle",
+        "o-strikethrough",
+        "o-sun",
+        "o-swatch",
+        "o-table-cells",
+        "o-tag",
+        "o-ticket",
+        "o-trash",
+        "o-trophy",
+        "o-truck",
+        "o-tv",
+        "o-underline",
+        "o-user",
+        "o-user-circle",
+        "o-user-group",
+        "o-user-minus",
+        "o-user-plus",
+        "o-users",
+        "o-variable",
+        "o-video-camera",
+        "o-video-camera-slash",
+        "o-view-columns",
+        "o-viewfinder-circle",
+        "o-wallet",
+        "o-wifi",
+        "o-window",
+        "o-wrench",
+        "o-wrench-screwdriver",
+        "o-x-circle",
+        "o-x-mark",
+        "s-academic-cap",
+        "s-adjustments-horizontal",
+        "s-adjustments-vertical",
+        "s-archive-box",
+        "s-archive-box-arrow-down",
+        "s-archive-box-x-mark",
+        "s-arrow-down",
+        "s-arrow-down-circle",
+        "s-arrow-down-left",
+        "s-arrow-down-on-square",
+        "s-arrow-down-on-square-stack",
+        "s-arrow-down-right",
+        "s-arrow-down-tray",
+        "s-arrow-left",
+        "s-arrow-left-circle",
+        "s-arrow-left-end-on-rectangle",
+        "s-arrow-left-on-rectangle",
+        "s-arrow-left-start-on-rectangle",
+        "s-arrow-long-down",
+        "s-arrow-long-left",
+        "s-arrow-long-right",
+        "s-arrow-long-up",
+        "s-arrow-path",
+        "s-arrow-path-rounded-square",
+        "s-arrow-right",
+        "s-arrow-right-circle",
+        "s-arrow-right-end-on-rectangle",
+        "s-arrow-right-on-rectangle",
+        "s-arrow-right-start-on-rectangle",
+        "s-arrow-small-down",
+        "s-arrow-small-left",
+        "s-arrow-small-right",
+        "s-arrow-small-up",
+        "s-arrow-top-right-on-square",
+        "s-arrow-trending-down",
+        "s-arrow-trending-up",
+        "s-arrow-turn-down-left",
+        "s-arrow-turn-down-right",
+        "s-arrow-turn-left-down",
+        "s-arrow-turn-left-up",
+        "s-arrow-turn-right-down",
+        "s-arrow-turn-right-up",
+        "s-arrow-turn-up-left",
+        "s-arrow-turn-up-right",
+        "s-arrow-up",
+        "s-arrow-up-circle",
+        "s-arrow-up-left",
+        "s-arrow-up-on-square",
+        "s-arrow-up-on-square-stack",
+        "s-arrow-up-right",
+        "s-arrow-up-tray",
+        "s-arrow-uturn-down",
+        "s-arrow-uturn-left",
+        "s-arrow-uturn-right",
+        "s-arrow-uturn-up",
+        "s-arrows-pointing-in",
+        "s-arrows-pointing-out",
+        "s-arrows-right-left",
+        "s-arrows-up-down",
+        "s-at-symbol",
+        "s-backspace",
+        "s-backward",
+        "s-banknotes",
+        "s-bars-2",
+        "s-bars-3",
+        "s-bars-3-bottom-left",
+        "s-bars-3-bottom-right",
+        "s-bars-3-center-left",
+        "s-bars-4",
+        "s-bars-arrow-down",
+        "s-bars-arrow-up",
+        "s-battery-0",
+        "s-battery-100",
+        "s-battery-50",
+        "s-beaker",
+        "s-bell",
+        "s-bell-alert",
+        "s-bell-slash",
+        "s-bell-snooze",
+        "s-bold",
+        "s-bolt",
+        "s-bolt-slash",
+        "s-book-open",
+        "s-bookmark",
+        "s-bookmark-slash",
+        "s-bookmark-square",
+        "s-briefcase",
+        "s-bug-ant",
+        "s-building-library",
+        "s-building-office",
+        "s-building-office-2",
+        "s-building-storefront",
+        "s-cake",
+        "s-calculator",
+        "s-calendar",
+        "s-calendar-date-range",
+        "s-calendar-days",
+        "s-camera",
+        "s-chart-bar",
+        "s-chart-bar-square",
+        "s-chart-pie",
+        "s-chat-bubble-bottom-center",
+        "s-chat-bubble-bottom-center-text",
+        "s-chat-bubble-left",
+        "s-chat-bubble-left-ellipsis",
+        "s-chat-bubble-left-right",
+        "s-chat-bubble-oval-left",
+        "s-chat-bubble-oval-left-ellipsis",
+        "s-check",
+        "s-check-badge",
+        "s-check-circle",
+        "s-chevron-double-down",
+        "s-chevron-double-left",
+        "s-chevron-double-right",
+        "s-chevron-double-up",
+        "s-chevron-down",
+        "s-chevron-left",
+        "s-chevron-right",
+        "s-chevron-up",
+        "s-chevron-up-down",
+        "s-circle-stack",
+        "s-clipboard",
+        "s-clipboard-document",
+        "s-clipboard-document-check",
+        "s-clipboard-document-list",
+        "s-clock",
+        "s-cloud",
+        "s-cloud-arrow-down",
+        "s-cloud-arrow-up",
+        "s-code-bracket",
+        "s-code-bracket-square",
+        "s-cog",
+        "s-cog-6-tooth",
+        "s-cog-8-tooth",
+        "s-command-line",
+        "s-computer-desktop",
+        "s-cpu-chip",
+        "s-credit-card",
+        "s-cube",
+        "s-cube-transparent",
+        "s-currency-bangladeshi",
+        "s-currency-dollar",
+        "s-currency-euro",
+        "s-currency-pound",
+        "s-currency-rupee",
+        "s-currency-yen",
+        "s-cursor-arrow-rays",
+        "s-cursor-arrow-ripple",
+        "s-device-phone-mobile",
+        "s-device-tablet",
+        "s-divide",
+        "s-document",
+        "s-document-arrow-down",
+        "s-document-arrow-up",
+        "s-document-chart-bar",
+        "s-document-check",
+        "s-document-currency-bangladeshi",
+        "s-document-currency-dollar",
+        "s-document-currency-euro",
+        "s-document-currency-pound",
+        "s-document-currency-rupee",
+        "s-document-currency-yen",
+        "s-document-duplicate",
+        "s-document-magnifying-glass",
+        "s-document-minus",
+        "s-document-plus",
+        "s-document-text",
+        "s-ellipsis-horizontal",
+        "s-ellipsis-horizontal-circle",
+        "s-ellipsis-vertical",
+        "s-envelope",
+        "s-envelope-open",
+        "s-equals",
+        "s-exclamation-circle",
+        "s-exclamation-triangle",
+        "s-eye",
+        "s-eye-dropper",
+        "s-eye-slash",
+        "s-face-frown",
+        "s-face-smile",
+        "s-film",
+        "s-finger-print",
+        "s-fire",
+        "s-flag",
+        "s-folder",
+        "s-folder-arrow-down",
+        "s-folder-minus",
+        "s-folder-open",
+        "s-folder-plus",
+        "s-forward",
+        "s-funnel",
+        "s-gif",
+        "s-gift",
+        "s-gift-top",
+        "s-globe-alt",
+        "s-globe-americas",
+        "s-globe-asia-australia",
+        "s-globe-europe-africa",
+        "s-h1",
+        "s-h2",
+        "s-h3",
+        "s-hand-raised",
+        "s-hand-thumb-down",
+        "s-hand-thumb-up",
+        "s-hashtag",
+        "s-heart",
+        "s-home",
+        "s-home-modern",
+        "s-identification",
+        "s-inbox",
+        "s-inbox-arrow-down",
+        "s-inbox-stack",
+        "s-information-circle",
+        "s-italic",
+        "s-key",
+        "s-language",
+        "s-lifebuoy",
+        "s-light-bulb",
+        "s-link",
+        "s-link-slash",
+        "s-list-bullet",
+        "s-lock-closed",
+        "s-lock-open",
+        "s-magnifying-glass",
+        "s-magnifying-glass-circle",
+        "s-magnifying-glass-minus",
+        "s-magnifying-glass-plus",
+        "s-map",
+        "s-map-pin",
+        "s-megaphone",
+        "s-microphone",
+        "s-minus",
+        "s-minus-circle",
+        "s-minus-small",
+        "s-moon",
+        "s-musical-note",
+        "s-newspaper",
+        "s-no-symbol",
+        "s-numbered-list",
+        "s-paint-brush",
+        "s-paper-airplane",
+        "s-paper-clip",
+        "s-pause",
+        "s-pause-circle",
+        "s-pencil",
+        "s-pencil-square",
+        "s-percent-badge",
+        "s-phone",
+        "s-phone-arrow-down-left",
+        "s-phone-arrow-up-right",
+        "s-phone-x-mark",
+        "s-photo",
+        "s-play",
+        "s-play-circle",
+        "s-play-pause",
+        "s-plus",
+        "s-plus-circle",
+        "s-plus-small",
+        "s-power",
+        "s-presentation-chart-bar",
+        "s-presentation-chart-line",
+        "s-printer",
+        "s-puzzle-piece",
+        "s-qr-code",
+        "s-question-mark-circle",
+        "s-queue-list",
+        "s-radio",
+        "s-receipt-percent",
+        "s-receipt-refund",
+        "s-rectangle-group",
+        "s-rectangle-stack",
+        "s-rocket-launch",
+        "s-rss",
+        "s-scale",
+        "s-scissors",
+        "s-server",
+        "s-server-stack",
+        "s-share",
+        "s-shield-check",
+        "s-shield-exclamation",
+        "s-shopping-bag",
+        "s-shopping-cart",
+        "s-signal",
+        "s-signal-slash",
+        "s-slash",
+        "s-sparkles",
+        "s-speaker-wave",
+        "s-speaker-x-mark",
+        "s-square-2-stack",
+        "s-square-3-stack-3d",
+        "s-squares-2x2",
+        "s-squares-plus",
+        "s-star",
+        "s-stop",
+        "s-stop-circle",
+        "s-strikethrough",
+        "s-sun",
+        "s-swatch",
+        "s-table-cells",
+        "s-tag",
+        "s-ticket",
+        "s-trash",
+        "s-trophy",
+        "s-truck",
+        "s-tv",
+        "s-underline",
+        "s-user",
+        "s-user-circle",
+        "s-user-group",
+        "s-user-minus",
+        "s-user-plus",
+        "s-users",
+        "s-variable",
+        "s-video-camera",
+        "s-video-camera-slash",
+        "s-view-columns",
+        "s-viewfinder-circle",
+        "s-wallet",
+        "s-wifi",
+        "s-window",
+        "s-wrench",
+        "s-wrench-screwdriver",
+        "s-x-circle",
+        "s-x-mark"
+    ]
+}

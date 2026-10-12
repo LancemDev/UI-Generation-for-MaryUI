@@ -1,0 +1,87 @@
+[
+  {
+    "id": "login-form",
+    "turns": ["Create a login form with email, password and a remember me checkbox"],
+    "expect": {
+      "changed_min": 1,
+      "changed_max": 1,
+      "blade_contains": ["<x-form", "wire:model", "<x-checkbox"]
+    }
+  },
+  {
+    "id": "users-table",
+    "turns": ["Show a table of users with name, email and role, and a delete button on each row"],
+    "expect": {
+      "changed_min": 1,
+      "changed_max": 1,
+      "blade_contains": ["<x-table", "@scope("],
+      "blade_not_contains": ["<x-table.th", "<x-table.tr"]
+    }
+  },
+  {
+    "id": "modal-create",
+    "turns": ["A page with a 'New project' button that opens a modal form with name and description"],
+    "expect": {
+      "changed_min": 1,
+      "blade_contains": ["<x-modal", "wire:model"]
+    }
+  },
+  {
+    "id": "stats-overview",
+    "turns": ["Create a KPI overview with 4 stat cards: revenue, orders, customers and conversion rate"],
+    "expect": {
+      "changed_min": 1,
+      "blade_contains": ["<x-stat"],
+      "blade_not_contains": ["bg-gray-", "text-gray-900"]
+    }
+  },
+  {
+    "id": "settings-tabs",
+    "turns": ["Build a settings page with tabs for Profile, Security and Notifications"],
+    "expect": {
+      "changed_min": 1,
+      "blade_contains": ["<x-tabs", "<x-tab"]
+    }
+  },
+  {
+    "id": "dashboard-multipage",
+    "turns": ["Build an admin dashboard with sidebar navigation and separate pages for Users, Orders and Revenue"],
+    "expect": {
+      "changed_min": 3,
+      "blade_contains": ["<x-layouts.app-with-sidebar"]
+    }
+  },
+  {
+    "id": "question-only",
+    "turns": ["What is the difference between wire:model and wire:model.live?"],
+    "expect": {
+      "changed_max": 0
+    }
+  },
+  {
+    "id": "follow-up-update",
+    "turns": [
+      "Create a registration form with name and email",
+      "Add a phone number field to the registration form"
+    ],
+    "expect": {
+      "changed_min": 1,
+      "changed_max": 1,
+      "final_op": "update",
+      "project_max": 1,
+      "blade_contains": ["phone"]
+    }
+  },
+  {
+    "id": "follow-up-create",
+    "turns": [
+      "Create a registration form with name and email",
+      "Now add a separate login form"
+    ],
+    "expect": {
+      "changed_min": 1,
+      "final_op": "create",
+      "project_min": 2
+    }
+  }
+]

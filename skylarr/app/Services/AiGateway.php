@@ -2,145 +2,67 @@
 
 namespace App\Services;
 
-use Generator;
+use App\Exceptions\AiServiceException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Client for the Python AI service (scripts/main.py).
+ */
 class AiGateway
 {
     /**
-     * Stream assistant response from the Python FastAPI service.
+     * One structured call: the model decides whether to answer, create or update
+     * components, and returns complete files for each.
      *
-     * @param array<int, array{role:string, content:string, feedback?:string}> $messages
-     * @return Generator<string>
+     * @param array{
+     *     message: string,
+     *     history?: list<array{role: string, content: string, feedback?: ?string}>,
+     *     components?: list<array{name: string, route: string, php: string, blade: string}>,
+     *     focus_component?: ?string,
+     *     errors?: list<string>,
+     * } $payload
+     * @return array{
+     *     reply: string,
+     *     actions: list<array{op: string, component: string, summary: string, php: string, blade: string}>,
+     *     warnings: list<string>,
+     *     model: string,
+     *     usage: array<string, int>,
+     * }
      */
-    public function streamChat(array $messages): Generator
+    public function generate(array $payload): array
     {
-        $baseUrl = config('services.aigateway.url', env('PY_BACKEND_URL', 'http://127.0.0.1:8001'));
-        $response = Http::withHeaders([
-            'Accept' => 'text/event-stream',
-        ])->withOptions([
-            'stream' => true,
-        ])->post(rtrim($baseUrl, '/') . '/chat/stream', [
-            'messages' => $messages,
-            // Model selection is handled by Python backend based on AI_PROVIDER env var
-            'temperature' => 0.2,
-            'max_tokens' => 1024,
-            'include_feedback' => true, // Signal that feedback should be considered
-        ]);
+        $startedAt = microtime(true);
+
+        try {
+            $response = Http::baseUrl(rtrim(config('skylarr.ai.url'), '/'))
+                ->when(config('skylarr.ai.token'), fn ($request, $token) => $request->withToken($token))
+                ->timeout(config('skylarr.ai.timeout'))
+                ->acceptJson()
+                ->post('/generate', $payload);
+        } catch (ConnectionException $e) {
+            Log::error('[AI] Service unreachable', ['error' => $e->getMessage()]);
+            throw new AiServiceException('The AI service is not reachable. Please try again in a moment.', previous: $e);
+        }
 
         if ($response->failed()) {
-            throw new \RuntimeException('AI backend request failed: ' . $response->body());
+            $detail = $response->json('detail');
+            Log::error('[AI] Request failed', ['status' => $response->status(), 'detail' => $detail ?? $response->body()]);
+
+            throw new AiServiceException(is_string($detail) ? $detail : "The AI service returned HTTP {$response->status()}.");
         }
 
-        $body = $response->body();
-        $handle = fopen('php://temp', 'r+');
-        fwrite($handle, $body);
-        rewind($handle);
-        while (!feof($handle)) {
-            $chunk = fread($handle, 1024);
-            if ($chunk !== false && $chunk !== '') {
-                yield $chunk;
-            }
-        }
-        fclose($handle);
-    }
+        $data = $response->json();
 
-    /**
-     * Generate code using the Python FastAPI service.
-     *
-     * @param string $prompt
-     * @param array<int, array{role:string, content:string, feedback?:string}> $conversationHistory Conversation history for context
-     * @return array{success: bool, code?: string, component_name?: string, intent?: array, message?: string}
-     */
-    public function generateCode(string $prompt, array $conversationHistory = []): array
-    {
-        $baseUrl = config('services.aigateway.url', env('PY_BACKEND_URL', 'http://127.0.0.1:8001'));
-        
-        Log::info('[AI_GATEWAY] Starting code generation', [
-            'url' => $baseUrl,
-            'prompt_length' => strlen($prompt),
-            'history_count' => count($conversationHistory)
+        Log::info('[AI] Generation finished', [
+            'seconds' => round(microtime(true) - $startedAt, 1),
+            'model' => $data['model'] ?? null,
+            'actions' => array_column($data['actions'] ?? [], 'component'),
+            'usage' => $data['usage'] ?? [],
+            'repair' => !empty($payload['errors']),
         ]);
-        
-        try {
-            $response = Http::timeout(60)->post(rtrim($baseUrl, '/') . '/generate/code', [
-                'prompt' => $prompt,
-                'messages' => $conversationHistory, // Pass conversation history with feedback context
-                // Model selection is handled by Python backend based on AI_PROVIDER env var
-                'temperature' => 0.1,
-                'max_tokens' => 4096, // Increased for complete code with views
-                'include_feedback' => true, // Signal that feedback should be considered
-            ]);
 
-            Log::info('[AI_GATEWAY] HTTP request completed', [
-                'status' => $response->status(),
-                'success' => $response->successful()
-            ]);
-
-            if ($response->failed()) {
-                Log::error('[AI_GATEWAY] HTTP request failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-                
-                return [
-                    'success' => false,
-                    'message' => 'AI backend request failed: ' . $response->body()
-                ];
-            }
-
-            $data = $response->json();
-            
-            Log::info('[AI_GATEWAY] Response parsed', [
-                'has_code' => isset($data['code']),
-                'has_component_name' => isset($data['component_name']),
-                'has_intent' => isset($data['intent'])
-            ]);
-            
-            if (isset($data['code']) && isset($data['component_name'])) {
-                $intent = $data['intent'] ?? [
-                    'operation_type' => 'CREATE',
-                    'target_components' => [],
-                    'new_components' => [],
-                    'reasoning' => 'No intent provided'
-                ];
-                
-                Log::info('[AI_GATEWAY] Code generated successfully', [
-                    'component_name' => $data['component_name'],
-                    'code_length' => strlen($data['code']),
-                    'operation_type' => $intent['operation_type'] ?? 'CREATE',
-                    'target_components' => $intent['target_components'] ?? [],
-                    'new_components' => $intent['new_components'] ?? []
-                ]);
-                
-                return [
-                    'success' => true,
-                    'code' => $data['code'],
-                    'component_name' => $data['component_name'],
-                    'intent' => $intent
-                ];
-            }
-
-            Log::error('[AI_GATEWAY] Invalid response format', ['data' => $data]);
-
-            return [
-                'success' => false,
-                'message' => 'Invalid response format from AI backend'
-            ];
-
-        } catch (\Exception $e) {
-            Log::error('[AI_GATEWAY] Exception during code generation', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return [
-                'success' => false,
-                'message' => 'Error generating code: ' . $e->getMessage()
-            ];
-        }
+        return $data;
     }
 }
-
-

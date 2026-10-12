@@ -41,7 +41,6 @@ cp -r public ../skylarr/preview-base/
 cp -r resources ../skylarr/preview-base/
 cp -r routes ../skylarr/preview-base/
 cp -r storage ../skylarr/preview-base/
-cp -r vendor ../skylarr/preview-base/
 
 # Essential files
 cp artisan ../skylarr/preview-base/
@@ -122,7 +121,7 @@ touch preview-base/database/database.sqlite
 echo "🔨 Building Docker image..."
 docker build -f docker/Dockerfile.preview -t skylarr-preview:latest .
 
-# Clean up preview-base directory
+# Clean up preview-base directory (vendor is installed fresh inside the image)
 echo "🧹 Cleaning up..."
 rm -rf preview-base
 
