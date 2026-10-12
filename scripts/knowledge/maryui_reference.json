@@ -8,12 +8,14 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "no-join",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -26,32 +28,38 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "description",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "shadow",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "dismissible",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -66,37 +74,44 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "image",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "alt",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "placeholder",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "fallback-image",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "subtitle",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -109,12 +124,14 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "value",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -127,42 +144,50 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "items",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "string",
-                    "default": "o-chevron-right"
+                    "default": "o-chevron-right",
+                    "required": false
                 },
                 {
                     "name": "link-item-class",
                     "type": "string",
-                    "default": "hover:underline text-sm"
+                    "default": "hover:underline text-sm",
+                    "required": false
                 },
                 {
                     "name": "text-item-class",
                     "type": "string",
-                    "default": "text-sm"
+                    "default": "text-sm",
+                    "required": false
                 },
                 {
                     "name": "icon-class",
                     "type": "string",
-                    "default": "h-4 w-4"
+                    "default": "h-4 w-4",
+                    "required": false
                 },
                 {
                     "name": "separator-class",
                     "type": "string",
-                    "default": "h-3 w-3 mx-1 text-base-content/40"
+                    "default": "h-3 w-3 mx-1 text-base-content/40",
+                    "required": false
                 },
                 {
                     "name": "no-wire-navigate",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -175,77 +200,92 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "spinner",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "link",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "external",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-wire-navigate",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "responsive",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "badge",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "badge-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip-left",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip-bottom",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -258,37 +298,44 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "months",
                     "type": "int",
-                    "default": 1
+                    "default": 1,
+                    "required": false
                 },
                 {
                     "name": "locale",
                     "type": "string",
-                    "default": "en-EN"
+                    "default": "en-EN",
+                    "required": false
                 },
                 {
                     "name": "weekend-highlight",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "sunday-start",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "events",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -301,37 +348,44 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "subtitle",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "shadow",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "progress-indicator",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "body-class",
                     "type": "string",
-                    "default": "null"
+                    "default": "null",
+                    "required": false
                 }
             ],
             "slots": [
@@ -348,7 +402,8 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -361,47 +416,56 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "right",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -414,167 +478,200 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "searchable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-progress",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "single",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "compact",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "compact-text",
                     "type": "string",
-                    "default": "selected"
+                    "default": "selected",
+                    "required": false
                 },
                 {
                     "name": "allow-all",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "debounce",
                     "type": "string",
-                    "default": "250ms"
+                    "default": "250ms",
+                    "required": false
                 },
                 {
                     "name": "min-chars",
                     "type": "int",
-                    "default": 0
+                    "default": 0,
+                    "required": false
                 },
                 {
                     "name": "allow-all-text",
                     "type": "string",
-                    "default": "Select all"
+                    "default": "Select all",
+                    "required": false
                 },
                 {
                     "name": "remove-all-text",
                     "type": "string",
-                    "default": "Remove all"
+                    "default": "Remove all",
+                    "required": false
                 },
                 {
                     "name": "search-function",
                     "type": "string",
-                    "default": "search"
+                    "default": "search",
+                    "required": false
                 },
                 {
                     "name": "option-value",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "option-label",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "option-sub-label",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "option-avatar",
                     "type": "string",
-                    "default": "avatar"
+                    "default": "avatar",
+                    "required": false
                 },
                 {
                     "name": "values-as-string",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "height",
                     "type": "string",
-                    "default": "max-h-64"
+                    "default": "max-h-64",
+                    "required": false
                 },
                 {
                     "name": "options",
                     "type": "Illuminate\\Support\\Collection|array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "no-result-text",
                     "type": "string",
-                    "default": "No results found."
+                    "default": "No results found.",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -592,157 +689,188 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "searchable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "single",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "compact",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "compact-text",
                     "type": "string",
-                    "default": "selected"
+                    "default": "selected",
+                    "required": false
                 },
                 {
                     "name": "allow-all",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "debounce",
                     "type": "string",
-                    "default": "250ms"
+                    "default": "250ms",
+                    "required": false
                 },
                 {
                     "name": "min-chars",
                     "type": "int",
-                    "default": 0
+                    "default": 0,
+                    "required": false
                 },
                 {
                     "name": "allow-all-text",
                     "type": "string",
-                    "default": "Select all"
+                    "default": "Select all",
+                    "required": false
                 },
                 {
                     "name": "remove-all-text",
                     "type": "string",
-                    "default": "Remove all"
+                    "default": "Remove all",
+                    "required": false
                 },
                 {
                     "name": "option-value",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "option-label",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "option-sub-label",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "option-avatar",
                     "type": "string",
-                    "default": "avatar"
+                    "default": "avatar",
+                    "required": false
                 },
                 {
                     "name": "values-as-string",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "height",
                     "type": "string",
-                    "default": "max-h-64"
+                    "default": "max-h-64",
+                    "required": false
                 },
                 {
                     "name": "options",
                     "type": "Illuminate\\Support\\Collection|array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "no-result-text",
                     "type": "string",
-                    "default": "No results found."
+                    "default": "No results found.",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error label-text-alt p-1"
+                    "default": "text-error label-text-alt p-1",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -760,57 +888,68 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "language",
                     "type": "string",
-                    "default": "javascript"
+                    "default": "javascript",
+                    "required": false
                 },
                 {
                     "name": "light-theme",
                     "type": "string",
-                    "default": "github_light_default"
+                    "default": "github_light_default",
+                    "required": false
                 },
                 {
                     "name": "dark-theme",
                     "type": "string",
-                    "default": "github_dark"
+                    "default": "github_dark",
+                    "required": false
                 },
                 {
                     "name": "light-class",
                     "type": "string",
-                    "default": "light"
+                    "default": "light",
+                    "required": false
                 },
                 {
                     "name": "dark-class",
                     "type": "string",
-                    "default": "dark"
+                    "default": "dark",
+                    "required": false
                 },
                 {
                     "name": "height",
                     "type": "string",
-                    "default": "200px"
+                    "default": "200px",
+                    "required": false
                 },
                 {
                     "name": "line-height",
                     "type": "string",
-                    "default": "2"
+                    "default": "2",
+                    "required": false
                 },
                 {
                     "name": "print-margin",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -823,27 +962,32 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "name",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "collapse-plus-minus",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-icon",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -859,72 +1003,86 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -937,67 +1095,80 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1013,57 +1184,68 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1079,27 +1261,32 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "old",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "new",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "file-name",
                     "type": "string",
-                    "default": "payload.json"
+                    "default": "payload.json",
+                    "required": false
                 },
                 {
                     "name": "config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1112,52 +1299,62 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "right",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "subtitle",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "with-close-button",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "close-on-escape",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "without-trap-focus",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "without-backdrop-close",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "actions",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1170,42 +1367,50 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": "o-chevron-down"
+                    "default": "o-chevron-down",
+                    "required": false
                 },
                 {
                     "name": "right",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "top",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-x-anchor",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "scroll",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "max-height",
                     "type": "string",
-                    "default": "max-h-96"
+                    "default": "max-h-96",
+                    "required": false
                 }
             ],
             "slots": [
@@ -1220,62 +1425,74 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "disk",
                     "type": "string",
-                    "default": "public"
+                    "default": "public",
+                    "required": false
                 },
                 {
                     "name": "folder",
                     "type": "string",
-                    "default": "editor"
+                    "default": "editor",
+                    "required": false
                 },
                 {
                     "name": "gpl-license",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1288,27 +1505,32 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "description",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": "o-x-circle"
+                    "default": "o-x-circle",
+                    "required": false
                 },
                 {
                     "name": "only",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1321,82 +1543,98 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "hide-progress",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "crop-after-change",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "change-text",
                     "type": "string",
-                    "default": "Change"
+                    "default": "Change",
+                    "required": false
                 },
                 {
                     "name": "crop-title-text",
                     "type": "string",
-                    "default": "Crop image"
+                    "default": "Crop image",
+                    "required": false
                 },
                 {
                     "name": "crop-cancel-text",
                     "type": "string",
-                    "default": "Cancel"
+                    "default": "Cancel",
+                    "required": false
                 },
                 {
                     "name": "crop-save-text",
                     "type": "string",
-                    "default": "Crop"
+                    "default": "Crop",
+                    "required": false
                 },
                 {
                     "name": "crop-config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "crop-mime-type",
                     "type": "string",
-                    "default": "image/png"
+                    "default": "image/png",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1409,7 +1647,8 @@
                 {
                     "name": "no-separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1424,82 +1663,98 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "placeholder",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "placeholder-value",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "option-value",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "option-label",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "options",
                     "type": "Illuminate\\Support\\Collection|array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1515,47 +1770,56 @@
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "subtitle",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "progress-indicator",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "progress-indicator-class",
                     "type": "string",
-                    "default": "progress-primary"
+                    "default": "progress-primary",
+                    "required": false
                 },
                 {
                     "name": "with-anchor",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "size",
                     "type": "string",
-                    "default": "text-2xl"
+                    "default": "text-2xl",
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1571,12 +1835,14 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "target",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1589,17 +1855,20 @@
                 {
                     "name": "name",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1612,22 +1881,26 @@
                 {
                     "name": "images",
                     "type": "array",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "with-arrows",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "with-indicators",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1640,72 +1913,86 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hide-errors",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hide-progress",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "change-text",
                     "type": "string",
-                    "default": "Change"
+                    "default": "Change",
+                    "required": false
                 },
                 {
                     "name": "crop-text",
                     "type": "string",
-                    "default": "Crop"
+                    "default": "Crop",
+                    "required": false
                 },
                 {
                     "name": "remove-text",
                     "type": "string",
-                    "default": "Remove"
+                    "default": "Remove",
+                    "required": false
                 },
                 {
                     "name": "crop-title-text",
                     "type": "string",
-                    "default": "Crop image"
+                    "default": "Crop image",
+                    "required": false
                 },
                 {
                     "name": "crop-cancel-text",
                     "type": "string",
-                    "default": "Cancel"
+                    "default": "Cancel",
+                    "required": false
                 },
                 {
                     "name": "crop-save-text",
                     "type": "string",
-                    "default": "Crop"
+                    "default": "Crop",
+                    "required": false
                 },
                 {
                     "name": "add-files-text",
                     "type": "string",
-                    "default": "Add images"
+                    "default": "Add images",
+                    "required": false
                 },
                 {
                     "name": "crop-config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "preview",
                     "type": "Illuminate\\Support\\Collection",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1718,92 +2005,110 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "money",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "locale",
                     "type": "string",
-                    "default": "en-US"
+                    "default": "en-US",
+                    "required": false
                 },
                 {
                     "name": "popover",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "popover-icon",
                     "type": "string",
-                    "default": "o-question-mark-circle"
+                    "default": "o-question-mark-circle",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1819,7 +2124,8 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1832,47 +2138,56 @@
                 {
                     "name": "item",
                     "type": "object|array",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "avatar",
                     "type": "string",
-                    "default": "avatar"
+                    "default": "avatar",
+                    "required": false
                 },
                 {
                     "name": "value",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "sub-value",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "no-separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-hover",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "link",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "fallback-avatar",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [
@@ -1887,7 +2202,8 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1900,57 +2216,68 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "disk",
                     "type": "string",
-                    "default": "public"
+                    "default": "public",
+                    "required": false
                 },
                 {
                     "name": "folder",
                     "type": "string",
-                    "default": "markdown"
+                    "default": "markdown",
+                    "required": false
                 },
                 {
                     "name": "config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -1963,42 +2290,50 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "subtitle",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "box-class",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "persistent",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "without-trap-focus",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "actions",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2011,37 +2346,44 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-classes",
                     "type": "string",
-                    "default": "w-4 h-4"
+                    "default": "w-4 h-4",
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "activate-by-route",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "active-bg-color",
                     "type": "string",
-                    "default": "bg-base-300"
+                    "default": "bg-base-300",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2054,87 +2396,104 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "spinner",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "link",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "route",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "route-params",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "external",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-wire-navigate",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "badge",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "badge-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "active",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "separator",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hidden",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "disabled",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "exact",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2147,22 +2506,26 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2175,37 +2538,44 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "open",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hidden",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "disabled",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2218,22 +2588,26 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2246,27 +2620,32 @@
                 {
                     "name": "full-width",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "with-nav",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "collapse-text",
                     "type": "string",
-                    "default": "Collapse"
+                    "default": "Collapse",
+                    "required": false
                 },
                 {
                     "name": "collapse-icon",
                     "type": "string",
-                    "default": "o-bars-3-bottom-right"
+                    "default": "o-bars-3-bottom-right",
+                    "required": false
                 },
                 {
                     "name": "collapsible",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -2283,12 +2662,14 @@
                 {
                     "name": "sticky",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "full-width",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -2304,17 +2685,20 @@
                 {
                     "name": "rows",
                     "type": "ArrayAccess|array",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "per-page-values",
                     "type": "array",
-                    "default": "[10,20,50,100]"
+                    "default": "[10,20,50,100]",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2327,97 +2711,116 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "password-icon",
                     "type": "string",
-                    "default": "o-eye-slash"
+                    "default": "o-eye-slash",
+                    "required": false
                 },
                 {
                     "name": "password-visible-icon",
                     "type": "string",
-                    "default": "o-eye"
+                    "default": "o-eye",
+                    "required": false
                 },
                 {
                     "name": "password-icon-tabindex",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "right",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "only-password",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -2433,52 +2836,62 @@
                 {
                     "name": "size",
                     "type": "int",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "numeric",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hide",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hide-type",
                     "type": "string",
-                    "default": "disc"
+                    "default": "disc",
+                    "required": false
                 },
                 {
                     "name": "no-gap",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error text-xs pt-2"
+                    "default": "text-error text-xs pt-2",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2491,17 +2904,20 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "position",
                     "type": "string",
-                    "default": "bottom"
+                    "default": "bottom",
+                    "required": false
                 },
                 {
                     "name": "offset",
                     "type": "string",
-                    "default": "10"
+                    "default": "10",
+                    "required": false
                 }
             ],
             "slots": [
@@ -2517,22 +2933,26 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "value",
                     "type": "float",
-                    "default": 0
+                    "default": 0,
+                    "required": false
                 },
                 {
                     "name": "max",
                     "type": "float",
-                    "default": 100
+                    "default": 100,
+                    "required": false
                 },
                 {
                     "name": "indeterminate",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2545,17 +2965,20 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "value",
                     "type": "float",
-                    "default": 0
+                    "default": 0,
+                    "required": false
                 },
                 {
                     "name": "unit",
                     "type": "string",
-                    "default": "%"
+                    "default": "%",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2568,67 +2991,80 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "option-value",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "option-label",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "option-hint",
                     "type": "string",
-                    "default": "hint"
+                    "default": "hint",
+                    "required": false
                 },
                 {
                     "name": "options",
                     "type": "Illuminate\\Support\\Collection|array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2641,57 +3077,68 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "option-value",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "option-label",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "options",
                     "type": "Illuminate\\Support\\Collection|array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2704,52 +3151,62 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "min",
                     "type": "int",
-                    "default": 0
+                    "default": 0,
+                    "required": false
                 },
                 {
                     "name": "max",
                     "type": "int",
-                    "default": 100
+                    "default": 100,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2762,12 +3219,14 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "total",
                     "type": "int",
-                    "default": 5
+                    "default": 5,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2780,92 +3239,110 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "placeholder",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "placeholder-value",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "option-value",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "option-label",
                     "type": "string",
-                    "default": "name"
+                    "default": "name",
+                    "required": false
                 },
                 {
                     "name": "options",
                     "type": "Illuminate\\Support\\Collection|array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -2881,57 +3358,68 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "height",
                     "type": "string",
-                    "default": "250"
+                    "default": "250",
+                    "required": false
                 },
                 {
                     "name": "clear-text",
                     "type": "string",
-                    "default": "Clear"
+                    "default": "Clear",
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label text-xs pt-1"
+                    "default": "fieldset-label text-xs pt-1",
+                    "required": false
                 },
                 {
                     "name": "config",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "clear-btn-style",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error text-xs pt-1"
+                    "default": "text-error text-xs pt-1",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -2944,37 +3432,44 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "shortcut",
                     "type": "string",
-                    "default": "meta.g"
+                    "default": "meta.g",
+                    "required": false
                 },
                 {
                     "name": "search-text",
                     "type": "string",
-                    "default": "Search ..."
+                    "default": "Search ...",
+                    "required": false
                 },
                 {
                     "name": "no-results-text",
                     "type": "string",
-                    "default": "Nothing found."
+                    "default": "Nothing found.",
+                    "required": false
                 },
                 {
                     "name": "url",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "fallback-avatar",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "no-wire-navigate",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -2989,52 +3484,62 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "value",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "color",
                     "type": "string",
-                    "default": ""
+                    "default": "",
+                    "required": false
                 },
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "description",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip-left",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "tooltip-bottom",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3047,22 +3552,26 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "vertical",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "steps-color",
                     "type": "string",
-                    "default": "step-neutral"
+                    "default": "step-neutral",
+                    "required": false
                 },
                 {
                     "name": "stepper-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3075,32 +3584,38 @@
                 {
                     "name": "step",
                     "type": "int",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "text",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "step-classes",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "data-content",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3113,32 +3628,38 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "true",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "false",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "true-icon",
                     "type": "string",
-                    "default": "o-sun"
+                    "default": "o-sun",
+                    "required": false
                 },
                 {
                     "name": "false-icon",
                     "type": "string",
-                    "default": "o-moon"
+                    "default": "o-moon",
+                    "required": false
                 },
                 {
                     "name": "icon-size",
                     "type": "string",
-                    "default": "h-5 w-5"
+                    "default": "h-5 w-5",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3151,97 +3672,116 @@
                 {
                     "name": "headers",
                     "type": "array",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "rows",
                     "type": "ArrayAccess|array",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "striped",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "no-headers",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "selectable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "selectable-key",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "expandable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "expandable-key",
                     "type": "string",
-                    "default": "id"
+                    "default": "id",
+                    "required": false
                 },
                 {
                     "name": "link",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "with-pagination",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "per-page",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "per-page-values",
                     "type": "array",
-                    "default": "[10,20,50,100]"
+                    "default": "[10,20,50,100]",
+                    "required": false
                 },
                 {
                     "name": "sort-by",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "row-decoration",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "cell-decoration",
                     "type": "array",
-                    "default": "[]"
+                    "default": "[]",
+                    "required": false
                 },
                 {
                     "name": "show-empty-text",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "container-class",
                     "type": "string",
-                    "default": "overflow-x-auto"
+                    "default": "overflow-x-auto",
+                    "required": false
                 },
                 {
                     "name": "no-hover",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -3263,32 +3803,38 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "name",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "disabled",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hidden",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3301,32 +3847,38 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "selected",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label-class",
                     "type": "string",
-                    "default": "font-semibold pb-1"
+                    "default": "font-semibold pb-1",
+                    "required": false
                 },
                 {
                     "name": "active-class",
                     "type": "string",
-                    "default": "border-b-[length:var(--border)] border-b-base-content/50"
+                    "default": "border-b-[length:var(--border)] border-b-base-content/50",
+                    "required": false
                 },
                 {
                     "name": "label-div-class",
                     "type": "string",
-                    "default": "border-b-[length:var(--border)] border-b-base-content/10 flex overflow-x-auto"
+                    "default": "border-b-[length:var(--border)] border-b-base-content/10 flex overflow-x-auto",
+                    "required": false
                 },
                 {
                     "name": "tabs-class",
                     "type": "string",
-                    "default": "relative w-full"
+                    "default": "relative w-full",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3339,72 +3891,86 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon-right",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "clearable",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "prefix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "suffix",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [
@@ -3420,47 +3986,56 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "inline",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3473,42 +4048,50 @@
                 {
                     "name": "title",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "subtitle",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "description",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "icon",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "pending",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "last",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3521,47 +4104,56 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "value",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "light",
                     "type": "string",
-                    "default": "Light"
+                    "default": "Light",
+                    "required": false
                 },
                 {
                     "name": "dark",
                     "type": "string",
-                    "default": "Dark"
+                    "default": "Dark",
+                    "required": false
                 },
                 {
                     "name": "light-theme",
                     "type": "string",
-                    "default": "light"
+                    "default": "light",
+                    "required": false
                 },
                 {
                     "name": "dark-theme",
                     "type": "string",
-                    "default": "dark"
+                    "default": "dark",
+                    "required": false
                 },
                 {
                     "name": "light-class",
                     "type": "string",
-                    "default": "light"
+                    "default": "light",
+                    "required": false
                 },
                 {
                     "name": "dark-class",
                     "type": "string",
-                    "default": "dark"
+                    "default": "dark",
+                    "required": false
                 },
                 {
                     "name": "with-label",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3574,7 +4166,8 @@
                 {
                     "name": "position",
                     "type": "string",
-                    "default": "toast-top toast-end"
+                    "default": "toast-top toast-end",
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3587,47 +4180,56 @@
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "label",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "right",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "hint",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "hint-class",
                     "type": "string",
-                    "default": "fieldset-label"
+                    "default": "fieldset-label",
+                    "required": false
                 },
                 {
                     "name": "error-field",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "error-class",
                     "type": "string",
-                    "default": "text-error"
+                    "default": "text-error",
+                    "required": false
                 },
                 {
                     "name": "omit-error",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "first-error-only",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 }
             ],
             "slots": [],
@@ -3640,32 +4242,38 @@
                 {
                     "name": "slides",
                     "type": "array",
-                    "default": null
+                    "default": null,
+                    "required": true
                 },
                 {
                     "name": "id",
                     "type": "string",
-                    "default": null
+                    "default": null,
+                    "required": false
                 },
                 {
                     "name": "without-indicators",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "without-arrows",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "autoplay",
                     "type": "bool",
-                    "default": false
+                    "default": false,
+                    "required": false
                 },
                 {
                     "name": "interval",
                     "type": "int",
-                    "default": 2000
+                    "default": 2000,
+                    "required": false
                 }
             ],
             "slots": [

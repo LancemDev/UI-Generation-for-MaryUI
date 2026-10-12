@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Events\GenerationUpdated;
 use App\Exceptions\AiServiceException;
 use App\Jobs\ProcessChatMessage;
 use App\Models\ChatMessage;
@@ -12,6 +13,8 @@ use App\Models\User;
 use App\Services\GenerationPipeline;
 use App\Services\GenerationResult;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
+use Mockery;
 use Tests\TestCase;
 
 class ProcessChatMessageTest extends TestCase
@@ -110,5 +113,82 @@ class ProcessChatMessageTest extends TestCase
         (new ProcessChatMessage($this->project->id, $assistant->id))->handle(app(GenerationPipeline::class));
 
         $this->assertSame('Built it.', $assistant->fresh()->content);
+    }
+
+    public function test_streamed_reply_is_saved_while_generating_and_progress_is_broadcast(): void
+    {
+        config(['skylarr.realtime' => true]);
+        Event::fake([GenerationUpdated::class]);
+        $this->message('user', 'what is wire:model?', 'sent');
+        $assistant = $this->message('assistant', '', 'queued');
+
+        $this->mock(GenerationPipeline::class)->shouldReceive('run')->once()
+            ->andReturnUsing(function ($project, $message, $history, $focus, $onStage, $selection, $onReply) use ($assistant) {
+                $onReply('It binds ');
+                // The partial reply is visible on the message before the run finishes.
+                \PHPUnit\Framework\Assert::assertSame('It binds ', $assistant->fresh()->content);
+
+                return new GenerationResult('It binds an input to a property.');
+            });
+
+        (new ProcessChatMessage($this->project->id, $assistant->id))->handle(app(GenerationPipeline::class));
+
+        $this->assertSame('It binds an input to a property.', $assistant->fresh()->content);
+        Event::assertDispatched(GenerationUpdated::class, fn ($event) => $event->projectId === $this->project->id && $event->stage === 'ready');
+    }
+
+    public function test_nothing_is_broadcast_without_live_updates(): void
+    {
+        config(['skylarr.realtime' => false]);
+        Event::fake([GenerationUpdated::class]);
+        $this->message('user', 'hi', 'sent');
+        $assistant = $this->message('assistant', '', 'queued');
+        $this->mock(GenerationPipeline::class)->shouldReceive('run')->andReturn(new GenerationResult('Hello.'));
+
+        (new ProcessChatMessage($this->project->id, $assistant->id))->handle(app(GenerationPipeline::class));
+
+        Event::assertNotDispatched(GenerationUpdated::class);
+    }
+
+    public function test_selection_is_passed_to_the_pipeline(): void
+    {
+        $this->message('user', 'make it red', 'sent');
+        $assistant = $this->message('assistant', '', 'queued');
+
+        $this->mock(GenerationPipeline::class)->shouldReceive('run')->once()
+            ->with(Mockery::any(), 'make it red', Mockery::any(), 'SignupForm', Mockery::any(), '<button>Save</button>', Mockery::type('callable'))
+            ->andReturn(new GenerationResult('Done.'));
+
+        (new ProcessChatMessage($this->project->id, $assistant->id, 'SignupForm', '<button>Save</button>'))->handle(app(GenerationPipeline::class));
+
+        $this->assertSame('complete', $assistant->fresh()->status);
+    }
+
+    public function test_templates_are_inserted_without_the_ai(): void
+    {
+        $this->project->addComponent('UsersTable', '/users-table', 'users-table', '<?php', '<div></div>');
+        $this->message('user', 'Start from the CRUD table template', 'sent');
+        $assistant = $this->message('assistant', '', 'queued');
+
+        $pipeline = $this->mock(GenerationPipeline::class);
+        $pipeline->shouldNotReceive('run');
+        $pipeline->shouldReceive('insertComponents')->once()
+            ->withArgs(function ($project, $components, $reply) {
+                return array_keys($components) === ['UsersTable2']
+                    && str_contains($components['UsersTable2']['php'], 'class UsersTable2 extends Component')
+                    && str_contains($reply, 'CRUD table');
+            })
+            ->andReturnUsing(function ($project, $components, $reply) {
+                $result = new GenerationResult($reply);
+                $result->recordAction(['op' => 'create', 'component' => 'UsersTable2', 'summary' => 'Template']);
+
+                return $result;
+            });
+
+        (new ProcessChatMessage($this->project->id, $assistant->id, templateId: 'crud-table'))->handle(app(GenerationPipeline::class));
+
+        $assistant->refresh();
+        $this->assertSame('complete', $assistant->status);
+        $this->assertSame('UsersTable2', $assistant->metadata['components'][0]['component']);
     }
 }

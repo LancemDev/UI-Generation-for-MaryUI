@@ -68,6 +68,8 @@ class RunEvals extends Command
         $renderErrors = [];
         $repairs = 0;
         $usage = [];
+        $timings = [];
+        $aiCalls = 0;
         $renderAttempted = false;
 
         try {
@@ -82,6 +84,10 @@ class RunEvals extends Command
                 foreach ($result->usage as $key => $value) {
                     $usage[$key] = ($usage[$key] ?? 0) + $value;
                 }
+                foreach ($result->timings as $stage => $ms) {
+                    $timings[$stage] = ($timings[$stage] ?? 0) + $ms;
+                }
+                $aiCalls += $result->aiCalls;
             }
             $failures = $this->check($case['expect'] ?? [], $result, $project, $preview);
         } catch (Throwable $e) {
@@ -111,6 +117,8 @@ class RunEvals extends Command
             'components' => $result ? array_keys($result->components) : [],
             'seconds' => round(microtime(true) - $startedAt, 1),
             'usage' => $usage,
+            'timings' => $timings,
+            'ai_calls' => $aiCalls,
             'model' => $result?->model,
         ];
     }
@@ -172,9 +180,20 @@ class RunEvals extends Command
             'render_rate' => round($renderable->where('rendered', true)->count() / max($renderable->count(), 1), 3),
             'avg_repair_attempts' => round(collect($results)->avg('repair_attempts') ?? 0, 2),
             'avg_seconds' => round(collect($results)->avg('seconds') ?? 0, 1),
-            'input_tokens' => collect($results)->sum(fn ($r) => $r['usage']['input_tokens'] ?? 0),
+            'input_tokens' => $input = collect($results)->sum(fn ($r) => $r['usage']['input_tokens'] ?? 0),
+            'cached_input_tokens' => $cached = collect($results)->sum(fn ($r) => $r['usage']['cached_input_tokens'] ?? 0),
+            'cache_hit_rate' => round($cached / max($input, 1), 3),
             'output_tokens' => collect($results)->sum(fn ($r) => $r['usage']['output_tokens'] ?? 0),
+            'avg_ai_calls' => round(collect($results)->avg('ai_calls') ?? 0, 2),
         ];
+
+        // Average milliseconds per stage, to see where time goes before optimizing.
+        foreach (['ai', 'model', 'first_reply', 'container', 'write_check', 'total'] as $stage) {
+            $values = collect($results)->pluck("timings.{$stage}")->filter(fn ($v) => $v !== null);
+            if ($values->isNotEmpty()) {
+                $summary["avg_{$stage}_ms"] = (int) round($values->avg());
+            }
+        }
 
         $this->newLine();
         $this->table(['metric', 'value'], collect($summary)->map(fn ($v, $k) => [$k, $v])->values());

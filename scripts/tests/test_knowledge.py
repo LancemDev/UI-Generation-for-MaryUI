@@ -26,7 +26,10 @@ def test_table_request_retrieves_table_guide_and_props():
     context = kb.context_for("Show my users in a sortable table")
     assert "### Tables" in context
     assert "<x-table> props: headers, rows" in context
-    assert "### Livewire component conventions" in context
+    assert "required: headers, rows" in context
+    # Static parts live in the cached system prompt, not the per-request context.
+    assert "### Livewire component conventions" not in context
+    assert "### Livewire component conventions" in kb.static_context()
 
 
 def test_guides_are_capped():
@@ -49,3 +52,23 @@ def test_unknown_tags():
     kb = get_knowledge_base()
     blade = "<div><x-table.th>Name</x-table.th><x-slot:actions /><x-layouts.app-with-sidebar /><x-card /></div>"
     assert kb.unknown_tags(blade) == ["x-table.th"]
+
+
+def test_check_blade_finds_render_failures_and_prop_typos():
+    kb = get_knowledge_base()
+    blade = """<div>
+        <x-table :headers="$headers" />
+        <x-input lable="Name" wire:model="name" placeholder="x" />
+        <x-step step="1" text="a > b" />
+        <x-icon name="o-user" class="w-4" />
+        <x-table.th />
+    </div>"""
+    errors, warnings = kb.check_blade(blade)
+    assert errors == ["<x-table.th> is not a MaryUI component", "<x-table> is missing required prop(s): rows"]
+    assert warnings == ["<x-input> has unknown prop 'lable'; did you mean 'label'?"]
+
+
+def test_check_blade_accepts_camel_case_bound_props_and_spreads():
+    kb = get_knowledge_base()
+    assert kb.check_blade('<x-table :headers="$h" :rows="$r" :noHover="true" />') == ([], [])
+    assert kb.check_blade("<x-table {{ $attributes }} />") == ([], [])

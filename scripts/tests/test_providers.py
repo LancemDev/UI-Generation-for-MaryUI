@@ -38,7 +38,7 @@ def test_openai_sends_strict_schema_and_parses_output():
     result = openai_provider(handler).generate("system prompt", [{"role": "user", "content": "hello"}], 1000)
 
     assert result.data == {"reply": "Hi", "actions": []}
-    assert result.usage == {"input_tokens": 10, "output_tokens": 5}
+    assert result.usage == {"input_tokens": 10, "cached_input_tokens": 0, "output_tokens": 5}
     assert captured["response_format"]["json_schema"]["strict"] is True
     assert captured["messages"][0] == {"role": "system", "content": "system prompt"}
     assert captured["max_completion_tokens"] == 1000
@@ -82,3 +82,38 @@ def test_gemini_network_errors_become_provider_errors():
 
     with pytest.raises(ProviderError, match="Gemini request failed"):
         provider.generate("s", [{"role": "user", "content": "x"}], 10)
+
+
+def sse(chunks: list[dict]) -> httpx.Response:
+    body = "".join(f"data: {json.dumps(c)}\n\n" for c in chunks) + "data: [DONE]\n\n"
+    return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body.encode())
+
+
+def chunk(content=None, finish_reason=None, usage=None) -> dict:
+    choices = [] if usage else [{"index": 0, "delta": {"content": content} if content else {}, "finish_reason": finish_reason}]
+    return {"id": "c", "object": "chat.completion.chunk", "created": 0, "model": "gpt-4.1", "choices": choices, "usage": usage}
+
+
+def test_openai_streams_text_and_reports_cached_tokens():
+    captured = {}
+
+    def handler(request):
+        captured.update(json.loads(request.content))
+        return sse([
+            chunk('{"reply": "Hel'),
+            chunk('lo", "actions": []}'),
+            chunk(finish_reason="stop"),
+            chunk(usage={"prompt_tokens": 100, "completion_tokens": 7, "total_tokens": 107, "prompt_tokens_details": {"cached_tokens": 64}}),
+        ])
+
+    parts = []
+    result = openai_provider(handler).generate(
+        "s", [{"role": "user", "content": "x"}], 10, model="gpt-4.1-mini", on_text=parts.append, cache_key="k"
+    )
+
+    assert "".join(parts) == '{"reply": "Hello", "actions": []}'
+    assert result.data == {"reply": "Hello", "actions": []}
+    assert result.usage == {"input_tokens": 100, "cached_input_tokens": 64, "output_tokens": 7}
+    assert captured["stream"] is True
+    assert captured["model"] == "gpt-4.1-mini"
+    assert captured["prompt_cache_key"] == "k"

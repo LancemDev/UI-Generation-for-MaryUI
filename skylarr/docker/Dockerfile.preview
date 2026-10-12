@@ -66,6 +66,9 @@ RUN chown -R www-data:www-data /var/www/html \
 # Copy nginx configuration
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
 
+# Copy php-fpm pool overrides (on-demand workers)
+COPY ./docker/php-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-skylarr.conf
+
 # Copy supervisor configuration
 COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

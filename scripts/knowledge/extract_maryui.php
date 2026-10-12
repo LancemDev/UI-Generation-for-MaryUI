@@ -76,6 +76,8 @@ foreach ($matches as [, $tag, $class]) {
             'name' => kebab($name),
             'type' => ltrim($type, '?'),
             'default' => exportDefault($param),
+            // Omitting a required prop makes Blade fail with "Unresolvable dependency".
+            'required' => !$param->isDefaultValueAvailable(),
         ];
     }
 

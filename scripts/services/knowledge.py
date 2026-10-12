@@ -43,6 +43,9 @@ ICON_ATTRIBUTE_PATTERN = re.compile(
 )
 WORD_PATTERN = re.compile(r"[a-z0-9]+")
 TAG_PATTERN = re.compile(r"<(x-[a-z0-9.:-]+)")
+# An opening component tag with its attributes; quoted values may contain ">".
+OPEN_TAG_PATTERN = re.compile(r"""<(x-[a-z0-9.-]+)((?:\s+[^\s=>/"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*)\s*/?>""")
+ATTRIBUTE_NAME_PATTERN = re.compile(r"""([^\s=>/"']+)(?:\s*=\s*(?:"[^"]*"|'[^']*'))?""")
 # Blade components the preview app defines itself (preview-reference/app/View/Components).
 PREVIEW_TAGS = {"x-app-brand"}
 
@@ -62,21 +65,32 @@ class KnowledgeBase:
     icons: frozenset[str]
     guides: tuple[Guide, ...]
 
-    def context_for(self, text: str, used_tags: set[str] | None = None) -> str:
-        """Build the reference section of the prompt for a request."""
+    def static_context(self) -> str:
+        """Reference that is the same for every request; it lives in the system prompt
+        so providers can serve it from their prompt cache."""
 
-        guides = self.select_guides(text)
+        conventions = next(g for g in self.guides if g.title == ALWAYS_INCLUDED_GUIDE)
+        return "\n".join([
+            f"## MaryUI {self.mary_version}",
+            "All available component tags: " + ", ".join(sorted(self.components)),
+            "\nCommon Heroicons (outline, prefix o-): " + ", ".join(COMMON_ICONS),
+            f"\n### {conventions.title}\n{conventions.body}",
+        ])
+
+    def context_for(self, text: str, used_tags: set[str] | None = None) -> str:
+        """The request-specific part of the reference: exact props and relevant guides."""
+
+        guides = [g for g in self.select_guides(text) if g.title != ALWAYS_INCLUDED_GUIDE]
         tags = set(used_tags or ())
         for guide in guides:
             tags.update(guide.components)
         tags.update(tag for tag in self.components if _tag_word(tag) in _words(text))
 
-        parts = [f"MaryUI {self.mary_version} reference (only these components and props exist):"]
+        parts = ["MaryUI reference for this request (only these props exist):"]
         parts.extend(self._describe(tag) for tag in sorted(tags) if tag in self.components)
-        parts.append("\nAll available component tags: " + ", ".join(sorted(self.components)))
-        parts.append("\nCommon Heroicons (outline, prefix o-): " + ", ".join(COMMON_ICONS))
-        parts.append("\nUsage guides:")
-        parts.extend(f"\n### {g.title}\n{g.body}" for g in guides)
+        if guides:
+            parts.append("\nUsage guides:")
+            parts.extend(f"\n### {g.title}\n{g.body}" for g in guides)
         return "\n".join(parts)
 
     def select_guides(self, text: str) -> list[Guide]:
@@ -122,10 +136,45 @@ class KnowledgeBase:
             unknown.append(tag)
         return unknown
 
+    def check_blade(self, blade: str) -> tuple[list[str], list[str]]:
+        """Find problems that would break or degrade rendering, without running anything.
+
+        Returns (errors, warnings). Errors are certain render failures: tags MaryUI
+        does not provide and missing required props. Warnings are likely typos in
+        prop names, which Blade would silently render as HTML attributes.
+        """
+
+        errors = [f"<{tag}> is not a MaryUI component" for tag in self.unknown_tags(blade)]
+        warnings: list[str] = []
+
+        for tag, attributes in OPEN_TAG_PATTERN.findall(blade):
+            component = self.components.get(tag)
+            # A spread like {{ $attributes }} can supply anything, so skip the check.
+            if not component or "{{" in attributes:
+                continue
+            given = {_attribute_prop(name) for name in ATTRIBUTE_NAME_PATTERN.findall(attributes)}
+            props = {p["name"] for p in component["props"]}
+
+            missing = [p["name"] for p in component["props"] if p.get("required") and p["name"] not in given]
+            if missing:
+                errors.append(f"<{tag}> is missing required prop(s): {', '.join(missing)}")
+
+            for name in sorted(given - props):
+                if name in HTML_ATTRIBUTES or name.startswith(("wire:", "x-", "@", "data-", "aria-")):
+                    continue
+                close = difflib.get_close_matches(name, props, n=1, cutoff=0.8)
+                if close:
+                    warnings.append(f"<{tag}> has unknown prop '{name}'; did you mean '{close[0]}'?")
+
+        return list(dict.fromkeys(errors)), list(dict.fromkeys(warnings))
+
     def _describe(self, tag: str) -> str:
         component = self.components[tag]
         props = ", ".join(_format_prop(p) for p in component["props"] if p["name"] != "id")
         line = f"- <{tag}> props: {props or 'none'}"
+        required = [p["name"] for p in component["props"] if p.get("required")]
+        if required:
+            line += f"; required: {', '.join(required)}"
         if component["slots"]:
             line += f"; named slots: {', '.join(component['slots'])}"
         if component["uses_default_slot"]:
@@ -138,6 +187,21 @@ def _format_prop(prop: dict) -> str:
     if default in (None, False, "", "[]"):
         return prop["name"]
     return f"{prop['name']}={default}"
+
+
+# Plain HTML attributes are passed through by MaryUI components and never typos of props.
+HTML_ATTRIBUTES = {
+    "class", "style", "id", "name", "type", "value", "placeholder", "title", "href", "target", "rel",
+    "disabled", "readonly", "required", "autofocus", "autocomplete", "min", "max", "step", "rows",
+    "cols", "src", "alt", "role", "tabindex", "for", "accept", "multiple", "checked", "selected",
+}
+
+
+def _attribute_prop(attribute: str) -> str:
+    """`:fooBar` / `foo-bar` / `::foo` -> `foo-bar`, the form props are listed in."""
+
+    name = attribute.lstrip(":")
+    return re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower() if not name.startswith(("wire:", "x-", "@")) else name
 
 
 def _tag_word(tag: str) -> str:
