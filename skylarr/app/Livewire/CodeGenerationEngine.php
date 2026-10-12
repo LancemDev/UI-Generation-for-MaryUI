@@ -290,6 +290,9 @@ class CodeGenerationEngine extends Component
     private function componentForPath(string $relativePath): ?string
     {
         foreach ($this->currentProject->getComponents() as $component) {
+            if (!preg_match(DockerPreviewService::COMPONENT_NAME_PATTERN, $component['name'] ?? '')) {
+                continue;
+            }
             if (in_array($relativePath, DockerPreviewService::componentPaths($component['name']), true)) {
                 return $component['name'];
             }

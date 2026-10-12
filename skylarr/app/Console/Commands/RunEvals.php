@@ -33,6 +33,9 @@ class RunEvals extends Command
             $cases = array_values(array_filter($cases, fn ($case) => in_array($case['id'], $only, true)));
         }
 
+        // Kept projects hold on to their containers, so the per-user limit would block later cases.
+        config(['skylarr.preview.max_containers_per_user' => PHP_INT_MAX]);
+
         $user = User::firstOrCreate(
             ['email' => 'evals@skylarr.local'],
             ['name' => 'Skylarr Evals', 'password' => Str::random(40)]
@@ -65,6 +68,7 @@ class RunEvals extends Command
         $renderErrors = [];
         $repairs = 0;
         $usage = [];
+        $renderAttempted = false;
 
         try {
             foreach ($case['turns'] as $turn) {
@@ -73,6 +77,7 @@ class RunEvals extends Command
                 $history[] = ['role' => 'user', 'content' => $turn];
                 $history[] = ['role' => 'assistant', 'content' => $result->reply];
                 $renderErrors = array_merge($renderErrors, $result->errors);
+                $renderAttempted = $renderAttempted || $result->hasChanges() || $result->errors !== [];
                 $repairs += $result->repairAttempts;
                 foreach ($result->usage as $key => $value) {
                     $usage[$key] = ($usage[$key] ?? 0) + $value;
@@ -98,7 +103,10 @@ class RunEvals extends Command
             'id' => $case['id'],
             'passed' => $failures === [],
             'failures' => $failures,
-            'rendered' => $renderErrors === [] && !collect($failures)->contains(fn ($f) => str_starts_with($f, 'exception')),
+            // null for question-only cases, which never render anything.
+            'rendered' => $renderAttempted
+                ? $renderErrors === [] && !collect($failures)->contains(fn ($f) => str_starts_with($f, 'exception'))
+                : null,
             'repair_attempts' => $repairs,
             'components' => $result ? array_keys($result->components) : [],
             'seconds' => round(microtime(true) - $startedAt, 1),
@@ -158,9 +166,10 @@ class RunEvals extends Command
     private function summarize(array $results): void
     {
         $count = max(count($results), 1);
+        $renderable = collect($results)->whereNotNull('rendered');
         $summary = [
             'pass_rate' => round(collect($results)->where('passed', true)->count() / $count, 3),
-            'render_rate' => round(collect($results)->where('rendered', true)->count() / $count, 3),
+            'render_rate' => round($renderable->where('rendered', true)->count() / max($renderable->count(), 1), 3),
             'avg_repair_attempts' => round(collect($results)->avg('repair_attempts') ?? 0, 2),
             'avg_seconds' => round(collect($results)->avg('seconds') ?? 0, 1),
             'input_tokens' => collect($results)->sum(fn ($r) => $r['usage']['input_tokens'] ?? 0),

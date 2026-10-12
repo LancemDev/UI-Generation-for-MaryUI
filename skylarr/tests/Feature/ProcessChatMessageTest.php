@@ -100,4 +100,15 @@ class ProcessChatMessageTest extends TestCase
         $this->assertStringContainsString('not reachable', $assistant->content);
         $this->assertFalse($this->project->fresh()->getGenerationState()['is_generating']);
     }
+
+    public function test_redelivered_job_does_not_regenerate_a_finished_reply(): void
+    {
+        $this->message('user', 'make a table', 'sent');
+        $assistant = $this->message('assistant', 'Built it.', 'complete');
+        $this->mock(GenerationPipeline::class)->shouldNotReceive('run');
+
+        (new ProcessChatMessage($this->project->id, $assistant->id))->handle(app(GenerationPipeline::class));
+
+        $this->assertSame('Built it.', $assistant->fresh()->content);
+    }
 }

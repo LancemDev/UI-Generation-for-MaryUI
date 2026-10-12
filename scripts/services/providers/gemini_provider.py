@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Literal
 
+import httpx
 from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel
@@ -53,7 +54,7 @@ class GeminiProvider:
                     max_output_tokens=max_tokens,
                 ),
             )
-        except errors.APIError as exc:
+        except (errors.APIError, httpx.HTTPError) as exc:
             raise ProviderError(f"Gemini request failed: {exc}") from exc
 
         candidate = response.candidates[0] if response.candidates else None

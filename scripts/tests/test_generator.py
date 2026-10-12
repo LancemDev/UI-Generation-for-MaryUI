@@ -127,3 +127,13 @@ def test_repair_mode_includes_errors():
 def test_kebab():
     assert kebab("UserTable") == "user-table"
     assert kebab("Dashboard") == "dashboard"
+
+
+def test_invalid_component_names_are_skipped(fake_provider_factory):
+    response, _ = run(
+        GenerateRequest(message="make a widget"),
+        {"reply": "Done.", "actions": [{"op": "create", "component": "x", "summary": "s", "php": "<?php // no class", "blade": "<div></div>"}]},
+        fake_provider_factory,
+    )
+    assert response.actions == []
+    assert any("not a valid component name" in w for w in response.warnings)

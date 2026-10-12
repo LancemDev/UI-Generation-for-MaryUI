@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Jobs\ProcessChatMessage;
 use App\Livewire\ChatInterface;
 use App\Models\ChatMessage;
+use App\Models\ChatThread;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -119,5 +121,33 @@ class ChatInterfaceTest extends TestCase
             ->call('sendMessage');
 
         Queue::assertNothingPushed();
+    }
+
+    public function test_thread_and_project_cannot_be_changed_from_the_browser(): void
+    {
+        $user = User::factory()->create();
+        $project = $this->project($user);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::actingAs($user)
+            ->test(ChatInterface::class, ['projectId' => $project->id])
+            ->set('threadId', 999);
+    }
+
+    public function test_feedback_on_another_users_thread_is_ignored(): void
+    {
+        $owner = User::factory()->create();
+        $thread = ChatThread::create(['user_id' => $owner->id, 'project_id' => $this->project($owner)->id]);
+        $message = ChatMessage::create(['chat_thread_id' => $thread->id, 'role' => 'assistant', 'content' => 'Hi', 'status' => 'complete']);
+
+        $intruder = User::factory()->create();
+        $component = Livewire::actingAs($intruder)->test(ChatInterface::class, ['projectId' => $this->project($intruder)->id]);
+        // Simulate a tampered snapshot pointing at the other user's thread.
+        $instance = $component->instance();
+        $instance->threadId = $thread->id;
+        $instance->submitFeedback($message->id, 'negative');
+
+        $this->assertNull($message->fresh()->feedback);
     }
 }

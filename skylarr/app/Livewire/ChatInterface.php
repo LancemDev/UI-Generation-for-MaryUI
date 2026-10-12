@@ -7,6 +7,7 @@ use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Project;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
@@ -18,7 +19,9 @@ class ChatInterface extends Component
     public const PENDING_STATUSES = ['queued', 'thinking', 'building', 'fixing'];
 
     public string $message = '';
+    #[Locked]
     public ?int $threadId = null;
+    #[Locked]
     public ?int $projectId = null;
     public array $messages = [];
     public ?string $selectedComponentName = null;
@@ -93,6 +96,10 @@ class ChatInterface extends Component
      */
     public function refreshPending(): void
     {
+        if (!$this->ownsProject()) {
+            return;
+        }
+
         $pendingIds = collect($this->messages)
             ->filter(fn ($m) => in_array($m['status'], self::PENDING_STATUSES, true))
             ->pluck('id');
@@ -144,7 +151,7 @@ class ChatInterface extends Component
 
     public function submitFeedback(int $messageId, string $feedbackType): void
     {
-        if (!in_array($feedbackType, ['positive', 'negative'], true)) {
+        if (!in_array($feedbackType, ['positive', 'negative'], true) || !$this->ownsProject()) {
             return;
         }
 
@@ -193,6 +200,11 @@ class ChatInterface extends Component
 
     private function ownsProject(): bool
     {
-        return $this->threadId !== null && $this->project() !== null;
+        return $this->threadId !== null
+            && $this->project() !== null
+            && ChatThread::whereKey($this->threadId)
+                ->where('user_id', Auth::id())
+                ->where('project_id', $this->projectId)
+                ->exists();
     }
 }

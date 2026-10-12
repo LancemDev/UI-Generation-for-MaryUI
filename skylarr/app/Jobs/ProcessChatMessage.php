@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Exceptions\AiServiceException;
+use App\Livewire\ChatInterface;
 use App\Models\ChatMessage;
 use App\Models\Project;
 use App\Services\GenerationPipeline;
@@ -51,7 +52,8 @@ class ProcessChatMessage implements ShouldQueue
     {
         $assistant = ChatMessage::find($this->assistantMessageId);
         $project = Project::find($this->projectId);
-        if (!$assistant || !$project) {
+        // A redelivered job must not regenerate a reply that already finished.
+        if (!$assistant || !$project || !in_array($assistant->status, ChatInterface::PENDING_STATUSES, true)) {
             return;
         }
 

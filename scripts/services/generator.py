@@ -11,7 +11,7 @@ from core.exceptions import ProviderError
 from services.knowledge import KnowledgeBase
 from services.prompt_builder import build_prompt
 from services.providers.base import Provider
-from services.schema import ComponentAction, GenerateRequest, GenerateResponse, ModelOutput
+from services.schema import COMPONENT_NAME_PATTERN, ComponentAction, GenerateRequest, GenerateResponse, ModelOutput
 
 CLASS_PATTERN = re.compile(r"\bclass\s+([A-Z][A-Za-z0-9]*)\s+extends\s+(?:\\?Livewire\\)?Component\b")
 VIEW_CALL_PATTERN = re.compile(r"view\(\s*['\"]livewire\.([a-z0-9.\-]+)['\"]")
@@ -35,8 +35,9 @@ def generate(request: GenerateRequest, provider: Provider, kb: KnowledgeBase, se
     actions, warnings = [], []
     for action in output.actions:
         normalized, action_warnings = normalize_action(action, existing, kb)
-        actions.append(normalized)
         warnings.extend(action_warnings)
+        if normalized:
+            actions.append(normalized)
 
     return GenerateResponse(
         reply=output.reply.strip(),
@@ -47,8 +48,11 @@ def generate(request: GenerateRequest, provider: Provider, kb: KnowledgeBase, se
     )
 
 
-def normalize_action(action: ComponentAction, existing: set[str], kb: KnowledgeBase) -> tuple[ComponentAction, list[str]]:
-    """Make the files internally consistent so they can be written and served as-is."""
+def normalize_action(action: ComponentAction, existing: set[str], kb: KnowledgeBase) -> tuple[ComponentAction | None, list[str]]:
+    """Make the files internally consistent so they can be written and served as-is.
+
+    Returns no action when the component name cannot be used as a file name.
+    """
 
     warnings: list[str] = []
     php = _strip_fences(action.php)
@@ -57,6 +61,8 @@ def normalize_action(action: ComponentAction, existing: set[str], kb: KnowledgeB
     # The class declared in the file is what Livewire will load, so it wins.
     match = CLASS_PATTERN.search(php)
     name = match.group(1) if match else _pascal(action.component)
+    if not re.fullmatch(COMPONENT_NAME_PATTERN, name):
+        return None, [f"Skipped {action.component}: {name!r} is not a valid component name"]
     if not match:
         warnings.append(f"{name}: PHP file has no Livewire class declaration")
     elif name != action.component:

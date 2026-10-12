@@ -7,6 +7,7 @@ from openai import OpenAI
 from core.config import Settings
 from core.exceptions import ConfigurationError, ProviderError
 from services.providers.base import make_provider
+from services.providers.gemini_provider import GeminiProvider
 from services.providers.openai_provider import OpenAIProvider
 
 
@@ -68,3 +69,16 @@ def test_missing_key_and_unknown_provider():
         make_provider(Settings(provider="openai", openai_api_key=None))
     with pytest.raises(ConfigurationError):
         make_provider(Settings(provider="llama"))
+
+
+def test_gemini_network_errors_become_provider_errors():
+    provider = GeminiProvider(Settings(provider="gemini", gemini_api_key="test"))
+
+    class FailingModels:
+        def generate_content(self, **kwargs):
+            raise httpx.ConnectError("connection refused")
+
+    provider.client = type("Client", (), {"models": FailingModels()})()
+
+    with pytest.raises(ProviderError, match="Gemini request failed"):
+        provider.generate("s", [{"role": "user", "content": "x"}], 10)
