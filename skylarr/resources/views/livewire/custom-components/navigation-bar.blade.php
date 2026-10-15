@@ -57,7 +57,7 @@
 
      {{-- Brand --}}
     <div class="font-semibold tracking-tight">
-        SKYLARR
+        skylarr
     </div>
  </x-slot:brand>
 

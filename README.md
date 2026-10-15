@@ -1,6 +1,6 @@
 <div align="center">
 
-# SKYLARR
+# skylarr
 
 **Chat your way to working Laravel Livewire components, built with [MaryUI](https://mary-ui.com) and running live as you type.**
 
@@ -10,7 +10,7 @@ Laravel 12 · Livewire 3 · MaryUI 2 · FastAPI · OpenAI / Gemini · Docker
 
 ---
 
-Describe what you want, for example *"a users table with a delete button"* or *"add a phone field to the signup form"*. SKYLARR writes the PHP class and the Blade view, runs them in an isolated preview container, fixes anything that fails to render, and shows the result next to the chat.
+Describe what you want, for example *"a users table with a delete button"* or *"add a phone field to the signup form"*. skylarr writes the PHP class and the Blade view, runs them in an isolated preview container, fixes anything that fails to render, and shows the result next to the chat.
 
 ## Highlights
 
