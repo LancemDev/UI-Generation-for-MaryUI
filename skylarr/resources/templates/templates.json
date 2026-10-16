@@ -1,0 +1,6 @@
+[
+    {"id": "crud-table", "title": "CRUD table", "name": "UsersTable", "icon": "o-table-cells", "description": "Searchable table with add, edit and delete in a modal"},
+    {"id": "login-form", "title": "Login form", "name": "LoginForm", "icon": "o-lock-closed", "description": "Email and password sign-in card with validation"},
+    {"id": "dashboard", "title": "Dashboard", "name": "DashboardOverview", "icon": "o-chart-bar", "description": "Stats, recent orders and team activity"},
+    {"id": "settings-form", "title": "Settings form", "name": "AccountSettings", "icon": "o-cog-6-tooth", "description": "Profile and notification settings in tabs"}
+]
