@@ -6,8 +6,12 @@ use App\Jobs\ProcessChatMessage;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Project;
+use App\Services\TemplateLibrary;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
@@ -26,6 +30,12 @@ class ChatInterface extends Component
     public array $messages = [];
     public ?string $selectedComponentName = null;
     public bool $showComponentSelect = false;
+    public bool $showTemplates = false;
+
+    /** Part of the selected component the next change should be limited to. */
+    public ?string $selection = null;
+
+    private const MAX_SELECTION_CHARS = 4000;
 
     public function mount(?int $threadId = null, ?int $projectId = null): void
     {
@@ -35,6 +45,17 @@ class ChatInterface extends Component
         if ($this->projectId) {
             $this->loadThread();
         }
+    }
+
+    /**
+     * With live updates on, generation progress is pushed over the project's
+     * private channel instead of polled.
+     */
+    public function getListeners(): array
+    {
+        return config('skylarr.realtime') && $this->projectId
+            ? ["echo-private:project.{$this->projectId},GenerationUpdated" => 'refreshPending']
+            : [];
     }
 
     protected function loadThread(): void
@@ -85,7 +106,9 @@ class ChatInterface extends Component
         $this->messages[] = $this->present($userMessage);
         $this->messages[] = $this->present($assistantMessage);
 
-        ProcessChatMessage::dispatch($this->projectId, $assistantMessage->id, $this->selectedComponentName);
+        $selection = $this->selectedComponentName ? $this->selection : null;
+        ProcessChatMessage::dispatch($this->projectId, $assistantMessage->id, $this->selectedComponentName, $selection);
+        $this->selection = null;
 
         $this->dispatch('chat-scrolled');
         $this->dispatch('generation-started');
@@ -128,6 +151,82 @@ class ChatInterface extends Component
         }
     }
 
+    /**
+     * Insert a starter template. It goes through the same queued job as a
+     * message, without an AI call, so the preview and history behave the same.
+     */
+    public function useTemplate(string $templateId): void
+    {
+        if ($this->isWaiting() || !$this->ownsProject()) {
+            return;
+        }
+
+        try {
+            $template = app(TemplateLibrary::class)->find($templateId);
+        } catch (InvalidArgumentException) {
+            return;
+        }
+
+        $userMessage = ChatMessage::create([
+            'chat_thread_id' => $this->threadId,
+            'role' => 'user',
+            'content' => "Start from the {$template['title']} template",
+            'status' => 'sent',
+        ]);
+        $assistantMessage = ChatMessage::create([
+            'chat_thread_id' => $this->threadId,
+            'role' => 'assistant',
+            'content' => '',
+            'status' => 'queued',
+        ]);
+        ChatThread::whereKey($this->threadId)->update(['updated_at' => now()]);
+
+        $this->messages[] = $this->present($userMessage);
+        $this->messages[] = $this->present($assistantMessage);
+        $this->showTemplates = false;
+
+        ProcessChatMessage::dispatch($this->projectId, $assistantMessage->id, templateId: $template['id']);
+
+        $this->dispatch('chat-scrolled');
+        $this->dispatch('generation-started');
+    }
+
+    public function getTemplatesProperty(): array
+    {
+        return app(TemplateLibrary::class)->all();
+    }
+
+    public function toggleTemplates(): void
+    {
+        $this->showTemplates = !$this->showTemplates;
+    }
+
+    /**
+     * An element picked in the preview (by route path) or text selected in the
+     * code editor (by component name). The next message is scoped to it.
+     */
+    #[On('element-selected')]
+    public function selectElement(string $snippet, ?string $path = null, ?string $component = null): void
+    {
+        $components = collect($this->project()?->getComponents() ?? []);
+        $match = $component
+            ? $components->firstWhere('name', $component)
+            : $components->firstWhere('route', '/' . ltrim((string) $path, '/'));
+
+        if (!$match || trim($snippet) === '') {
+            return;
+        }
+
+        $this->selectedComponentName = $match['name'];
+        $this->selection = Str::limit(trim($snippet), self::MAX_SELECTION_CHARS, '');
+        $this->showComponentSelect = false;
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selection = null;
+    }
+
     public function isWaiting(): bool
     {
         return collect($this->messages)->contains(fn ($m) => in_array($m['status'], self::PENDING_STATUSES, true));
@@ -146,6 +245,7 @@ class ChatInterface extends Component
     public function selectComponent(?string $componentName): void
     {
         $this->selectedComponentName = $componentName;
+        $this->selection = null;
         $this->showComponentSelect = false;
     }
 
@@ -177,7 +277,7 @@ class ChatInterface extends Component
 
     public function render()
     {
-        return view('livewire.chat-interface', ['waiting' => $this->isWaiting()]);
+        return view('livewire.chat-interface', ['waiting' => $this->isWaiting(), 'realtime' => config('skylarr.realtime')]);
     }
 
     private function present(ChatMessage $message): array

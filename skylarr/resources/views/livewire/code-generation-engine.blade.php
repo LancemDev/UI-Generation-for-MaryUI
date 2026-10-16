@@ -1,4 +1,23 @@
-<div class="h-full flex flex-col" wire:poll.2s="checkGenerationStatus">
+<div
+    class="h-full flex flex-col"
+    {{-- Poll quickly only while a generation runs without live updates; otherwise a slow heartbeat. --}}
+    @if($isGenerating) wire:poll.{{ $realtime ? '10s' : '2s' }}="checkGenerationStatus" @else wire:poll.60s="heartbeat" @endif
+    x-data="{
+        picking: false,
+        pick() {
+            const frame = document.getElementById('preview-iframe');
+            if (!frame) return;
+            this.picking = !this.picking;
+            frame.contentWindow.postMessage({ type: 'skylarr:pick', on: this.picking }, '*');
+        },
+    }"
+    x-on:message.window="
+        const frame = document.getElementById('preview-iframe');
+        if (!frame || $event.source !== frame.contentWindow || $event.data?.type !== 'skylarr:picked') return;
+        picking = false;
+        Livewire.dispatch('element-selected', { snippet: String($event.data.html || ''), path: String($event.data.path || '') });
+    "
+>
     {{-- Header with Toggle and Controls --}}
     <div class="px-4 py-2 border-b border-secondary-200">
         <div class="flex items-center justify-between gap-4">
@@ -100,6 +119,26 @@
                         </x-dropdown>
                     </div>
                     
+                    {{-- Pick an element in the preview to scope the next change to it --}}
+                    <button type="button" x-on:click="pick()" class="btn btn-xs" x-bind:class="picking ? 'btn-primary' : 'btn-ghost'" title="Select an element in the preview, then describe the change in chat">
+                        <x-icon name="o-cursor-arrow-rays" class="w-3 h-3" />
+                        <span class="hidden sm:inline" x-text="picking ? 'Click an element…' : 'Select'"></span>
+                    </button>
+
+                    {{-- Version history of the current component --}}
+                    @if(count($this->versions) > 0)
+                        <x-dropdown icon="o-clock" class="btn-xs btn-ghost" label="History" no-x-anchor>
+                            @foreach($this->versions as $version)
+                                <x-menu-item
+                                    title="Restore version from {{ $version['label'] }}"
+                                    wire:click="restoreVersion({{ $version['index'] }})"
+                                    wire:confirm="Replace the current {{ $componentName }} with this version? The current one stays in history."
+                                    spinner="restoreVersion"
+                                />
+                            @endforeach
+                        </x-dropdown>
+                    @endif
+
                     {{-- Open in New Window --}}
                     <a 
                         href="{{ $previewUrl }}" 
@@ -236,6 +275,18 @@
                                             <x-icon name="o-arrow-path" class="w-3 h-3 animate-spin" />
                                             Saving...
                                         </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        x-on:click="
+                                            const area = document.getElementById('code-content-{{ md5($selectedFilePath ?: $componentName) }}');
+                                            $wire.askAboutSelection(area ? area.value.substring(area.selectionStart, area.selectionEnd) : '');
+                                        "
+                                        class="px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-600 flex items-center gap-1 transition-colors"
+                                        title="Scope your next chat message to the selected code"
+                                    >
+                                        <x-icon name="o-cursor-arrow-rays" class="w-3 h-3" />
+                                        Change selection
                                     </button>
                                     <button
                                         type="button"

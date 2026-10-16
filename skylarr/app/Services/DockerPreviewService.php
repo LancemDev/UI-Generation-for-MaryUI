@@ -30,6 +30,45 @@ class DockerPreviewService
     private const ROLE_LABEL = 'skylarr.role=preview';
     private const EDITABLE_PATH_PATTERN = '#^(app/Livewire|resources/views/livewire)/[A-Za-z0-9_\-/]+(\.blade)?\.php$#';
 
+    /**
+     * Runs inside the container (php -r) so a whole batch of writes, reads and
+     * render checks costs one `docker exec` instead of several per component.
+     * Input arrives as JSON on stdin; paths are validated before they get here.
+     * Renders run one at a time so each failure is matched to its own log lines.
+     */
+    private const BATCH_SCRIPT = <<<'PHP'
+$in = json_decode(stream_get_contents(STDIN), true);
+$out = ['written' => [], 'read' => [], 'checks' => []];
+foreach ($in['write'] ?? [] as $path => $content) {
+    if (!is_dir(dirname($path))) {
+        mkdir(dirname($path), 0775, true);
+    }
+    $out['written'][$path] = file_put_contents($path, $content) !== false;
+}
+foreach ($in['read'] ?? [] as $path) {
+    $out['read'][$path] = is_file($path) ? file_get_contents($path) : '';
+}
+$log = 'storage/logs/laravel.log';
+foreach ($in['check'] ?? [] as $name => $check) {
+    $lint = [];
+    exec('php -l ' . escapeshellarg($check['php']) . ' 2>&1', $lint, $code);
+    if ($code !== 0) {
+        $out['checks'][$name] = ['lint' => implode("\n", $lint)];
+        continue;
+    }
+    clearstatcache(true, $log);
+    $offset = is_file($log) ? filesize($log) : 0;
+    $url = escapeshellarg('http://127.0.0.1' . $check['route']);
+    $status = trim((string) shell_exec("curl -s -o /dev/null -w '%{http_code}' --max-time 20 {$url}"));
+    clearstatcache(true, $log);
+    $size = is_file($log) ? filesize($log) : 0;
+    $tail = $size > $offset ? file_get_contents($log, false, null, $offset, 20000) : '';
+    $out['checks'][$name] = ['status' => $status, 'log' => $tail];
+}
+// Files and logs may hold invalid UTF-8; substitute it so the output stays valid JSON.
+echo json_encode($out, JSON_INVALID_UTF8_SUBSTITUTE);
+PHP;
+
     // ---------------------------------------------------------------------
     // Container lifecycle
     // ---------------------------------------------------------------------
@@ -40,7 +79,7 @@ class DockerPreviewService
     public function getOrCreateProjectContainer(Project $project): string
     {
         if ($project->container_id && $this->isContainerRunning($project->container_id)) {
-            $project->touchLastAccessed();
+            $this->wake($project);
 
             return $this->baseUrl($project->port);
         }
@@ -98,11 +137,84 @@ class DockerPreviewService
         return $started;
     }
 
+    /**
+     * Running includes paused: a paused container resumes instantly with its state intact.
+     */
     public function isContainerRunning(string $containerId): bool
     {
-        $result = $this->docker(['inspect', '-f', '{{.State.Running}}', $containerId]);
+        return $this->containerState($containerId)['running'];
+    }
 
-        return $result->successful() && trim($result->output()) === 'true';
+    /**
+     * @return array{running: bool, paused: bool}
+     */
+    public function containerState(string $containerId): array
+    {
+        $result = $this->docker(['inspect', '-f', '{{.State.Running}} {{.State.Paused}}', $containerId]);
+        [$running, $paused] = array_pad(explode(' ', trim($result->output())), 2, 'false');
+
+        return ['running' => $result->successful() && $running === 'true', 'paused' => $paused === 'true'];
+    }
+
+    /**
+     * Resume a project's container if it was paused for inactivity, and mark it as in use.
+     */
+    public function wake(Project $project): void
+    {
+        if ($project->container_id && $this->containerState($project->container_id)['paused']) {
+            $this->docker(['unpause', $project->container_id]);
+        }
+        $project->touchLastAccessed();
+    }
+
+    /**
+     * Pause containers of projects nobody has used for `pause_after_minutes`. A paused
+     * container uses no CPU and resumes in milliseconds; memory stays allocated until
+     * `cleanupExpiredContainers` removes it after `idle_hours`.
+     */
+    public function pauseIdleContainers(): int
+    {
+        $minutes = config('skylarr.preview.pause_after_minutes');
+        if ($minutes <= 0) {
+            return 0;
+        }
+
+        $paused = 0;
+        Project::whereNotNull('container_id')
+            ->where('last_accessed_at', '<', now()->subMinutes($minutes))
+            ->each(function (Project $project) use (&$paused) {
+                $state = $this->containerState($project->container_id);
+                if ($project->isGenerating() || !$state['running'] || $state['paused']) {
+                    return;
+                }
+                if ($this->docker(['pause', $project->container_id])->successful()) {
+                    $paused++;
+                }
+            });
+
+        return $paused;
+    }
+
+    /**
+     * Live CPU and memory use of every Skylarr container, for tuning PREVIEW_MEMORY.
+     *
+     * @return list<array{name: string, cpu: string, memory: string, memory_percent: string}>
+     */
+    public function containerStats(): array
+    {
+        $result = $this->docker([
+            'stats', '--no-stream', '--format', '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}',
+        ], timeout: 30);
+
+        return collect(explode("\n", trim($result->output())))
+            ->filter(fn ($line) => str_starts_with($line, self::LEGACY_PREFIX))
+            ->map(function ($line) {
+                [$name, $cpu, $memory, $percent] = array_pad(explode("\t", $line), 4, '');
+
+                return ['name' => $name, 'cpu' => $cpu, 'memory' => $memory, 'memory_percent' => $percent];
+            })
+            ->values()
+            ->all();
     }
 
     public function removeContainer(string $containerId): bool
@@ -258,11 +370,44 @@ class DockerPreviewService
 
     public function writeComponent(Project $project, string $name, string $php, string $blade): void
     {
-        $containerId = $this->requireContainer($project);
-        $paths = self::componentPaths($name);
+        $this->applyComponents($project, [$name => ['php' => $php, 'blade' => $blade]], validate: []);
+    }
 
-        $this->writeFile($containerId, $paths['php'], $php);
-        $this->writeFile($containerId, $paths['blade'], $blade);
+    /**
+     * Write components and render-check some of them, all in one `docker exec`.
+     *
+     * @param array<string, array{php: string, blade: string}> $components
+     * @param list<string>|null $validate Names to check; null checks every written component
+     * @return list<string> Human-readable errors; empty when everything renders
+     */
+    public function applyComponents(Project $project, array $components, ?array $validate = null): array
+    {
+        $write = [];
+        foreach ($components as $name => $files) {
+            $paths = self::componentPaths($name);
+            $write[$paths['php']] = $files['php'];
+            $write[$paths['blade']] = $files['blade'];
+        }
+
+        $check = [];
+        foreach ($validate ?? array_keys($components) as $name) {
+            $check[$name] = ['php' => self::componentPaths($name)['php'], 'route' => '/' . self::kebab($name)];
+        }
+
+        $output = $this->batch($this->requireContainer($project), ['write' => $write, 'check' => $check]);
+
+        if ($failed = array_keys(array_filter($output['written'] ?? [], fn ($ok) => !$ok))) {
+            throw new RuntimeException('Failed to write ' . implode(', ', $failed));
+        }
+
+        $errors = [];
+        foreach ($output['checks'] ?? [] as $name => $result) {
+            if ($error = $this->describeCheck($name, $result)) {
+                $errors[] = $error;
+            }
+        }
+
+        return $errors;
     }
 
     /**
@@ -270,11 +415,16 @@ class DockerPreviewService
      */
     public function restoreComponents(Project $project): void
     {
+        $components = [];
         foreach ($project->getComponents() as $component) {
             if (empty($component['code']) || !preg_match(self::COMPONENT_NAME_PATTERN, $component['name'])) {
                 continue;
             }
-            $this->writeComponent($project, $component['name'], $component['code'], $component['view_content'] ?? '<div></div>');
+            $components[$component['name']] = ['php' => $component['code'], 'blade' => $component['view_content'] ?? '<div></div>'];
+        }
+
+        if ($components) {
+            $this->applyComponents($project, $components, validate: []);
         }
     }
 
@@ -283,13 +433,25 @@ class DockerPreviewService
      */
     public function readComponent(Project $project, string $name): array
     {
-        $containerId = $this->requireContainer($project);
-        $paths = self::componentPaths($name);
+        return $this->readComponents($project, [$name])[$name];
+    }
 
-        return [
-            'php' => $this->readFileFromContainer($containerId, self::APP_ROOT . '/' . $paths['php']),
-            'blade' => $this->readFileFromContainer($containerId, self::APP_ROOT . '/' . $paths['blade']),
-        ];
+    /**
+     * Current source of several components in one `docker exec`.
+     *
+     * @param list<string> $names
+     * @return array<string, array{php: string, blade: string}>
+     */
+    public function readComponents(Project $project, array $names): array
+    {
+        if ($names === []) {
+            return [];
+        }
+
+        $paths = array_combine($names, array_map(self::componentPaths(...), $names));
+        $read = $this->batch($this->requireContainer($project), ['read' => array_merge(...array_map('array_values', array_values($paths)))])['read'] ?? [];
+
+        return array_map(fn ($p) => ['php' => $read[$p['php']] ?? '', 'blade' => $read[$p['blade']] ?? ''], $paths);
     }
 
     /**
@@ -321,34 +483,7 @@ class DockerPreviewService
      */
     public function validateComponent(Project $project, string $name): array
     {
-        $containerId = $this->requireContainer($project);
-        $paths = self::componentPaths($name);
-        $route = '/' . self::kebab($name);
-
-        $lint = $this->exec($containerId, ['php', '-l', $paths['php']]);
-        if ($lint->failed()) {
-            $message = trim(Str::before($lint->output() . $lint->errorOutput(), 'Errors parsing'));
-
-            return ["{$name}: PHP syntax error: " . Str::limit($message, 400)];
-        }
-
-        $this->exec($containerId, ['sh', '-c', ': > storage/logs/laravel.log']);
-        $status = trim($this->exec($containerId, [
-            'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '20', "http://127.0.0.1{$route}",
-        ], timeout: 30)->output());
-
-        if ($status === '200') {
-            return [];
-        }
-
-        $log = $this->exec($containerId, ['tail', '-c', '20000', 'storage/logs/laravel.log'])->output();
-        $message = preg_match('/\]\s+\w+\.(?:ERROR|CRITICAL|EMERGENCY):\s+(.+?)(?:\s+\{"|\s*$)/m', $log, $matches)
-            ? Str::limit(trim($matches[1]), 500)
-            : null;
-
-        return [$message
-            ? "{$name}: rendering {$route} failed (HTTP {$status}): {$message}"
-            : "{$name}: rendering {$route} returned HTTP {$status}"];
+        return $this->applyComponents($project, [], validate: [$name]);
     }
 
     public function listProjectFiles(string $containerId): array
@@ -578,7 +713,47 @@ class DockerPreviewService
     }
 
     /**
+     * @param array{write?: array<string, string>, read?: list<string>, check?: array<string, array{php: string, route: string}>} $payload
+     */
+    private function batch(string $containerId, array $payload): array
+    {
+        $timeout = 30 + 25 * count($payload['check'] ?? []);
+        $result = $this->exec($containerId, ['php', '-r', self::BATCH_SCRIPT], input: json_encode($payload), timeout: $timeout);
+        $output = json_decode($result->output(), true);
+
+        if ($result->failed() || !is_array($output)) {
+            throw new RuntimeException('Preview container command failed: ' . Str::limit(trim($result->errorOutput() ?: $result->output()), 500));
+        }
+
+        return $output;
+    }
+
+    private function describeCheck(string $name, array $result): ?string
+    {
+        if (isset($result['lint'])) {
+            $message = trim(Str::before($result['lint'], 'Errors parsing'));
+
+            return "{$name}: PHP syntax error: " . Str::limit($message, 400);
+        }
+
+        $status = $result['status'] ?? '';
+        if ($status === '200') {
+            return null;
+        }
+
+        $route = '/' . self::kebab($name);
+        $message = preg_match('/\]\s+\w+\.(?:ERROR|CRITICAL|EMERGENCY):\s+(.+?)(?:\s+\{"|\s*$)/m', $result['log'] ?? '', $matches)
+            ? Str::limit(trim($matches[1]), 500)
+            : null;
+
+        return $message
+            ? "{$name}: rendering {$route} failed (HTTP {$status}): {$message}"
+            : "{$name}: rendering {$route} returned HTTP {$status}";
+    }
+
+    /**
      * Run a command in the container as the web server user, from the app root.
+     * A container paused for inactivity is resumed and the command retried.
      */
     private function exec(string $containerId, array $command, ?string $input = null, int $timeout = 60): ProcessResult
     {
@@ -587,7 +762,13 @@ class DockerPreviewService
             $args[] = '-i';
         }
 
-        return $this->docker([...$args, $containerId, ...$command], $input, $timeout);
+        $result = $this->docker([...$args, $containerId, ...$command], $input, $timeout);
+        if ($result->failed() && str_contains($result->errorOutput(), 'is paused')) {
+            $this->docker(['unpause', $containerId]);
+            $result = $this->docker([...$args, $containerId, ...$command], $input, $timeout);
+        }
+
+        return $result;
     }
 
     private function docker(array $args, ?string $input = null, int $timeout = 60): ProcessResult

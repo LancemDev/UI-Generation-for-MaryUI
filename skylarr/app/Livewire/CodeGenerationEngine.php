@@ -2,9 +2,13 @@
 
 namespace App\Livewire;
 
+use App\Jobs\ProcessChatMessage;
 use App\Models\Project;
 use App\Services\DockerPreviewService;
+use App\Services\GenerationPipeline;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -12,7 +16,8 @@ use Mary\Traits\Toast;
 
 /**
  * Code + live preview panel. Generation itself runs in the ProcessChatMessage
- * job; this component follows the project's generation state by polling.
+ * job; this component follows the project's generation state through pushed
+ * updates (or polling while a generation runs, when live updates are off).
  */
 class CodeGenerationEngine extends Component
 {
@@ -58,6 +63,13 @@ class CodeGenerationEngine extends Component
         }
     }
 
+    public function getListeners(): array
+    {
+        return config('skylarr.realtime') && $this->projectId
+            ? ["echo-private:project.{$this->projectId},GenerationUpdated" => 'checkGenerationStatus']
+            : [];
+    }
+
     #[On('projectChanged')]
     public function handleProjectChanged($projectData): void
     {
@@ -82,8 +94,28 @@ class CodeGenerationEngine extends Component
 
         $dockerService = app(DockerPreviewService::class);
         if ($this->currentProject->container_id && $dockerService->isContainerRunning($this->currentProject->container_id)) {
+            // Resume a container paused for inactivity before the iframe requests it.
+            $dockerService->wake($this->currentProject);
             $this->showComponent($state['component_name'] ?? null);
         }
+    }
+
+    /**
+     * Slow poll while the panel is open: keeps the container from being paused
+     * as idle, and catches a finished generation if a push was missed.
+     */
+    public function heartbeat(): void
+    {
+        if (!$this->currentProject) {
+            return;
+        }
+
+        $lastAccessed = $this->currentProject->last_accessed_at;
+        if ($this->currentProject->container_id && (!$lastAccessed || $lastAccessed->lt(now()->subMinutes(5)))) {
+            app(DockerPreviewService::class)->wake($this->currentProject);
+        }
+
+        $this->checkGenerationStatus();
     }
 
     /**
@@ -188,6 +220,86 @@ class CodeGenerationEngine extends Component
         $this->reloadIframe();
     }
 
+    /**
+     * Earlier versions of the component shown in the preview, newest first.
+     *
+     * @return list<array{index: int, label: string}>
+     */
+    public function getVersionsProperty(): array
+    {
+        $component = $this->componentName ? $this->currentProject?->getComponent($this->componentName) : null;
+
+        return collect($component['versions'] ?? [])
+            ->map(fn ($version, $index) => [
+                'index' => $index,
+                'label' => isset($version['updated_at']) ? Carbon::parse($version['updated_at'])->diffForHumans() : "Version " . ($index + 1),
+            ])
+            ->reverse()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Put an earlier version back without an AI call. The current version is
+     * saved to history first, so a restore can itself be undone.
+     */
+    public function restoreVersion(int $index): void
+    {
+        $name = $this->componentName;
+        $version = $name ? ($this->currentProject?->getComponent($name)['versions'][$index] ?? null) : null;
+        if (!$version || empty($version['code'])) {
+            $this->error('That version is no longer available.');
+
+            return;
+        }
+
+        // Hold the same lock as ProcessChatMessage so a restore and a generation
+        // never write the container or the version history at the same time.
+        $lock = Cache::lock(ProcessChatMessage::projectLock($this->currentProject->id)->getLockKey(null), 120);
+        if ($this->currentProject->fresh()->isGenerating() || !$lock->get()) {
+            $this->warning('A generation is running for this project. Try again when it finishes.');
+
+            return;
+        }
+
+        try {
+            $result = app(GenerationPipeline::class)->insertComponents($this->currentProject, [
+                $name => ['php' => $version['code'], 'blade' => $version['view_content'] ?? '<div></div>', 'summary' => 'Restored an earlier version'],
+            ], "Restored {$name}.");
+        } catch (\Throwable $e) {
+            Log::error('[PREVIEW] Restore failed', ['project_id' => $this->currentProject->id, 'error' => $e->getMessage()]);
+            $this->error('Could not restore: ' . $e->getMessage());
+
+            return;
+        } finally {
+            $lock->release();
+        }
+
+        $this->currentProject->refresh();
+        $this->showComponent($name);
+        $this->reloadIframe();
+        $result->errors
+            ? $this->warning('Restored, but the preview has errors', implode("\n", $result->errors), timeout: 8000)
+            : $this->success("Restored {$name}.");
+    }
+
+    /**
+     * Scope the next chat message to text selected in the code editor.
+     */
+    public function askAboutSelection(string $text): void
+    {
+        $relativePath = DockerPreviewService::editablePath($this->selectedFilePath);
+        $name = $relativePath ? $this->componentForPath($relativePath) : null;
+        if (!$name || trim($text) === '') {
+            $this->info('Select some code in a component file first.');
+
+            return;
+        }
+
+        $this->dispatch('element-selected', snippet: $text, component: $name);
+        $this->success("Your next message will only change the selected part of {$name}.");
+    }
+
     public function selectTheme(string $theme): void
     {
         if (!$this->currentProject || !in_array($theme, $this->themeList, true)) {
@@ -260,7 +372,7 @@ class CodeGenerationEngine extends Component
 
     public function render()
     {
-        return view('livewire.code-generation-engine');
+        return view('livewire.code-generation-engine', ['realtime' => config('skylarr.realtime')]);
     }
 
     /**

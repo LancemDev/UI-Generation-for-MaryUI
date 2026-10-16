@@ -31,6 +31,18 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Live updates
+    |--------------------------------------------------------------------------
+    |
+    | With a WebSocket broadcaster (Reverb) configured, the chat and preview get
+    | progress pushed to them. Otherwise they fall back to polling.
+    |
+    */
+
+    'realtime' => in_array(env('BROADCAST_CONNECTION'), ['reverb', 'pusher', 'ably'], true),
+
     'admin_emails' => array_filter(array_map('trim', explode(',', (string) env('SKYLARR_ADMIN_EMAILS', '')))),
 
     /*
@@ -54,6 +66,9 @@ return [
         'cpus' => env('PREVIEW_CPUS', '1'),
         'pids_limit' => (int) env('PREVIEW_PIDS_LIMIT', 256),
         'max_containers_per_user' => (int) env('PREVIEW_MAX_CONTAINERS_PER_USER', 5),
+        // Pause (no CPU, instant resume) after this many idle minutes; 0 disables.
+        'pause_after_minutes' => (int) env('PREVIEW_PAUSE_MINUTES', 15),
+        // Remove the container (its components are restored on next use) after this many idle hours.
         'idle_hours' => (int) env('PREVIEW_IDLE_HOURS', 24),
         // Pre-started containers handed to new projects so the first preview is instant.
         'pool_size' => (int) env('PREVIEW_POOL_SIZE', 2),

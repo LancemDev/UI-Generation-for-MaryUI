@@ -23,6 +23,19 @@ class GenerationResult
     /** @var array<string, int> */
     public array $usage = [];
 
+    /**
+     * Milliseconds per stage: ai (wall time of AI service calls), model (time the
+     * provider spent generating, as reported by the service), first_reply (until
+     * the first streamed reply text), container (start/claim), write_check
+     * (writing files and rendering them), total.
+     *
+     * @var array<string, int>
+     */
+    public array $timings = [];
+
+    /** Model calls made by the AI service (edit fallbacks and static repairs add calls). */
+    public int $aiCalls = 0;
+
     public function __construct(
         public string $reply,
         public string $model = '',
@@ -48,6 +61,28 @@ class GenerationResult
         }
     }
 
+    public function addTiming(string $stage, float $milliseconds): void
+    {
+        $this->timings[$stage] = ($this->timings[$stage] ?? 0) + (int) round($milliseconds);
+    }
+
+    /**
+     * Run a callback and add its duration to a stage.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T
+     */
+    public function time(string $stage, callable $callback): mixed
+    {
+        $startedAt = microtime(true);
+        try {
+            return $callback();
+        } finally {
+            $this->addTiming($stage, (microtime(true) - $startedAt) * 1000);
+        }
+    }
+
     public function primaryComponent(): ?string
     {
         return array_key_first($this->components);
@@ -67,6 +102,8 @@ class GenerationResult
             'repair_attempts' => $this->repairAttempts,
             'model' => $this->model,
             'usage' => $this->usage,
+            'timings' => $this->timings,
+            'ai_calls' => $this->aiCalls,
         ];
     }
 }

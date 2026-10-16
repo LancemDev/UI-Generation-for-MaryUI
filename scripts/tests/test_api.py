@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 
 import pytest
@@ -48,7 +49,7 @@ def test_service_token_required_when_configured(client, monkeypatch):
 
 def test_provider_errors_map_to_502(monkeypatch, fake_provider_factory):
     class Failing:
-        def generate(self, *args):
+        def generate(self, *args, **kwargs):
             raise ProviderError("upstream down")
 
     monkeypatch.setattr(main, "make_provider", lambda settings: Failing())
@@ -56,3 +57,23 @@ def test_provider_errors_map_to_502(monkeypatch, fake_provider_factory):
         response = client.post("/generate", json={"message": "hi"})
     assert response.status_code == 502
     assert "upstream down" in response.json()["detail"]
+
+
+def test_stream_sends_reply_parts_then_the_response(client):
+    response = client.post("/generate/stream", json={"message": "hi"})
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.text.splitlines()]
+    assert events[-1]["type"] == "done"
+    assert events[-1]["response"]["reply"] == "Hello!"
+    assert "".join(e["text"] for e in events if e["type"] == "reply") == "Hello!"
+
+
+def test_stream_reports_provider_errors_as_an_event(monkeypatch):
+    class Failing:
+        def generate(self, *args, **kwargs):
+            raise ProviderError("upstream down")
+
+    monkeypatch.setattr(main, "make_provider", lambda settings: Failing())
+    with TestClient(main.app) as client:
+        events = [json.loads(line) for line in client.post("/generate/stream", json={"message": "hi"}).text.splitlines()]
+    assert events == [{"type": "error", "status": 502, "detail": "upstream down"}]

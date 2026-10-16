@@ -150,4 +150,77 @@ class ChatInterfaceTest extends TestCase
 
         $this->assertNull($message->fresh()->feedback);
     }
+
+    public function test_using_a_template_queues_it(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $project = $this->project($user);
+
+        Livewire::actingAs($user)
+            ->test(ChatInterface::class, ['projectId' => $project->id])
+            ->call('useTemplate', 'login-form')
+            ->assertCount('messages', 2);
+
+        Queue::assertPushed(ProcessChatMessage::class, fn ($job) => $job->templateId === 'login-form');
+    }
+
+    public function test_unknown_templates_are_ignored(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(ChatInterface::class, ['projectId' => $this->project($user)->id])
+            ->call('useTemplate', '../../etc/passwd')
+            ->assertCount('messages', 0);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_selected_element_scopes_the_next_message(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $project = $this->project($user);
+        $project->addComponent('SignupForm', '/signup-form', 'signup-form', '<?php', '<div></div>');
+
+        Livewire::actingAs($user)
+            ->test(ChatInterface::class, ['projectId' => $project->id])
+            ->dispatch('element-selected', snippet: '<button class="btn">Save</button>', path: '/signup-form')
+            ->assertSet('selectedComponentName', 'SignupForm')
+            ->assertSee('Change only this part of SignupForm')
+            ->set('message', 'make it red')
+            ->call('sendMessage')
+            ->assertSet('selection', null);
+
+        Queue::assertPushed(ProcessChatMessage::class, fn ($job) => $job->focusComponent === 'SignupForm'
+            && $job->selection === '<button class="btn">Save</button>');
+    }
+
+    public function test_selection_for_an_unknown_route_is_ignored(): void
+    {
+        $user = User::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(ChatInterface::class, ['projectId' => $this->project($user)->id])
+            ->dispatch('element-selected', snippet: '<div>x</div>', path: '/not-a-component')
+            ->assertSet('selection', null)
+            ->assertSet('selectedComponentName', null);
+    }
+
+    public function test_listens_for_pushed_updates_only_when_live_updates_are_on(): void
+    {
+        $user = User::factory()->create();
+        $project = $this->project($user);
+
+        config(['skylarr.realtime' => false]);
+        $this->assertSame([], Livewire::actingAs($user)->test(ChatInterface::class, ['projectId' => $project->id])->instance()->getListeners());
+
+        config(['skylarr.realtime' => true]);
+        $this->assertSame(
+            ["echo-private:project.{$project->id},GenerationUpdated" => 'refreshPending'],
+            Livewire::actingAs($user)->test(ChatInterface::class, ['projectId' => $project->id])->instance()->getListeners()
+        );
+    }
 }

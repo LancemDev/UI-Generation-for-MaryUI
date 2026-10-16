@@ -1,7 +1,8 @@
 <div 
     class="h-full flex flex-col bg-white" 
     style="height: 100%; display: flex; flex-direction: column;"
-    @if($waiting) wire:poll.1500ms="refreshPending" @endif
+    {{-- With live updates, the poll is only a safety net for a missed push. --}}
+    @if($waiting) wire:poll.{{ $realtime ? '10s' : '1500ms' }}="refreshPending" @endif
 >
     {{-- Chat Messages Area - Scrollable --}}
     <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4" style="min-height: 0; flex: 1 1 auto;">
@@ -35,7 +36,7 @@
                                 <span class="size-2 rounded-full bg-gray-400 animate-bounce" style="animation-delay: .3s"></span>
                             </div>
                         @else
-                            <div class="whitespace-pre-wrap leading-relaxed text-sm {{ $m['role']==='user' ? 'text-white' : 'text-gray-800' }}">{{ $m['content'] }}</div>
+                            <div class="whitespace-pre-wrap leading-relaxed text-sm {{ $m['role']==='user' ? 'text-white' : 'text-gray-800' }}">{{ $m['content'] }}@if(in_array($m['status'], \App\Livewire\ChatInterface::PENDING_STATUSES))<span class="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-gray-400 animate-pulse"></span>@endif</div>
                         @endif
                         @if(!empty($m['components']))
                             <div class="mt-2 flex flex-wrap gap-1">
@@ -76,10 +77,19 @@
         
         @if(empty($messages))
             <div class="flex items-center justify-center h-full text-gray-400">
-                <div class="text-center">
+                <div class="text-center max-w-sm">
                     <x-icon name="o-chat-bubble-left-right" class="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p class="text-sm font-medium">Start a conversation</p>
-                    <p class="text-xs mt-2 opacity-75">Ask me to create components, forms, or any UI elements</p>
+                    <p class="text-xs mt-2 opacity-75">Ask me to create components, forms, or any UI elements, or start from a template:</p>
+                    <div class="mt-4 grid grid-cols-2 gap-2 text-left">
+                        @foreach($this->templates as $template)
+                            <button type="button" wire:click="useTemplate('{{ $template['id'] }}')" class="p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                                <x-icon :name="$template['icon']" class="w-5 h-5 text-blue-500" />
+                                <div class="mt-1 text-xs font-semibold text-gray-700">{{ $template['title'] }}</div>
+                                <div class="text-[11px] text-gray-500 leading-snug">{{ $template['description'] }}</div>
+                            </button>
+                        @endforeach
+                    </div>
                 </div>
             </div>
         @endif
@@ -88,9 +98,39 @@
     {{-- Message Input Area - Always Visible at Bottom --}}
     <div class="border-t border-gray-200 bg-white" style="flex-shrink: 0;">
         <div class="p-4">
+            {{-- Element selected in the preview or code editor --}}
+            @if($selection && $selectedComponentName)
+                <div class="mb-2 flex items-start gap-2 p-2 rounded border border-blue-200 bg-blue-50 text-xs">
+                    <x-icon name="o-cursor-arrow-rays" class="w-4 h-4 text-blue-500 shrink-0" />
+                    <div class="min-w-0 flex-1">
+                        <div class="font-medium text-blue-800">Change only this part of {{ $selectedComponentName }}:</div>
+                        <code class="block truncate text-gray-600">{{ \Illuminate\Support\Str::limit($selection, 160) }}</code>
+                    </div>
+                    <button type="button" wire:click="clearSelection" class="text-gray-500 hover:text-red-600" title="Clear selection">
+                        <x-icon name="o-x-mark" class="w-4 h-4" />
+                    </button>
+                </div>
+            @endif
+
+            {{-- Templates --}}
+            @if($showTemplates)
+                <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 grid grid-cols-2 gap-1">
+                    @foreach($this->templates as $template)
+                        <button type="button" wire:click="useTemplate('{{ $template['id'] }}')" @disabled($waiting) class="text-left px-2 py-1.5 text-xs rounded hover:bg-white flex items-center gap-2">
+                            <x-icon :name="$template['icon']" class="w-4 h-4 text-blue-500" />
+                            <span><span class="font-medium">{{ $template['title'] }}</span><br><span class="text-gray-500">{{ $template['description'] }}</span></span>
+                        </button>
+                    @endforeach
+                </div>
+            @endif
+
             {{-- Component Selection --}}
+            <div class="mb-2 flex items-center gap-2">
+                <button type="button" wire:click="toggleTemplates" class="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1">
+                    <x-icon name="o-squares-2x2" class="w-3 h-3" />
+                    <span>Templates</span>
+                </button>
             @if(count($this->components) > 0)
-                <div class="mb-2 flex items-center gap-2">
                     <button 
                         type="button"
                         wire:click="toggleComponentSelect"
@@ -113,7 +153,9 @@
                             <x-icon name="o-x-mark" class="w-3 h-3" />
                         </button>
                     @endif
-                </div>
+            @endif
+            </div>
+            @if(count($this->components) > 0)
                 @if($showComponentSelect)
                     <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 max-h-32 overflow-y-auto">
                         <div class="space-y-1">

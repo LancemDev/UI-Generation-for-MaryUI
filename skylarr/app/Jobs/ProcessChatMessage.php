@@ -2,12 +2,15 @@
 
 namespace App\Jobs;
 
+use App\Events\GenerationUpdated;
 use App\Exceptions\AiServiceException;
 use App\Livewire\ChatInterface;
 use App\Models\ChatMessage;
 use App\Models\Project;
 use App\Services\GenerationPipeline;
+use App\Services\GenerationResult;
 use App\Services\NotificationService;
+use App\Services\TemplateLibrary;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -16,8 +19,11 @@ use Throwable;
 
 /**
  * Answers one user message in the background and fills in the placeholder
- * assistant message. The chat UI polls the message; the preview panel polls
- * the project's generation state.
+ * assistant message: the reply streams into it as the model writes, then the
+ * components are built. Progress is broadcast to the project's channel (or
+ * picked up by polling when live updates are off).
+ *
+ * With a template id, it inserts that template instead of calling the AI.
  */
 class ProcessChatMessage implements ShouldQueue
 {
@@ -30,10 +36,15 @@ class ProcessChatMessage implements ShouldQueue
     // Waiting behind another generation for the same project is fine; a real error is not retried.
     public int $maxExceptions = 1;
 
+    /** Minimum seconds between saving/broadcasting streamed reply text. */
+    private const STREAM_FLUSH_SECONDS = 0.3;
+
     public function __construct(
         public int $projectId,
         public int $assistantMessageId,
         public ?string $focusComponent = null,
+        public ?string $selection = null,
+        public ?string $templateId = null,
     ) {
     }
 
@@ -45,7 +56,16 @@ class ProcessChatMessage implements ShouldQueue
     public function middleware(): array
     {
         // One generation per project at a time: they write to the same container.
-        return [(new WithoutOverlapping("project:{$this->projectId}"))->releaseAfter(5)->expireAfter($this->timeout + 60)];
+        return [self::projectLock($this->projectId)->releaseAfter(5)->expireAfter($this->timeout + 60)];
+    }
+
+    /**
+     * The per-project lock, shared by name with anything else that writes a
+     * project's components (see CodeGenerationEngine::restoreVersion).
+     */
+    public static function projectLock(int $projectId): WithoutOverlapping
+    {
+        return (new WithoutOverlapping("project:{$projectId}"))->shared();
     }
 
     public function handle(GenerationPipeline $pipeline): void
@@ -71,16 +91,23 @@ class ProcessChatMessage implements ShouldQueue
             'started_at' => now()->toIso8601String(),
         ]);
 
-        $result = $pipeline->run(
-            $project,
-            $userMessage->content,
-            $this->history($assistant->chat_thread_id, $userMessage->id),
-            $this->focusComponent,
-            function (string $stage) use ($project, $assistant) {
-                $project->setGenerationState(['stage' => $stage]);
-                $assistant->update(['status' => $stage]);
-            },
-        );
+        $onStage = function (string $stage) use ($project, $assistant) {
+            $project->setGenerationState(['stage' => $stage]);
+            $assistant->update(['status' => $stage]);
+            GenerationUpdated::send($project->id, $assistant->id, $stage);
+        };
+
+        $result = $this->templateId
+            ? $this->insertTemplate($pipeline, $project, $onStage)
+            : $pipeline->run(
+                $project,
+                $userMessage->content,
+                $this->history($assistant->chat_thread_id, $userMessage->id),
+                $this->focusComponent,
+                $onStage,
+                selection: $this->selection,
+                onReply: $this->streamInto($assistant),
+            );
 
         $content = $result->reply;
         if ($result->errors) {
@@ -105,6 +132,7 @@ class ProcessChatMessage implements ShouldQueue
                 : NotificationService::success('Components ready', "Updated {$names}.", $project->id, [], $project->user_id);
         }
         $project->setGenerationState($state);
+        GenerationUpdated::send($project->id, $assistant->id, $state['stage']);
     }
 
     public function failed(Throwable $e): void
@@ -122,7 +150,42 @@ class ProcessChatMessage implements ShouldQueue
         if ($project) {
             $project->setGenerationState(['is_generating' => false, 'stage' => 'failed']);
             NotificationService::error('Generation failed', $reason, $project->id, [], $project->user_id);
+            GenerationUpdated::send($project->id, $this->assistantMessageId, 'failed');
         }
+    }
+
+    /**
+     * Save streamed reply text onto the placeholder message, at most every STREAM_FLUSH_SECONDS.
+     */
+    private function streamInto(ChatMessage $assistant): callable
+    {
+        $text = '';
+        $flushedAt = 0.0;
+
+        return function (string $part) use ($assistant, &$text, &$flushedAt) {
+            $text .= $part;
+            if (microtime(true) - $flushedAt < self::STREAM_FLUSH_SECONDS) {
+                return;
+            }
+            $flushedAt = microtime(true);
+            $assistant->update(['content' => $text]);
+            GenerationUpdated::send($this->projectId, $assistant->id);
+        };
+    }
+
+    private function insertTemplate(GenerationPipeline $pipeline, Project $project, callable $onStage): GenerationResult
+    {
+        $library = app(TemplateLibrary::class);
+        $template = $library->find($this->templateId);
+        $name = $library->availableName($template, $project);
+        $files = $library->files($template, $name);
+
+        return $pipeline->insertComponents(
+            $project,
+            [$name => [...$files, 'summary' => $template['description']]],
+            "Added {$name} from the {$template['title']} template. Tell me what to change.",
+            $onStage,
+        );
     }
 
     /**
